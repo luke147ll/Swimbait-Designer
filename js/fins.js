@@ -98,8 +98,8 @@ export function genFinMesh(fin, L, profiles, ts, tt, material) {
 
   // Scale the fin outline by body dimensions and TS
   const yScale = L * 0.15 * ts * fin.scale; // fin height scales with body + TS
-  const zScale = yScale * 0.15 * tt;         // fin thickness scales with TT
-  const thick = fin.thickness * L * tt;       // extrusion depth
+  const zScale = yScale;                      // Z uses same scale as Y — outline shape defines the ratio
+  const thick = fin.thickness * L * tt;       // extrusion depth along X
 
   // Sample the closed outline at high resolution
   const ring = [];
