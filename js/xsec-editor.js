@@ -51,62 +51,46 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   // ── Controls bar ──
   const bar = document.createElement('div');
   bar.className = 'xsec-bar';
-
-  // Build station buttons from profile control points
-  function buildStationButtons() {
-    const btnsDiv = bar.querySelector('.xsec-stations') || document.createElement('div');
-    btnsDiv.className = 'xsec-stations';
-    btnsDiv.innerHTML = '';
-    const pts = profileState.dorsal || [];
-    pts.forEach((p, i) => {
-      if (p.t <= 0.001) return; // skip nose tip (ring 0 converges to point)
-      const idx = Math.round(p.t * 96);
-      const btn = document.createElement('button');
-      btn.className = 'xsec-sbtn' + (idx === station ? ' on' : '');
-      const hasKf = !!profileState.xsecKeyframes[idx];
-      if (hasKf) btn.classList.add('edited');
-      btn.textContent = (LABELS[i] || `${i}`).substring(0, 4);
-      btn.title = `${LABELS[i] || 'Point ' + i} (t=${p.t.toFixed(2)})`;
-      btn.addEventListener('click', () => {
-        station = idx;
-        refresh();
-        if (onStationChange) onStationChange(station);
-        updateButtons();
-      });
-      btnsDiv.appendChild(btn);
-    });
-    if (!bar.querySelector('.xsec-stations')) bar.prepend(btnsDiv);
-  }
-
-  function updateButtons() {
-    const btns = bar.querySelectorAll('.xsec-sbtn');
-    const pts = profileState.dorsal || [];
-    let btnIdx = 0;
-    pts.forEach((p, i) => {
-      if (p.t <= 0.001) return;
-      const btn = btns[btnIdx++];
-      if (!btn) return;
-      const idx = Math.round(p.t * 96);
-      btn.classList.toggle('on', idx === station);
-      btn.classList.toggle('edited', !!profileState.xsecKeyframes[idx]);
-    });
-  }
-
   bar.innerHTML = `
+    <input type="range" min="1" max="96" value="${station}" step="1" class="xsec-scrub">
     <div class="xsec-btns">
-      <span class="xsec-label" id="xsecLabel">t=0.50</span>
-      <button class="xsec-btn" id="xsecEdit">Edit</button>
+      <span class="xsec-label" id="xsecLabel"></span>
       <button class="xsec-btn" id="xsecReset">Reset</button>
     </div>
   `;
 
   container.appendChild(bar);
   container.appendChild(svg);
-  buildStationButtons();
 
+  const scrubEl = bar.querySelector('.xsec-scrub');
   const labelEl = bar.querySelector('#xsecLabel');
-  const editBtn = bar.querySelector('#xsecEdit');
   const resetBtn = bar.querySelector('#xsecReset');
+
+  // Get sorted snap positions from profile control points
+  function getSnapPositions() {
+    const pts = profileState.dorsal || [];
+    return pts.map(p => Math.round(p.t * 96)).filter(v => v >= 1);
+  }
+
+  // Snap a raw slider value to the nearest profile control point station
+  function snapToNearest(raw) {
+    const snaps = getSnapPositions();
+    if (snaps.length === 0) return raw;
+    let best = snaps[0], bestD = Math.abs(raw - snaps[0]);
+    for (const s of snaps) {
+      const d = Math.abs(raw - s);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
+  scrubEl.addEventListener('input', () => {
+    const snapped = snapToNearest(+scrubEl.value);
+    station = snapped;
+    scrubEl.value = snapped;
+    refresh();
+    if (onStationChange) onStationChange(station);
+  });
 
   // ── Coordinate transforms (normalized -1..1 → SVG) ──
   let viewSpan = 0.15; // half-range in world units (auto-updated)
@@ -188,11 +172,14 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     shapePoly.setAttribute('points', polyToSvgPoints(activePts, dims));
     fillPoly.setAttribute('points', polyToSvgPoints(activePts, dims));
 
-    // Label
-    const t = (station / 96).toFixed(2);
-    labelEl.textContent = `t=${t}${isEditing ? ' (edited)' : ''}`;
-    editBtn.textContent = isEditing ? 'Editing' : 'Edit';
-    editBtn.disabled = isEditing;
+    // Label — find matching station name
+    const snaps = getSnapPositions();
+    const pts = profileState.dorsal || [];
+    let name = `t=${(station / 96).toFixed(2)}`;
+    for (let i = 0; i < pts.length; i++) {
+      if (Math.round(pts[i].t * 96) === station) { name = LABELS[i] || name; break; }
+    }
+    labelEl.textContent = name + (isEditing ? ' *' : '');
     resetBtn.disabled = !isEditing;
   }
 
@@ -216,7 +203,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function refresh() {
     const dims = getStationDims();
     viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
-    buildStationButtons(); // rebuild in case profile points changed
+    scrubEl.value = station;
     drawGrid(); draw(); drawPoints();
   }
 
