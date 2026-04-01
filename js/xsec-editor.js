@@ -5,6 +5,7 @@
  * editable polygons; others show the default super-ellipse as a preview.
  */
 import { superEllipse, defaultXSecPoly, RS } from './engine.js';
+import { STATION_LABELS as LABELS } from './splines.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -26,7 +27,10 @@ function svgEl(tag, attrs = {}) {
 export function createXSecEditor(container, profileState, onEdit, onStationChange) {
   const VW = 250, VH = 250, MRG = 14;
 
-  let station = 48; // default: mid-body (t=0.5)
+  // Default to the first non-zero profile point's station
+  let station = profileState.dorsal && profileState.dorsal.length > 1
+    ? Math.round(profileState.dorsal[Math.min(6, profileState.dorsal.length - 1)].t * 96)
+    : 33;
   let isEditing = false; // true if current station has a keyframe
 
   // ── SVG setup ──
@@ -47,8 +51,48 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   // ── Controls bar ──
   const bar = document.createElement('div');
   bar.className = 'xsec-bar';
+
+  // Build station buttons from profile control points
+  function buildStationButtons() {
+    const btnsDiv = bar.querySelector('.xsec-stations') || document.createElement('div');
+    btnsDiv.className = 'xsec-stations';
+    btnsDiv.innerHTML = '';
+    const pts = profileState.dorsal || [];
+    pts.forEach((p, i) => {
+      if (p.t <= 0.001) return; // skip nose tip (ring 0 converges to point)
+      const idx = Math.round(p.t * 96);
+      const btn = document.createElement('button');
+      btn.className = 'xsec-sbtn' + (idx === station ? ' on' : '');
+      const hasKf = !!profileState.xsecKeyframes[idx];
+      if (hasKf) btn.classList.add('edited');
+      btn.textContent = (LABELS[i] || `${i}`).substring(0, 4);
+      btn.title = `${LABELS[i] || 'Point ' + i} (t=${p.t.toFixed(2)})`;
+      btn.addEventListener('click', () => {
+        station = idx;
+        refresh();
+        if (onStationChange) onStationChange(station);
+        updateButtons();
+      });
+      btnsDiv.appendChild(btn);
+    });
+    if (!bar.querySelector('.xsec-stations')) bar.prepend(btnsDiv);
+  }
+
+  function updateButtons() {
+    const btns = bar.querySelectorAll('.xsec-sbtn');
+    const pts = profileState.dorsal || [];
+    let btnIdx = 0;
+    pts.forEach((p, i) => {
+      if (p.t <= 0.001) return;
+      const btn = btns[btnIdx++];
+      if (!btn) return;
+      const idx = Math.round(p.t * 96);
+      btn.classList.toggle('on', idx === station);
+      btn.classList.toggle('edited', !!profileState.xsecKeyframes[idx]);
+    });
+  }
+
   bar.innerHTML = `
-    <input type="range" id="xsecScrub" min="1" max="96" value="${station}" class="xsec-scrub">
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel">t=0.50</span>
       <button class="xsec-btn" id="xsecEdit">Edit</button>
@@ -58,8 +102,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   container.appendChild(bar);
   container.appendChild(svg);
+  buildStationButtons();
 
-  const scrubEl = bar.querySelector('#xsecScrub');
   const labelEl = bar.querySelector('#xsecLabel');
   const editBtn = bar.querySelector('#xsecEdit');
   const resetBtn = bar.querySelector('#xsecReset');
@@ -171,25 +215,19 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }
 
   function refresh() {
-    // Auto-scale the view to fit the current station's proportions
     const dims = getStationDims();
     viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
     drawGrid(); draw(); drawPoints();
+    updateButtons();
   }
 
   function setStation(i) {
     station = Math.max(1, Math.min(96, i));
-    scrubEl.value = station;
     refresh();
     if (onStationChange) onStationChange(station);
   }
 
-  // ── Scrubber ──
-  scrubEl.addEventListener('input', () => {
-    station = +scrubEl.value;
-    refresh();
-    if (onStationChange) onStationChange(station);
-  });
+  // (Station selection is now via the station buttons, not a slider)
 
   // ── Edit / Reset buttons ──
   editBtn.addEventListener('click', () => {

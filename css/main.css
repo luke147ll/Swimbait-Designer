@@ -90,7 +90,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .xsec-shape{fill:none;stroke:var(--ac);stroke-width:1.5}
 .xsec-fill{fill:var(--ac);opacity:.06}
 .xsec-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px}
-.xsec-scrub{flex:1;min-width:100px}
+.xsec-stations{display:flex;flex-wrap:wrap;gap:2px;width:100%;margin-bottom:4px}
+.xsec-sbtn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:7px;padding:3px 4px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;flex:1;min-width:0;
+  text-align:center;transition:all .12s}
+.xsec-sbtn:hover{border-color:var(--ac);color:var(--tx)}
+.xsec-sbtn.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight:500}
+.xsec-sbtn.edited{border-color:var(--ac2);box-shadow:0 0 0 1px var(--ac2) inset}
 .xsec-btns{display:flex;gap:4px;align-items:center}
 .xsec-label{font-size:8px;color:var(--mu);min-width:70px}
 .xsec-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
