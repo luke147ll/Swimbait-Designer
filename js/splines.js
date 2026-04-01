@@ -114,7 +114,7 @@ const BASE_W = [
   { t: 1.0000, v: 0.013692 },
 ];
 
-const DEF = { BD: 0.30, WR: 0.58, DA: 0.15, BF: 0.25, SB: 0.48, BT: 0.55,
+const DEF = { BD: 0.32, WR: 0.60, DA: 0.20, BF: 0.30, SB: 0.50, BT: 0.55,
               SL: 0.14, SD: 0.22, SC: 0.55, HL: 0.24, GP: 0.34 };
 
 export function buildProfilesFromSliders(p) {
