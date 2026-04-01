@@ -268,6 +268,13 @@ function switchTab(btn) {
   }, 50);
 }
 
+function snapView(view) {
+  if (view === 'side')  { ot = 0; op = Math.PI / 2; }       // looking from +Z, level
+  if (view === 'top')   { ot = 0; op = 0.01; }               // looking straight down
+  if (view === 'front') { ot = -Math.PI / 2; op = Math.PI / 2; } // looking from -X (head-on)
+  updateCamera();
+}
+
 function toggleEditors() {
   const el = document.getElementById('editors');
   const arrow = document.getElementById('edToggleArrow');
@@ -410,6 +417,7 @@ window.loadPreset = loadPreset;
 window.setTailType = setTailType;
 window.setColor = setColor;
 window.exportSTL = exportSTL;
+window.snapView = snapView;
 window.switchTab = switchTab;
 window.dumpProfiles = dumpProfiles;
 window.toggleEditors = toggleEditors;

@@ -34,6 +34,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .vl{position:absolute;bottom:12px;left:12px;font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;pointer-events:none}
 .vs{position:absolute;top:12px;right:12px;font-size:9px;color:var(--mu);text-align:right;pointer-events:none;line-height:1.7}
 .rh{position:absolute;bottom:12px;right:12px;font-size:8px;color:var(--mu);pointer-events:none;opacity:.4}
+.view-btns{position:absolute;top:12px;left:12px;display:flex;gap:4px;z-index:10}
+.vb{background:var(--sf);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:4px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;
+  border-radius:2px;transition:all .15s}
+.vb:hover,.vb:active{border-color:var(--ac);color:var(--tx)}
 
 /* Hidden by default on desktop/tablet */
 .mob-view{display:none}
