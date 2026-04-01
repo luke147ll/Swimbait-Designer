@@ -255,13 +255,27 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const dy = newY - shape[drag].y;
 
     // Apply delta with soft falloff to neighbors (wrapping around the loop)
-    const N = shape.length;
-    for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
-      const idx = ((drag + offset) % N + N) % N;
-      const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
-      const weight = 1 - t * t; // quadratic falloff: 1 at center, 0 at edge
-      shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + dz * weight));
-      shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + dy * weight));
+    // Also mirror: vertex j's mirror is vertex (N-1 - j) since the polygon
+    // goes 0→2PI and the mirror across Z=0 is at the opposite angular position.
+    const N = shape.length - 1; // last vertex == first (closed loop), so N = RS
+    function applyBrush(centerIdx, deltaY, deltaZ) {
+      for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
+        const idx = ((centerIdx + offset) % N + N) % N;
+        const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
+        const w = 1 - t * t;
+        shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + deltaY * w));
+        shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + deltaZ * w));
+      }
+      // Keep last vertex == first vertex (closed loop)
+      shape[N] = { ...shape[0] };
+    }
+
+    // Primary side
+    applyBrush(drag, dy, dz);
+    // Mirror side: same Y delta, negated Z delta
+    const mirrorIdx = (N - drag) % N;
+    if (mirrorIdx !== drag) {
+      applyBrush(mirrorIdx, dy, -dz);
     }
 
     draw(); drawPoints(); onEdit();
