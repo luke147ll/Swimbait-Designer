@@ -172,16 +172,15 @@ function onXSecEdit() {
 
 // Show a ring on the 3D model + marker lines on 2D editors at the given station
 function showStationRing(stationIdx) {
-  const t = stationIdx / NS;
-  if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(t);
-  if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(t);
+  const tNorm = stationIdx / NS;
+  if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(tNorm);
+  if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(tNorm);
   if (stationRing) scene.remove(stationRing);
   if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
 
   const p = getParams();
   const L = p.OL, hL = L / 2;
-  const t = stationIdx / NS;
-  const x = -hL + t * L;
+  const x = -hL + tNorm * L;
   const dY = profileState.dorsalCache[stationIdx] * L;
   const vY = profileState.ventralCache[stationIdx] * L;
   const hW = Math.max(profileState.widthCache[stationIdx] * L, 0.004);
