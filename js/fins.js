@@ -1,66 +1,58 @@
 /**
  * @file fins.js
  * Fin data model, preset outlines, and 3D mesh generation.
- * Fin outlines are defined in the X-Y plane (side view):
- *   x = rearward distance from stalk tip
- *   y = vertical extent (dorsal +, ventral -)
- * The fin is extruded thin in Z (lateral), controlled by thickness.
+ * Fin = closed polygon in the X-Y plane (side view), extruded thin in Z.
+ * No spline interpolation — the control points ARE the polygon vertices.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { sampleClosedLoop } from './splines.js';
 
-const FIN_SAMPLES = 64;
-
-// ── Preset outlines (normalized, side view) ─────────────────────────
-// x = rearward from attachment, y = vertical
+// ── Preset outlines (side view: x = rearward, y = vertical) ────────
 
 export const FIN_PRESETS = {
   paddle: {
-    outline: (function() {
-      const pts = [];
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2;
-        pts.push({ x: 0.5 + Math.cos(a) * 0.5, y: Math.sin(a) * 1.0 });
-      }
-      return pts;
-    })(),
-    thickness: 0.06,
-  },
-  wedge: {
     outline: [
-      { x: 0.0, y: 0.3 }, { x: 0.3, y: 0.6 }, { x: 0.7, y: 0.8 },
-      { x: 1.0, y: 0.4 }, { x: 1.0, y: -0.4 }, { x: 0.7, y: -0.8 },
-      { x: 0.3, y: -0.6 }, { x: 0.0, y: -0.3 },
-    ],
-    thickness: 0.06,
-  },
-  boot: {
-    outline: [
-      { x: 0.0, y: 0.2 }, { x: 0.2, y: 0.15 }, { x: 0.4, y: 0.08 },
-      { x: 0.5, y: -0.1 }, { x: 0.6, y: -0.5 }, { x: 0.8, y: -0.9 },
-      { x: 1.0, y: -1.0 }, { x: 0.9, y: -1.15 }, { x: 0.5, y: -0.7 },
-      { x: 0.3, y: -0.3 }, { x: 0.0, y: -0.2 },
-    ],
-    thickness: 0.06,
-  },
-  split: {
-    outline: [
-      { x: 0.0, y: 0.2 }, { x: 0.3, y: 0.7 }, { x: 0.7, y: 0.9 },
-      { x: 1.0, y: 0.7 }, { x: 0.7, y: 0.3 }, { x: 0.4, y: 0.0 },
-      { x: 0.7, y: -0.3 }, { x: 1.0, y: -0.7 }, { x: 0.7, y: -0.9 },
-      { x: 0.3, y: -0.7 }, { x: 0.0, y: -0.2 },
+      { x: 0.0, y: 0.15 }, { x: 0.15, y: 0.8 }, { x: 0.5, y: 1.0 },
+      { x: 0.85, y: 0.8 }, { x: 1.0, y: 0.15 }, { x: 1.0, y: -0.15 },
+      { x: 0.85, y: -0.8 }, { x: 0.5, y: -1.0 }, { x: 0.15, y: -0.8 },
+      { x: 0.0, y: -0.15 },
     ],
     thickness: 0.05,
   },
-  fork: {
+  wedge: {
     outline: [
-      { x: 0.0, y: 0.15 }, { x: 0.2, y: 0.5 }, { x: 0.5, y: 0.9 },
-      { x: 0.8, y: 1.1 }, { x: 1.0, y: 1.0 }, { x: 0.7, y: 0.5 },
-      { x: 0.4, y: 0.0 }, { x: 0.7, y: -0.5 }, { x: 1.0, y: -1.0 },
-      { x: 0.8, y: -1.1 }, { x: 0.5, y: -0.9 }, { x: 0.2, y: -0.5 },
-      { x: 0.0, y: -0.15 },
+      { x: 0.0, y: 0.2 }, { x: 0.4, y: 0.6 }, { x: 0.8, y: 0.7 },
+      { x: 1.0, y: 0.3 }, { x: 1.0, y: -0.3 }, { x: 0.8, y: -0.7 },
+      { x: 0.4, y: -0.6 }, { x: 0.0, y: -0.2 },
+    ],
+    thickness: 0.05,
+  },
+  boot: {
+    outline: [
+      { x: 0.0, y: 0.15 }, { x: 0.1, y: 0.1 }, { x: 0.3, y: 0.05 },
+      { x: 0.5, y: -0.2 }, { x: 0.7, y: -0.6 }, { x: 1.0, y: -0.9 },
+      { x: 1.0, y: -1.1 }, { x: 0.7, y: -0.8 }, { x: 0.4, y: -0.4 },
+      { x: 0.1, y: -0.15 }, { x: 0.0, y: -0.15 },
+    ],
+    thickness: 0.05,
+  },
+  split: {
+    outline: [
+      { x: 0.0, y: 0.1 }, { x: 0.3, y: 0.5 }, { x: 0.7, y: 0.8 },
+      { x: 1.0, y: 0.6 }, { x: 0.6, y: 0.15 }, { x: 0.5, y: 0.0 },
+      { x: 0.6, y: -0.15 }, { x: 1.0, y: -0.6 }, { x: 0.7, y: -0.8 },
+      { x: 0.3, y: -0.5 }, { x: 0.0, y: -0.1 },
     ],
     thickness: 0.04,
+  },
+  fork: {
+    outline: [
+      { x: 0.0, y: 0.1 }, { x: 0.2, y: 0.3 }, { x: 0.5, y: 0.7 },
+      { x: 0.8, y: 1.0 }, { x: 1.0, y: 0.9 }, { x: 0.6, y: 0.4 },
+      { x: 0.4, y: 0.0 }, { x: 0.6, y: -0.4 }, { x: 1.0, y: -0.9 },
+      { x: 0.8, y: -1.0 }, { x: 0.5, y: -0.7 }, { x: 0.2, y: -0.3 },
+      { x: 0.0, y: -0.1 },
+    ],
+    thickness: 0.03,
   },
 };
 
@@ -75,62 +67,54 @@ export function createFinState(type = 'paddle') {
 }
 
 /**
- * Generate a fin mesh from a fin state (side-view outline extruded in Z).
+ * Generate fin mesh: closed polygon extruded thin in Z.
+ * Uses the raw outline points directly — no spline interpolation.
  */
 export function genFinMesh(fin, L, profiles, ts, tt, material) {
   const hL = L / 2;
-
-  // Body cross-section at stalk tip for vertical centering
   const tipDY = profiles.dorsalCache[profiles.dorsalCache.length - 1] * L;
   const tipVY = profiles.ventralCache[profiles.ventralCache.length - 1] * L;
   const tipCY = (tipDY + tipVY) / 2;
 
-  // Fin scale
   const finSize = L * 0.12 * ts * fin.scale;
-  const halfThick = fin.thickness * L * tt * 0.5;
+  const halfZ = fin.thickness * L * tt * 0.5;
+  const xBase = hL; // body tip
 
-  // Sample the closed outline
-  const ring = [];
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    const pt = sampleClosedLoop(fin.outline, i / FIN_SAMPLES);
-    ring.push({ x: pt.x * finSize, y: pt.y * finSize });
-  }
+  const N = fin.outline.length;
+  if (N < 3) return null;
 
   const pos = [], idx = [];
 
-  // Attachment X position (body tip at t=1.0)
-  const xBase = hL;
-
-  // Two layers: +Z and -Z (the thin extrusion)
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    pos.push(xBase + ring[i].x, ring[i].y + tipCY, halfThick);
+  // +Z face vertices (front)
+  for (let i = 0; i < N; i++) {
+    pos.push(xBase + fin.outline[i].x * finSize, fin.outline[i].y * finSize + tipCY, halfZ);
   }
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    pos.push(xBase + ring[i].x, ring[i].y + tipCY, -halfThick);
+  // -Z face vertices (back)
+  for (let i = 0; i < N; i++) {
+    pos.push(xBase + fin.outline[i].x * finSize, fin.outline[i].y * finSize + tipCY, -halfZ);
   }
 
-  // Edge surface (quad strip between +Z and -Z layers)
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    const a = i, b = (i + 1) % FIN_SAMPLES;
-    const c = a + FIN_SAMPLES, d = b + FIN_SAMPLES;
+  // Edge surface: quad strip connecting +Z ring to -Z ring
+  for (let i = 0; i < N; i++) {
+    const a = i, b = (i + 1) % N;
+    const c = a + N, d = b + N;
     idx.push(a, b, c, c, b, d);
   }
 
-  // +Z face cap
-  const capA = pos.length / 3;
+  // +Z face cap (triangle fan from centroid)
+  const capA = N * 2;
   let cx = 0, cy = 0;
-  for (let i = 0; i < FIN_SAMPLES; i++) { cx += pos[i * 3]; cy += pos[i * 3 + 1]; }
-  pos.push(cx / FIN_SAMPLES, cy / FIN_SAMPLES, halfThick);
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    idx.push(capA, i, (i + 1) % FIN_SAMPLES);
+  for (let i = 0; i < N; i++) { cx += pos[i * 3]; cy += pos[i * 3 + 1]; }
+  pos.push(cx / N, cy / N, halfZ);
+  for (let i = 0; i < N; i++) {
+    idx.push(capA, i, (i + 1) % N);
   }
 
   // -Z face cap
-  const capB = pos.length / 3;
-  pos.push(cx / FIN_SAMPLES, cy / FIN_SAMPLES, -halfThick);
-  for (let i = 0; i < FIN_SAMPLES; i++) {
-    const a = i + FIN_SAMPLES, b = ((i + 1) % FIN_SAMPLES) + FIN_SAMPLES;
-    idx.push(capB, b, a);
+  const capB = capA + 1;
+  pos.push(cx / N, cy / N, -halfZ);
+  for (let i = 0; i < N; i++) {
+    idx.push(capB, ((i + 1) % N) + N, i + N);
   }
 
   const geo = new THREE.BufferGeometry();
