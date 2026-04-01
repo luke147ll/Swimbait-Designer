@@ -305,28 +305,32 @@ function switchTab(btn) {
 // ── Panel resize drag ──
 function initPanelResize() {
   const handle = document.getElementById('pnlResize');
-  const app = document.getElementById('app');
-  if (!handle || !app) return;
+  if (!handle) return;
 
-  let resizing = false;
   handle.addEventListener('pointerdown', e => {
-    resizing = true;
-    handle.setPointerCapture(e.pointerId);
     e.preventDefault();
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+
+    const onMove = ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const w = Math.max(260, Math.min(600, ev.clientX));
+      document.documentElement.style.setProperty('--pnl-w', w + 'px');
+      const vp = document.getElementById('vp');
+      if (vp && vp.clientWidth > 0) {
+        cam.aspect = vp.clientWidth / vp.clientHeight;
+        cam.updateProjectionMatrix();
+        ren.setSize(vp.clientWidth, vp.clientHeight);
+      }
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
   });
-  window.addEventListener('pointermove', e => {
-    if (!resizing) return;
-    const w = Math.max(260, Math.min(600, e.clientX));
-    document.documentElement.style.setProperty('--pnl-w', w + 'px');
-    // Resize 3D viewport
-    const vp = document.getElementById('vp');
-    if (vp && vp.clientWidth > 0) {
-      cam.aspect = vp.clientWidth / vp.clientHeight;
-      cam.updateProjectionMatrix();
-      ren.setSize(vp.clientWidth, vp.clientHeight);
-    }
-  });
-  window.addEventListener('pointerup', () => { resizing = false; });
 }
 
 function snapView(view) {
