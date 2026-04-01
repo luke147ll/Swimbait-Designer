@@ -302,6 +302,33 @@ function switchTab(btn) {
   }, 50);
 }
 
+// ── Panel resize drag ──
+function initPanelResize() {
+  const handle = document.getElementById('pnlResize');
+  const app = document.getElementById('app');
+  if (!handle || !app) return;
+
+  let resizing = false;
+  handle.addEventListener('pointerdown', e => {
+    resizing = true;
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', e => {
+    if (!resizing) return;
+    const w = Math.max(260, Math.min(600, e.clientX));
+    document.documentElement.style.setProperty('--pnl-w', w + 'px');
+    // Resize 3D viewport
+    const vp = document.getElementById('vp');
+    if (vp && vp.clientWidth > 0) {
+      cam.aspect = vp.clientWidth / vp.clientHeight;
+      cam.updateProjectionMatrix();
+      ren.setSize(vp.clientWidth, vp.clientHeight);
+    }
+  });
+  window.addEventListener('pointerup', () => { resizing = false; });
+}
+
 function snapView(view) {
   if (view === 'side')  { ot = 0; op = Math.PI / 2; }       // looking from +Z, level
   if (view === 'top')   { ot = 0; op = 0.01; }               // looking straight down
@@ -419,6 +446,7 @@ function init() {
     if (sideContainer) sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
     if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
     if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
+    initPanelResize();
   }
 
   // Phone: create editors lazily on first tab open

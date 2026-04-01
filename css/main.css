@@ -3,8 +3,13 @@
 body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;overflow:hidden;height:100vh;height:100dvh}
 
 /* ── Desktop layout (default) ──────────────────────────────────────── */
-#app{display:grid;grid-template-columns:340px 1fr;height:100vh;height:100dvh}
-.pnl{background:var(--sf);border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column}
+:root{--pnl-w:340px}
+#app{display:grid;grid-template-columns:var(--pnl-w) 1fr;height:100vh;height:100dvh}
+.pnl{background:var(--sf);border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column;position:relative;min-width:260px;max-width:600px}
+
+/* Drag handle to resize the panel */
+.pnl-resize{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:20}
+.pnl-resize:hover,.pnl-resize:active{background:var(--ac);opacity:.3}
 .pnl::-webkit-scrollbar{width:4px}.pnl::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .ph{padding:18px 22px 14px;border-bottom:1px solid var(--bd)}
 .ph h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:21px}
