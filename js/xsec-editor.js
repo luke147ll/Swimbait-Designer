@@ -234,6 +234,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     return true;
   }
 
+  const BRUSH_RADIUS = 4; // how many neighbors on each side get smoothly affected
+
   function moveDrag(cx, cy) {
     if (drag === null) return;
     const shape = getShape();
@@ -242,12 +244,26 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const rect = svg.getBoundingClientRect();
     const sx = (cx - rect.left) / rect.width * VW;
     const sy = (cy - rect.top) / rect.height * VH;
-    // Convert screen → world → normalized
     const worldZ = fromSX(sx);
     const worldY = fromSY(sy);
-    shape[drag].z = dims.hW > 0.001 ? Math.max(-1.5, Math.min(1.5, worldZ / dims.hW)) : 0;
-    const h = worldY >= 0 ? dims.dH : dims.vH;
-    shape[drag].y = h > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / h)) : 0;
+    const newZ = dims.hW > 0.001 ? Math.max(-1.5, Math.min(1.5, worldZ / dims.hW)) : 0;
+    const hRef = worldY >= 0 ? dims.dH : dims.vH;
+    const newY = hRef > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / hRef)) : 0;
+
+    // Compute delta from the dragged point's current position
+    const dz = newZ - shape[drag].z;
+    const dy = newY - shape[drag].y;
+
+    // Apply delta with soft falloff to neighbors (wrapping around the loop)
+    const N = shape.length;
+    for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
+      const idx = ((drag + offset) % N + N) % N;
+      const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
+      const weight = 1 - t * t; // quadratic falloff: 1 at center, 0 at edge
+      shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + dz * weight));
+      shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + dy * weight));
+    }
+
     draw(); drawPoints(); onEdit();
   }
 
