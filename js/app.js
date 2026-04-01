@@ -233,28 +233,39 @@ function exportSTL() {
   generateSTL([bodyMesh, tailFinMesh].filter(Boolean));
 }
 
-function dumpProfiles() {
-  function fmt(arr) {
+function dumpAll() {
+  function fmtProfile(arr) {
     return '[\n' + arr.map(p =>
       `  { t: ${p.t.toFixed(4)}, v: ${p.v.toFixed(6)} }`
     ).join(',\n') + '\n]';
   }
-  const out = `// ── Current profile spline data ──
-// Copy these arrays into splines.js buildProfilesFromSliders() or use as preset overrides
+  function fmtFin(arr) {
+    return '[\n' + arr.map(p =>
+      `  { x: ${p.x.toFixed(4)}, y: ${p.y.toFixed(4)} }`
+    ).join(',\n') + '\n]';
+  }
+  const p = getParams();
+  const sliders = `// ── Slider values ──
+const sliders = ${JSON.stringify({
+    OL: p.OL, BD: p.BD, WR: p.WR, GP: p.GP, HL: p.HL, SB: p.SB, HW: p.HW,
+    DA: p.DA, BF: p.BF, BT: p.BT, CS: p.CS, SL: p.SL, SD: p.SD, SC: p.SC,
+    TS: p.TS, TT: p.TT, ES: p.ES, EB: p.EB, HS: p.HS, WP: p.WP
+  }, null, 2)};`;
 
-const dorsal = ${fmt(profileState.dorsal)};
+  const out = `${sliders}
 
-const ventral = ${fmt(profileState.ventral)};
+// ── Body profiles (copy into BASE_D/V/W in splines.js) ──
+const dorsal = ${fmtProfile(profileState.dorsal)};
+const ventral = ${fmtProfile(profileState.ventral)};
+const width = ${fmtProfile(profileState.width)};
 
-const width = ${fmt(profileState.width)};
+// ── Fin outline (copy into FIN_PRESETS.paddle.outline in fins.js) ──
+const finOutline = ${fmtFin(finState.outline)};
+// finType: '${finState.type}', thickness: ${finState.thickness}
 `;
   console.log(out);
-
-  // Also copy to clipboard if available
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(out).then(() => {
-      console.log('✓ Copied to clipboard');
-    });
+    navigator.clipboard.writeText(out).then(() => console.log('Copied to clipboard'));
   }
 }
 
@@ -445,6 +456,7 @@ window.loadPreset = loadPreset;
 window.setTailType = setTailType;
 window.setColor = setColor;
 window.exportSTL = exportSTL;
+window.dumpAll = dumpAll;
 window.snapView = snapView;
 window.switchTab = switchTab;
 window.dumpProfiles = dumpProfiles;
