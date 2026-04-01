@@ -237,29 +237,32 @@ const width = ${fmt(profileState.width)};
 
 function switchTab(btn) {
   const viewId = btn.dataset.view;
-  // Hide all views
-  document.querySelectorAll('.pnl, .vp, .mob-view').forEach(el => el.style.display = 'none');
-  // Show selected view
-  const target = document.getElementById(viewId);
-  if (target) {
-    target.style.display = target.classList.contains('vp') ? 'block' : 'flex';
-    if (target.classList.contains('mob-view')) target.style.display = 'block';
-    if (target.classList.contains('pnl')) target.style.display = 'flex';
+
+  // Close all overlays
+  document.querySelectorAll('.mob-view').forEach(el => el.classList.remove('active'));
+
+  if (viewId === 'home') {
+    // Default split: 3D + controls both visible (handled by grid layout)
+  } else {
+    // Show the selected overlay (Profile or Plan)
+    if (window._initMobEditors) window._initMobEditors();
+    const target = document.getElementById(viewId);
+    if (target) target.classList.add('active');
   }
+
   // Update tab active state
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   btn.classList.add('on');
-  // Resize 3D viewport if switching to it
-  if (viewId === 'vp') {
-    setTimeout(() => {
-      const vp = document.getElementById('vp');
-      if (vp && vp.clientWidth > 0) {
-        cam.aspect = vp.clientWidth / vp.clientHeight;
-        cam.updateProjectionMatrix();
-        ren.setSize(vp.clientWidth, vp.clientHeight);
-      }
-    }, 50);
-  }
+
+  // Resize 3D viewport
+  setTimeout(() => {
+    const vp = document.getElementById('vp');
+    if (vp && vp.clientWidth > 0) {
+      cam.aspect = vp.clientWidth / vp.clientHeight;
+      cam.updateProjectionMatrix();
+      ren.setSize(vp.clientWidth, vp.clientHeight);
+    }
+  }, 50);
 }
 
 function toggleEditors() {
@@ -367,15 +370,20 @@ function init() {
     widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
   }
 
-  // Phone: also create editors in mobile full-screen containers
-  const sideMob = document.getElementById('sideEditorMob');
-  const widthMob = document.getElementById('widthEditorMob');
-  if (sideMob && window.innerWidth <= 480) {
-    createSideEditor(sideMob, profileState, onProfileEdit);
-  }
-  if (widthMob && window.innerWidth <= 480) {
-    createWidthEditor(widthMob, profileState, onProfileEdit);
-  }
+  // Phone: create editors in mobile containers lazily on first tab open
+  let mobEditorsCreated = false;
+  window._initMobEditors = function() {
+    if (mobEditorsCreated) return;
+    const sideMob = document.getElementById('sideEditorMob');
+    const widthMob = document.getElementById('widthEditorMob');
+    if (sideMob && !sideMob.querySelector('svg')) {
+      createSideEditor(sideMob, profileState, onProfileEdit);
+    }
+    if (widthMob && !widthMob.querySelector('svg')) {
+      createWidthEditor(widthMob, profileState, onProfileEdit);
+    }
+    mobEditorsCreated = true;
+  };
 
   updateCamera();
   update();

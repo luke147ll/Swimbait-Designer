@@ -97,16 +97,16 @@
   </div>
 </div>
 
-<!-- Phone: full-screen side profile editor (hidden by default) -->
+<!-- Phone: full-screen side profile editor -->
 <div class="mob-view" id="mobSide">
-  <div class="mob-header">Side Profile</div>
-  <div id="sideEditorMob"></div>
+  <div class="mob-header">Side Profile — drag points to shape the fish</div>
+  <div class="mob-editor-wrap" id="sideEditorMob"></div>
 </div>
 
-<!-- Phone: full-screen width profile editor (hidden by default) -->
+<!-- Phone: full-screen width profile editor -->
 <div class="mob-view" id="mobPlan">
   <div class="mob-header">Width Profile (Top-Down)</div>
-  <div id="widthEditorMob"></div>
+  <div class="mob-editor-wrap" id="widthEditorMob"></div>
 </div>
 
 <div class="vp" id="vp">
@@ -118,10 +118,9 @@
 
 <!-- Phone tab bar -->
 <nav class="tab-bar" id="tabBar">
-  <button class="tab on" data-view="vp" onclick="switchTab(this)">3D</button>
+  <button class="tab on" data-view="home" onclick="switchTab(this)">3D</button>
   <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
   <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
-  <button class="tab" data-view="pnlControls" onclick="switchTab(this)">Controls</button>
 </nav>
 
 <script type="module" src="js/app.js"></script>

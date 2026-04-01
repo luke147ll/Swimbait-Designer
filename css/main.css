@@ -86,19 +86,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 /* ── Phone (max-width: 480px) ──────────────────────────────────────── */
 @media(max-width:480px){
   body{overflow:hidden}
-  #app{display:block;height:calc(100dvh - 48px)}
+  #app{display:grid;grid-template-columns:1fr;grid-template-rows:45dvh 1fr;height:calc(100dvh - 48px)}
 
-  /* All main views: fill the screen, only one visible at a time */
-  .pnl,.vp,.mob-view{
-    position:absolute;top:0;left:0;width:100%;height:calc(100dvh - 48px);
-    overflow-y:auto;
-  }
-  .pnl{display:none;border:none} /* hidden by default, shown by tab */
-  .vp{display:block} /* 3D visible by default */
-  .mob-view{display:none;background:var(--sf);padding:12px}
+  /* Default: split screen — 3D on top, controls on bottom */
+  .pnl{border:none;border-top:1px solid var(--bd);overflow-y:auto;display:flex;order:2}
+  .vp{order:1}
+
+  /* Profile/Plan full-screen views (shown via tab, hidden by default) */
+  .mob-view{display:none;background:var(--sf);overflow-y:auto;
+    position:fixed;top:0;left:0;width:100%;height:calc(100dvh - 48px);z-index:50;
+    padding:12px;flex-direction:column}
+  .mob-view.active{display:flex}
 
   .mob-header{font-family:'Instrument Serif',serif;font-size:18px;margin-bottom:10px;
-    color:var(--tx);border-bottom:1px solid var(--bd);padding-bottom:8px}
+    color:var(--tx);border-bottom:1px solid var(--bd);padding-bottom:8px;flex-shrink:0}
+  .mob-editor-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
+  .mob-editor-wrap .pe-svg{flex:1;height:auto !important;min-height:200px}
 
   /* Tab bar */
   .tab-bar{
