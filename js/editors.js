@@ -205,16 +205,15 @@ export function createSideEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find nearest control point within hit radius ──
+  // ── Find nearest control point within hit radius (viewBox-aware) ──
   function findNearestPt(clientX, clientY) {
     const rect = svg.getBoundingClientRect();
-    const sx = (clientX - rect.left) * (VW / rect.width);
-    const sy = (clientY - rect.top) * (VH / rect.height);
-    const hitR = PT_HIT_R * (vp.vw / vp.VW); // scale hit radius with zoom
+    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
+    const hitR = PT_HIT_R * (vp.vw / vp.VW);
     let best = null, bestDist = hitR;
     function check(profile, cls) {
       profile.forEach((p, i) => {
-        const dx = toX(p.t) - sx, dy = toY(p.v) - sy;
+        const dx = toX(p.t) - vb.x, dy = toY(p.v) - vb.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < bestDist) { bestDist = d; best = { cls, idx: i, profile: cls === 'dorsal' ? state.dorsal : state.ventral }; }
       });
@@ -479,15 +478,14 @@ export function createWidthEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find nearest width control point ──
+  // ── Find nearest width control point (viewBox-aware) ──
   function findNearestPt(clientX, clientY) {
     const rect = svg.getBoundingClientRect();
-    const sx = (clientX - rect.left) * (VW / rect.width);
-    const sy = (clientY - rect.top) * (VH / rect.height);
+    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
     const hitR = PT_HIT_R * (vp.vw / vp.VW);
     let best = null, bestDist = hitR;
     state.width.forEach((p, i) => {
-      const dx = toX(p.t) - sx, dy = toYUp(p.v) - sy;
+      const dx = toX(p.t) - vb.x, dy = toYUp(p.v) - vb.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < bestDist) { bestDist = d; best = { idx: i }; }
     });
