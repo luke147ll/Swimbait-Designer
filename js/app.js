@@ -164,9 +164,16 @@ function onSliderInput() {
   update();
 }
 
-// Called when the fin outline editor changes a point
+// Called when the fin outline editor changes a point — only rebuild the fin mesh
 function onFinEdit() {
-  rebuildScene();
+  const p = getParams();
+  const mat = bodyMesh ? bodyMesh.material : new THREE.MeshPhysicalMaterial({
+    color: baitColor, metalness: 0.05, roughness: 0.42,
+    clearcoat: 0.6, clearcoatRoughness: 0.2, side: THREE.DoubleSide
+  });
+  if (tailFinMesh) scene.remove(tailFinMesh);
+  tailFinMesh = genFinMesh(finState, p.OL, profileState, p.TS, p.TT, mat);
+  if (tailFinMesh) scene.add(tailFinMesh);
 }
 
 // Called by editor drag — snapshot deltas, then do a lightweight update
