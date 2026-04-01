@@ -237,14 +237,17 @@ const width = ${fmt(profileState.width)};
 
 function switchTab(btn) {
   const viewId = btn.dataset.view;
+  const pnl = document.getElementById('pnlControls');
 
-  // Close all overlays
+  // Close all editor views
   document.querySelectorAll('.mob-view').forEach(el => el.classList.remove('active'));
 
   if (viewId === 'home') {
-    // Default split: 3D + controls both visible (handled by grid layout)
+    // Show controls panel
+    if (pnl) pnl.style.display = 'flex';
   } else {
-    // Show the selected overlay (Profile or Plan)
+    // Hide controls, show editor in the same bottom grid cell
+    if (pnl) pnl.style.display = 'none';
     if (window._initMobEditors) window._initMobEditors();
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
@@ -254,7 +257,7 @@ function switchTab(btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   btn.classList.add('on');
 
-  // Resize 3D viewport
+  // Resize 3D viewport (always visible)
   setTimeout(() => {
     const vp = document.getElementById('vp');
     if (vp && vp.clientWidth > 0) {
