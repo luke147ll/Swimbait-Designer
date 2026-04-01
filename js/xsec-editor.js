@@ -213,17 +213,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     if (onStationChange) onStationChange(station);
   }
 
-  // (Station selection is now via the station buttons, not a slider)
-
-  // ── Edit / Reset buttons ──
-  editBtn.addEventListener('click', () => {
-    if (!profileState.xsecKeyframes[station]) {
-      profileState.xsecKeyframes[station] = getDefaultPoly();
-      refresh();
-      onEdit();
-    }
-  });
-
+  // ── Reset button ──
   resetBtn.addEventListener('click', () => {
     delete profileState.xsecKeyframes[station];
     refresh();
