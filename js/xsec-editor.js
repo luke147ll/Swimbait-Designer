@@ -227,6 +227,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   svg.addEventListener('touchend', () => endDrag());
 
   refresh();
-  if (onStationChange) onStationChange(station);
+  // Don't call onStationChange during init — scene may not be ready yet
   return { refresh, setStation };
 }

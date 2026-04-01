@@ -67,9 +67,11 @@ function getXSecAtRing(i, profiles) {
     return r;
   }
 
-  // Get the default super-ellipse polygon for blending
-  const n = profiles.nCache ? profiles.nCache[i] : 2.2;
-  const defPoly = defaultXSecPoly(n);
+  // Get the default super-ellipse polygon for blending (lazy — only if needed)
+  function getDefPoly() {
+    const n = (profiles.nCache && profiles.nCache[i]) ? profiles.nCache[i] : 2.2;
+    return defaultXSecPoly(n);
+  }
 
   // Case: between two keyframes — interpolate directly
   if (lo >= 0 && hi >= 0 && lo !== hi && kf[lo] && kf[hi]) {
@@ -88,7 +90,7 @@ function getXSecAtRing(i, profiles) {
   // Smooth blend from keyframe to default using smoothstep
   const t = dist / BLEND_RADIUS;
   const ease = t * t * (3 - 2 * t); // 0 at keyframe, 1 at edge of blend zone
-  return lerpPoly(kf[nearest], defPoly, ease);
+  return lerpPoly(kf[nearest], getDefPoly(), ease);
 }
 
 /**
