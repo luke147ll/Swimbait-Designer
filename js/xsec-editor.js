@@ -65,22 +65,51 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const resetBtn = bar.querySelector('#xsecReset');
 
   // ── Coordinate transforms (normalized -1..1 → SVG) ──
-  const toSX = z => MRG + ((z + 1.2) / 2.4) * (VW - MRG * 2);
-  const toSY = y => MRG + ((1.2 - y) / 2.4) * (VH - MRG * 2);
-  const fromSX = sx => (sx - MRG) / (VW - MRG * 2) * 2.4 - 1.2;
-  const fromSY = sy => 1.2 - (sy - MRG) / (VH - MRG * 2) * 2.4;
+  let viewSpan = 0.15; // half-range in world units (auto-updated)
+  const toSX = z => MRG + ((z + viewSpan) / (2 * viewSpan)) * (VW - MRG * 2);
+  const toSY = y => MRG + ((viewSpan - y) / (2 * viewSpan)) * (VH - MRG * 2);
+  const fromSX = sx => (sx - MRG) / (VW - MRG * 2) * (2 * viewSpan) - viewSpan;
+  const fromSY = sy => viewSpan - (sy - MRG) / (VH - MRG * 2) * (2 * viewSpan);
 
   function getShape() {
     return profileState.xsecKeyframes[station] || null;
   }
 
   function getDefaultPoly() {
-    const n = profileState.nCache ? profileState.nCache[station] : 2.2;
+    const n = (profileState.nCache && profileState.nCache[station]) ? profileState.nCache[station] : 2.2;
     return defaultXSecPoly(n);
   }
 
-  function polyToSvgPoints(pts) {
-    return pts.map(p => `${toSX(p.z).toFixed(1)},${toSY(p.y).toFixed(1)}`).join(' ');
+  // Get actual dimensions at current station for scaling the preview
+  function getStationDims() {
+    if (!profileState.dorsalCache || station < 0 || station > 96) return { dH: 1, vH: 1, hW: 1 };
+    const dY = profileState.dorsalCache[station] || 0;
+    const vY = profileState.ventralCache[station] || 0;
+    const hW = profileState.widthCache[station] || 0;
+    const cy = (dY + vY) / 2;
+    return {
+      dH: Math.max(dY - cy, 0.003),
+      vH: Math.max(cy - vY, 0.003),
+      hW: Math.max(hW, 0.002)
+    };
+  }
+
+  // Convert normalized polygon to actual-proportioned SVG points
+  function polyToSvgPoints(pts, dims) {
+    return pts.map(p => {
+      const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
+      const z = p.z * dims.hW;
+      return `${toSX(z).toFixed(1)},${toSY(y).toFixed(1)}`;
+    }).join(' ');
+  }
+
+  // Auto-fit the coordinate range to the actual station dimensions
+  function fitRange() {
+    const dims = getStationDims();
+    const maxY = Math.max(dims.dH, dims.vH) * 1.3;
+    const maxZ = dims.hW * 1.3;
+    const span = Math.max(maxY, maxZ, 0.01);
+    return span;
   }
 
   // ── Drawing ──
@@ -99,15 +128,21 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function draw() {
     const shape = getShape();
     const defPoly = getDefaultPoly();
+    const dims = getStationDims();
     isEditing = !!shape;
 
-    // Reference ellipse (always shown, dashed)
-    refPoly.setAttribute('points', polyToSvgPoints(defPoly));
+    // Update coordinate range to fit actual proportions
+    const span = fitRange();
+    // Redefine toSX/toSY based on actual range
+    const rng = span;
+
+    // Reference ellipse (always shown, dashed) — shows actual proportioned shape
+    refPoly.setAttribute('points', polyToSvgPoints(defPoly, dims));
 
     // Active shape
     const activePts = shape || defPoly;
-    shapePoly.setAttribute('points', polyToSvgPoints(activePts));
-    fillPoly.setAttribute('points', polyToSvgPoints(activePts));
+    shapePoly.setAttribute('points', polyToSvgPoints(activePts, dims));
+    fillPoly.setAttribute('points', polyToSvgPoints(activePts, dims));
 
     // Label
     const t = (station / 96).toFixed(2);
@@ -119,14 +154,16 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    if (!isEditing) return; // only show points when editing
+    if (!isEditing) return;
     const shape = getShape();
     if (!shape) return;
+    const dims = getStationDims();
     shape.forEach((p, i) => {
-      // Only show every other point to reduce clutter (37 is a lot)
       if (i % 2 !== 0 && i !== shape.length - 1) return;
+      const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
+      const z = p.z * dims.hW;
       const c = svgEl('circle', {
-        cx: toSX(p.z), cy: toSY(p.y), r: 4,
+        cx: toSX(z), cy: toSY(y), r: 4,
         class: 'pe-pt dorsal', 'data-idx': i
       });
       dotsG.appendChild(c);
@@ -134,6 +171,9 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }
 
   function refresh() {
+    // Auto-scale the view to fit the current station's proportions
+    const dims = getStationDims();
+    viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
     drawGrid(); draw(); drawPoints();
   }
 
@@ -172,12 +212,15 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function findNearest(cx, cy) {
     const shape = getShape();
     if (!shape) return null;
+    const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
     const sx = (cx - rect.left) / rect.width * VW;
     const sy = (cy - rect.top) / rect.height * VH;
     let best = null, bestD = PT_HIT_R;
     shape.forEach((p, i) => {
-      const d = Math.sqrt((toSX(p.z) - sx) ** 2 + (toSY(p.y) - sy) ** 2);
+      const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
+      const z = p.z * dims.hW;
+      const d = Math.sqrt((toSX(z) - sx) ** 2 + (toSY(y) - sy) ** 2);
       if (d < bestD) { bestD = d; best = i; }
     });
     return best;
@@ -195,11 +238,16 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     if (drag === null) return;
     const shape = getShape();
     if (!shape) return;
+    const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
     const sx = (cx - rect.left) / rect.width * VW;
     const sy = (cy - rect.top) / rect.height * VH;
-    shape[drag].z = Math.max(-1.5, Math.min(1.5, fromSX(sx)));
-    shape[drag].y = Math.max(-1.5, Math.min(1.5, fromSY(sy)));
+    // Convert screen → world → normalized
+    const worldZ = fromSX(sx);
+    const worldY = fromSY(sy);
+    shape[drag].z = dims.hW > 0.001 ? Math.max(-1.5, Math.min(1.5, worldZ / dims.hW)) : 0;
+    const h = worldY >= 0 ? dims.dH : dims.vH;
+    shape[drag].y = h > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / h)) : 0;
     draw(); drawPoints(); onEdit();
   }
 
