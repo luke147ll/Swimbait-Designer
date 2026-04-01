@@ -307,14 +307,9 @@ function initPanelResize() {
   const handle = document.getElementById('pnlResize');
   if (!handle) return;
 
-  handle.addEventListener('pointerdown', e => {
+  handle.addEventListener('mousedown', e => {
     e.preventDefault();
-    e.stopPropagation();
-    handle.setPointerCapture(e.pointerId);
-
     const onMove = ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
       const w = Math.max(260, Math.min(600, ev.clientX));
       document.documentElement.style.setProperty('--pnl-w', w + 'px');
       const vp = document.getElementById('vp');
@@ -325,11 +320,15 @@ function initPanelResize() {
       }
     };
     const onUp = () => {
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
   });
 }
 
