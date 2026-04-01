@@ -22,6 +22,8 @@
       <div id="sideEditorContainer"></div>
       <div class="ed-label">Width profile (top-down)</div>
       <div id="widthEditorContainer"></div>
+      <div class="ed-label">Tail fin shape (rear view)</div>
+      <div id="finEditorContainer"></div>
       <div class="ed-hint" id="edHint">Dbl-click: add point &middot; Right-click: remove</div>
     </div>
   </div>
@@ -109,6 +111,12 @@
   <div class="mob-editor-wrap" id="widthEditorMob"></div>
 </div>
 
+<!-- Phone: full-screen fin editor -->
+<div class="mob-view" id="mobFin">
+  <div class="mob-header">Tail Fin Shape (Rear View)</div>
+  <div class="mob-editor-wrap" id="finEditorMob"></div>
+</div>
+
 <div class="vp" id="vp">
   <div class="vl">Spline-based lofted surface</div>
   <div class="vs" id="stats"></div>
@@ -126,6 +134,7 @@
   <button class="tab on" data-view="home" onclick="switchTab(this)">3D</button>
   <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
   <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
+  <button class="tab" data-view="mobFin" onclick="switchTab(this)">Fin</button>
 </nav>
 
 <script type="module" src="js/app.js"></script>

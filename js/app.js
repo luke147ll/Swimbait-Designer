@@ -11,15 +11,18 @@ import { loadPreset as applyPreset } from './presets.js';
 import { exportSTL as generateSTL } from './export-stl.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
+import { createFinState, genFinMesh, FIN_PRESETS } from './fins.js';
+import { createFinEditor } from './fin-editor.js';
 
-let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM;
+let scene, cam, ren, bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM;
 let tailType = 'paddle', baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
 
 // Profile state — source of truth for body shape
 const profileState = createProfileState();
-let sideEditor = null, widthEditor = null;
+const finState = createFinState('paddle');
+let sideEditor = null, widthEditor = null, finEditor = null;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
@@ -56,7 +59,7 @@ function rebuildScene() {
   const p = getParams();
   const L = p.OL;
 
-  [bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
+  [bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
 
   const mat = new THREE.MeshPhysicalMaterial({
     color: baitColor, metalness: 0.05, roughness: 0.42,
@@ -67,6 +70,10 @@ function rebuildScene() {
   const geo = genBody(p, profileState);
   bodyMesh = new THREE.Mesh(geo, mat);
   scene.add(bodyMesh);
+
+  // Tail fin
+  tailFinMesh = genFinMesh(finState, L, profileState, p.TS, p.TT, mat);
+  scene.add(tailFinMesh);
 
   const eyes = buildEyes(p, L, profileState);
   eyeGrpL = eyes.eyeGrpL;
@@ -79,9 +86,8 @@ function rebuildScene() {
   wpM = buildWeightPocket(p, L);
   if (wpM) scene.add(wpM);
 
-  const tailStartIdx = Math.round(0.94 * 96);
   let maxD = 0, maxW = 0;
-  for (let i = 0; i <= tailStartIdx; i++) {
+  for (let i = 0; i <= 96; i++) {
     const d = (profileState.dorsalCache[i] - profileState.ventralCache[i]) * L;
     const w = profileState.widthCache[i] * L * 2;
     if (d > maxD) maxD = d;
@@ -154,11 +160,13 @@ function update() {
   rebuildScene();
 }
 
-// Called by ALL sliders — never resets profiles from slider movement.
-// Profiles only regenerate on preset load or initial startup.
-// Manual 2D edits are always preserved when adjusting sliders.
 function onSliderInput() {
   update();
+}
+
+// Called when the fin outline editor changes a point
+function onFinEdit() {
+  rebuildScene();
 }
 
 // Called by editor drag — snapshot deltas, then do a lightweight update
@@ -184,6 +192,14 @@ function setTailType(el) {
   document.querySelectorAll('.tb').forEach(e => e.classList.remove('on'));
   el.classList.add('on');
   tailType = el.dataset.t;
+  // Load fin preset outline
+  const preset = FIN_PRESETS[tailType];
+  if (preset) {
+    finState.type = tailType;
+    finState.outline = preset.outline.map(p => ({ ...p }));
+    finState.thickness = preset.thickness;
+  }
+  if (finEditor) finEditor.refresh();
   update();
 }
 
@@ -207,7 +223,7 @@ function loadPreset(name) {
 }
 
 function exportSTL() {
-  generateSTL([bodyMesh].filter(Boolean));
+  generateSTL([bodyMesh, tailFinMesh].filter(Boolean));
 }
 
 function dumpProfiles() {
@@ -380,6 +396,12 @@ function init() {
     widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
   }
 
+  // ── Initialize fin editor ──
+  const finContainer = document.getElementById('finEditorContainer');
+  if (finContainer) {
+    finEditor = createFinEditor(finContainer, finState, onFinEdit);
+  }
+
   // Phone: create editors in mobile containers lazily on first tab open
   let mobEditorsCreated = false;
   window._initMobEditors = function() {
@@ -391,6 +413,10 @@ function init() {
     }
     if (widthMob && !widthMob.querySelector('svg')) {
       createWidthEditor(widthMob, profileState, onProfileEdit);
+    }
+    const finMob = document.getElementById('finEditorMob');
+    if (finMob && !finMob.querySelector('svg')) {
+      createFinEditor(finMob, finState, onFinEdit);
     }
     mobEditorsCreated = true;
   };
