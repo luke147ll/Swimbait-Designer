@@ -326,20 +326,25 @@ function init() {
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
 
   // ── Orbit controls: mouse ──
+  // Only orbit when dragging started on the viewport canvas itself
   vp.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch') return; // handled by touch events
-    drag = true; px = e.clientX; py = e.clientY;
+    if (e.pointerType === 'touch') return;
+    if (e.target === ren.domElement || e.target === vp) {
+      drag = true; px = e.clientX; py = e.clientY;
+    }
   });
-  window.addEventListener('pointerup', e => {
+  vp.addEventListener('pointerup', e => {
     if (e.pointerType !== 'touch') drag = false;
   });
-  window.addEventListener('pointermove', e => {
-    if (!drag || editorDragging || e.pointerType === 'touch') return;
+  vp.addEventListener('pointermove', e => {
+    if (!drag || e.pointerType === 'touch') return;
     ot -= (e.clientX - px) * .005;
     op = Math.max(.1, Math.min(3.0, op - (e.clientY - py) * .005));
     px = e.clientX; py = e.clientY;
     updateCamera();
   });
+  // Stop orbit if pointer leaves the viewport
+  vp.addEventListener('pointerleave', () => { drag = false; });
   vp.addEventListener('wheel', e => {
     e.preventDefault();
     od = Math.max(3, Math.min(22, od + e.deltaY * .007));
@@ -393,38 +398,28 @@ function init() {
   const edHint = document.getElementById('edHint');
   if (edHint && isTouch) edHint.textContent = 'Tap point to drag / pinch to zoom';
 
-  // ── Initialize profile editors ──
-  const sideContainer = document.getElementById('sideEditorContainer');
-  const widthContainer = document.getElementById('widthEditorContainer');
-  if (sideContainer) {
-    sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
-  }
-  if (widthContainer) {
-    widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
+  // ── Initialize editors (only one set — desktop OR mobile, not both) ──
+  const isMobile = window.innerWidth <= 480;
+
+  if (!isMobile) {
+    const sideContainer = document.getElementById('sideEditorContainer');
+    const widthContainer = document.getElementById('widthEditorContainer');
+    const finContainer = document.getElementById('finEditorContainer');
+    if (sideContainer) sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
+    if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
+    if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
   }
 
-  // ── Initialize fin editor ──
-  const finContainer = document.getElementById('finEditorContainer');
-  if (finContainer) {
-    finEditor = createFinEditor(finContainer, finState, onFinEdit);
-  }
-
-  // Phone: create editors in mobile containers lazily on first tab open
+  // Phone: create editors lazily on first tab open
   let mobEditorsCreated = false;
   window._initMobEditors = function() {
     if (mobEditorsCreated) return;
     const sideMob = document.getElementById('sideEditorMob');
     const widthMob = document.getElementById('widthEditorMob');
-    if (sideMob && !sideMob.querySelector('svg')) {
-      createSideEditor(sideMob, profileState, onProfileEdit);
-    }
-    if (widthMob && !widthMob.querySelector('svg')) {
-      createWidthEditor(widthMob, profileState, onProfileEdit);
-    }
     const finMob = document.getElementById('finEditorMob');
-    if (finMob && !finMob.querySelector('svg')) {
-      createFinEditor(finMob, finState, onFinEdit);
-    }
+    if (sideMob && !sideMob.querySelector('svg')) sideEditor = createSideEditor(sideMob, profileState, onProfileEdit);
+    if (widthMob && !widthMob.querySelector('svg')) widthEditor = createWidthEditor(widthMob, profileState, onProfileEdit);
+    if (finMob && !finMob.querySelector('svg')) finEditor = createFinEditor(finMob, finState, onFinEdit);
     mobEditorsCreated = true;
   };
 
