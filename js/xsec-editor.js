@@ -198,9 +198,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    if (!isEditing) return;
-    const shape = getShape();
-    if (!shape) return;
+    // Always show points — auto-create keyframe on first drag
+    const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
     shape.forEach((p, i) => {
       if (i % 2 !== 0 && i !== shape.length - 1) return;
@@ -248,8 +247,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   let drag = null;
 
   function findNearest(cx, cy) {
-    const shape = getShape();
-    if (!shape) return null;
+    const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
     const sx = (cx - rect.left) / rect.width * VW;
@@ -265,7 +263,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }
 
   function startDrag(cx, cy) {
-    if (!isEditing) return false;
+    // Auto-create keyframe on first drag if none exists
+    if (!profileState.xsecKeyframes[station]) {
+      profileState.xsecKeyframes[station] = getDefaultPoly();
+      isEditing = true;
+    }
     const idx = findNearest(cx, cy);
     if (idx === null) return false;
     drag = idx;
