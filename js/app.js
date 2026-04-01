@@ -101,6 +101,7 @@ function rebuildScene() {
 
   if (sideEditor) sideEditor.refresh();
   if (widthEditor) widthEditor.refresh();
+  if (xsecEditor) xsecEditor.refresh();
 
   const badge = document.getElementById('profileMode');
   if (badge) {
