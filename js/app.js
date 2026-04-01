@@ -324,6 +324,10 @@ function initPanelResize() {
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      // Refresh editors so their hit detection uses updated bounding rects
+      if (sideEditor) sideEditor.refresh();
+      if (widthEditor) widthEditor.refresh();
+      if (finEditor) finEditor.refresh();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);

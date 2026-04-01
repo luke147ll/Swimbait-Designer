@@ -36,7 +36,7 @@ export function createFinEditor(container, finState, onEdit) {
   const fromSX = sx => range.xMn + (sx - MRG) / pw() * (range.xMx - range.xMn);
   const fromSY = sy => range.yMx - (sy - MRG) / ph() * (range.yMx - range.yMn);
 
-  const svg = svgEl('svg', { viewBox: `0 0 ${VW} ${VH}`, class: 'pe-svg' });
+  const svg = svgEl('svg', { viewBox: `0 0 ${VW} ${VH}`, class: 'pe-svg', preserveAspectRatio: 'none' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
   container.appendChild(svg);
