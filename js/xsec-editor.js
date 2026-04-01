@@ -216,8 +216,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function refresh() {
     const dims = getStationDims();
     viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
+    buildStationButtons(); // rebuild in case profile points changed
     drawGrid(); draw(); drawPoints();
-    updateButtons();
   }
 
   function setStation(i) {
