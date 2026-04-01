@@ -250,8 +250,10 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const hRef = worldY >= 0 ? dims.dH : dims.vH;
     const newY = hRef > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / hRef)) : 0;
 
-    // Compute delta from the dragged point's current position
-    const dz = newZ - shape[drag].z;
+    // Lock top center (vertex 0) and bottom center (vertex RS/2) to vertical only
+    const isTopCenter = drag === 0;
+    const isBotCenter = drag === Math.round(RS / 2);
+    const dz = (isTopCenter || isBotCenter) ? 0 : newZ - shape[drag].z;
     const dy = newY - shape[drag].y;
 
     // Apply delta with soft falloff to neighbors (wrapping around the loop)
