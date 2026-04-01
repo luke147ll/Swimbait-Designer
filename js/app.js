@@ -166,8 +166,57 @@ function onSliderInput() {
   update();
 }
 
-// Called when cross-section keyframe changes — rebuild body mesh
+// Called when cross-section keyframe changes — sync profile points + rebuild
 function onXSecEdit() {
+  // Find which station was edited and snap the side/width profile points to match
+  const keys = Object.keys(profileState.xsecKeyframes).map(Number);
+  for (const stationIdx of keys) {
+    const kf = profileState.xsecKeyframes[stationIdx];
+    if (!kf || kf.length === 0) continue;
+    const t = stationIdx / NS;
+
+    // Find the actual top, bottom, and max width from the keyframe polygon
+    let maxY = -Infinity, minY = Infinity, maxZ = 0;
+    for (const p of kf) {
+      if (p.y > maxY) maxY = p.y;
+      if (p.y < minY) minY = p.y;
+      maxZ = Math.max(maxZ, Math.abs(p.z));
+    }
+
+    // Find the nearest profile control point to this t
+    function snapNearest(profile, targetT, newV) {
+      let bestIdx = -1, bestDist = 0.03; // snap within t±0.03
+      for (let i = 0; i < profile.length; i++) {
+        const d = Math.abs(profile[i].t - targetT);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      if (bestIdx >= 0) profile[bestIdx].v = newV;
+    }
+
+    // Get current base dimensions at this station for converting normalized → profile values
+    const dY = profileState.dorsalCache[stationIdx] || 0;
+    const vY = profileState.ventralCache[stationIdx] || 0;
+    const hW = profileState.widthCache[stationIdx] || 0;
+    const cy = (dY + vY) / 2;
+    const dH = dY - cy, vH = cy - vY;
+
+    // Snap dorsal point: maxY * dorsalH gives the new dorsal extent
+    if (dH > 0.001) {
+      const newDorsal = cy + maxY * dH; // in profile units (fraction of L)
+      snapNearest(profileState.dorsal, t, newDorsal);
+    }
+    // Snap ventral point: minY * ventralH gives the new ventral extent
+    if (vH > 0.001) {
+      const newVentral = cy + minY * vH; // minY is negative
+      snapNearest(profileState.ventral, t, newVentral);
+    }
+    // Snap width point
+    if (hW > 0.001) {
+      const newWidth = maxZ * hW;
+      snapNearest(profileState.width, t, newWidth);
+    }
+  }
+
   rebuildScene();
 }
 
