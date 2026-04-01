@@ -30,43 +30,65 @@ export function defaultXSecPoly(n) {
   return pts;
 }
 
+const BLEND_RADIUS = 8; // rings over which a keyframe eases in/out to default
+
 /**
  * Get the cross-section polygon for ring i, accounting for keyframes.
- * Returns RS+1 normalized {y,z} points (y: ±1 = dorsalH/ventralH, z: ±1 = halfW).
+ * Keyframes blend smoothly into the default super-ellipse over BLEND_RADIUS rings.
+ * Returns null if ring should use default super-ellipse, or RS+1 {y,z} points.
  */
 function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
   const keys = Object.keys(kf).map(Number).sort((a, b) => a - b);
+  if (keys.length === 0) return null;
 
-  if (keys.length === 0) return null; // no keyframes, use super-ellipse
-
-  // Exact match
-  if (kf[i]) return kf[i];
-
-  // Find surrounding keyframes
+  // Find nearest keyframes on each side
   let lo = -1, hi = -1;
   for (const k of keys) {
     if (k <= i) lo = k;
     if (k >= i && hi < 0) hi = k;
   }
 
+  // No keyframes in range — check if we're in a blend zone
   if (lo < 0 && hi < 0) return null;
-  if (lo < 0) return kf[hi];
-  if (hi < 0) return kf[lo];
-  if (lo === hi) return kf[lo];
 
-  // Interpolate between lo and hi keyframes
-  const t = (i - lo) / (hi - lo);
-  const a = kf[lo], b = kf[hi];
-  const len = Math.min(a.length, b.length);
-  const result = [];
-  for (let j = 0; j < len; j++) {
-    result.push({
-      y: a[j].y + (b[j].y - a[j].y) * t,
-      z: a[j].z + (b[j].z - a[j].z) * t,
-    });
+  // Helper: get keyframe shape or generate default
+  function getKfOrDefault(k) {
+    return kf[k] || null;
   }
-  return result;
+
+  // Helper: blend between two polygons
+  function lerpPoly(a, b, t) {
+    const len = Math.min(a.length, b.length);
+    const r = [];
+    for (let j = 0; j < len; j++) {
+      r.push({ y: a[j].y + (b[j].y - a[j].y) * t, z: a[j].z + (b[j].z - a[j].z) * t });
+    }
+    return r;
+  }
+
+  // Get the default super-ellipse polygon for blending
+  const n = profiles.nCache ? profiles.nCache[i] : 2.2;
+  const defPoly = defaultXSecPoly(n);
+
+  // Case: between two keyframes — interpolate directly
+  if (lo >= 0 && hi >= 0 && lo !== hi && kf[lo] && kf[hi]) {
+    const t = (i - lo) / (hi - lo);
+    return lerpPoly(kf[lo], kf[hi], t);
+  }
+
+  // Case: at or near a single keyframe — blend into default
+  const nearest = (lo >= 0 && kf[lo]) ? lo : hi;
+  if (nearest < 0 || !kf[nearest]) return null;
+
+  const dist = Math.abs(i - nearest);
+  if (dist === 0) return kf[nearest]; // exact keyframe
+  if (dist > BLEND_RADIUS) return null; // too far, use default
+
+  // Smooth blend from keyframe to default using smoothstep
+  const t = dist / BLEND_RADIUS;
+  const ease = t * t * (3 - 2 * t); // 0 at keyframe, 1 at edge of blend zone
+  return lerpPoly(kf[nearest], defPoly, ease);
 }
 
 /**

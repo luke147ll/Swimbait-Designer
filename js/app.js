@@ -4,7 +4,7 @@
  * render loop, resize handler, profile state management, and UI wiring.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { genBody } from './engine.js';
+import { genBody, superEllipse, NS } from './engine.js';
 
 import { buildEyes, buildHookSlot, buildWeightPocket } from './anatomy.js';
 import { loadPreset as applyPreset } from './presets.js';
@@ -15,7 +15,7 @@ import { createFinState, genFinMesh, FIN_PRESETS } from './fins.js';
 import { createFinEditor } from './fin-editor.js';
 import { createXSecEditor } from './xsec-editor.js';
 
-let scene, cam, ren, bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM;
+let scene, cam, ren, bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM, stationRing;
 let tailType = 'paddle', baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
@@ -168,6 +168,36 @@ function onSliderInput() {
 // Called when cross-section keyframe changes — rebuild body mesh
 function onXSecEdit() {
   rebuildScene();
+}
+
+// Show a ring on the 3D model at the given station index
+function showStationRing(stationIdx) {
+  if (stationRing) scene.remove(stationRing);
+  if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
+
+  const p = getParams();
+  const L = p.OL, hL = L / 2;
+  const t = stationIdx / NS;
+  const x = -hL + t * L;
+  const dY = profileState.dorsalCache[stationIdx] * L;
+  const vY = profileState.ventralCache[stationIdx] * L;
+  const hW = Math.max(profileState.widthCache[stationIdx] * L, 0.004);
+  const cy = (dY + vY) / 2;
+  const dH = Math.max(dY - cy, 0.003);
+  const vH = Math.max(cy - vY, 0.003);
+  const n = profileState.nCache[stationIdx];
+
+  // Build a line loop following the cross-section
+  const pts = [];
+  for (let j = 0; j <= RS; j++) {
+    const angle = (j / RS) * Math.PI * 2;
+    const se = superEllipse(angle, dH, vH, hW, Math.max(n, 1.8));
+    pts.push(new THREE.Vector3(x, se.y + cy, se.z));
+  }
+
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  stationRing = new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color: 0xc4a04a, linewidth: 2 }));
+  scene.add(stationRing);
 }
 
 // Called when the fin outline editor changes a point — only rebuild the fin mesh
@@ -460,7 +490,7 @@ function init() {
     if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
     if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
     const xsecContainer = document.getElementById('xsecEditorContainer');
-    if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit);
+    if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit, showStationRing);
     initPanelResize();
   }
 
@@ -475,7 +505,7 @@ function init() {
     if (widthMob && !widthMob.querySelector('svg')) widthEditor = createWidthEditor(widthMob, profileState, onProfileEdit);
     if (finMob && !finMob.querySelector('svg')) finEditor = createFinEditor(finMob, finState, onFinEdit);
     const xsecMob = document.getElementById('xsecEditorMob');
-    if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit);
+    if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit, showStationRing);
     mobEditorsCreated = true;
   };
 

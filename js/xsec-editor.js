@@ -23,7 +23,7 @@ function svgEl(tag, attrs = {}) {
  * @param {Function} onEdit - called when cross-section changes
  * @returns {{ refresh(), setStation(i) }}
  */
-export function createXSecEditor(container, profileState, onEdit) {
+export function createXSecEditor(container, profileState, onEdit, onStationChange) {
   const VW = 250, VH = 250, MRG = 14;
 
   let station = 48; // default: mid-body (t=0.5)
@@ -141,12 +141,14 @@ export function createXSecEditor(container, profileState, onEdit) {
     station = Math.max(1, Math.min(96, i));
     scrubEl.value = station;
     refresh();
+    if (onStationChange) onStationChange(station);
   }
 
   // ── Scrubber ──
   scrubEl.addEventListener('input', () => {
     station = +scrubEl.value;
     refresh();
+    if (onStationChange) onStationChange(station);
   });
 
   // ── Edit / Reset buttons ──
@@ -225,5 +227,6 @@ export function createXSecEditor(container, profileState, onEdit) {
   svg.addEventListener('touchend', () => endDrag());
 
   refresh();
+  if (onStationChange) onStationChange(station);
   return { refresh, setStation };
 }
