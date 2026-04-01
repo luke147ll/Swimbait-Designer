@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swimbait Designer v0.3</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0e0d;--sf:#181816;--sf2:#222220;--bd:#2e2e2a;--tx:#e8e4d9;--mu:#8a8778;--ac:#c4a04a;--ac2:#5a9a6b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;overflow:hidden;height:100vh}
+#app{display:grid;grid-template-columns:340px 1fr;height:100vh}
+.pnl{background:var(--sf);border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column}
+.pnl::-webkit-scrollbar{width:4px}.pnl::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.ph{padding:18px 22px 14px;border-bottom:1px solid var(--bd)}
+.ph h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:21px}
+.ph .sub{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;margin-top:3px}
+.sec{padding:12px 22px;border-bottom:1px solid var(--bd)}
+.st{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--ac);margin-bottom:10px}
+.c{margin-bottom:10px}
+.cr{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.c label{font-size:10px;color:var(--mu)}
+.c .v{font-size:10px;color:var(--tx);font-weight:500;min-width:44px;text-align:right}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;background:var(--bd);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--ac);cursor:pointer;border:2px solid var(--bg)}
+.to{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px}
+.tb{background:var(--sf2);border:1px solid var(--bd);padding:6px 2px;text-align:center;font-size:8px;color:var(--mu);cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.5px;font-family:'DM Mono',monospace}
+.tb:hover{border-color:var(--ac);color:var(--tx)}.tb.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight:500}
+.pr{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pb{background:var(--sf2);border:1px solid var(--bd);padding:8px 2px;text-align:center;font-size:8px;color:var(--mu);cursor:pointer;transition:all .15s;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+.pb:hover{border-color:var(--ac2);color:var(--tx)}
+.clr{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-top:4px}
+.cs{width:100%;aspect-ratio:1;border-radius:50%;border:2px solid var(--bd);cursor:pointer;transition:all .12s}
+.cs:hover{border-color:var(--tx);transform:scale(1.1)}.cs.on{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.es{padding:12px 22px;margin-top:auto;border-top:1px solid var(--bd)}
+.eb{width:100%;padding:10px;background:var(--ac);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;cursor:pointer;text-transform:uppercase;letter-spacing:2px}
+.eb:hover{opacity:.85}
+.esu{font-size:8px;color:var(--mu);text-align:center;margin-top:5px}
+.vp{position:relative;background:var(--bg);overflow:hidden}
+.vl{position:absolute;bottom:12px;left:12px;font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;pointer-events:none}
+.vs{position:absolute;top:12px;right:12px;font-size:9px;color:var(--mu);text-align:right;pointer-events:none;line-height:1.7}
+.rh{position:absolute;bottom:12px;right:12px;font-size:8px;color:var(--mu);pointer-events:none;opacity:.4}
+@media(max-width:860px){#app{grid-template-columns:1fr;grid-template-rows:55vh 45vh}.pnl{border-right:none;border-bottom:1px solid var(--bd)}}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="pnl">
+  <div class="ph"><div class="sub">Station-based lofting engine v0.3</div><h1>Swimbait Designer</h1></div>
+
+  <div class="sec">
+    <div class="st">Species presets</div>
+    <div class="pr">
+      <div class="pb" onclick="LP('shad')">Shad</div>
+      <div class="pb" onclick="LP('gizzard')">Gizzard</div>
+      <div class="pb" onclick="LP('gill')">Bluegill</div>
+      <div class="pb" onclick="LP('trout')">Trout</div>
+      <div class="pb" onclick="LP('herring')">Herring</div>
+      <div class="pb" onclick="LP('perch')">Perch</div>
+      <div class="pb" onclick="LP('hitch')">Hitch</div>
+      <div class="pb" onclick="LP('minnow')">Minnow</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Body dimensions</div>
+    <div class="c"><div class="cr"><label>Overall length</label><span class="v" id="vOL"></span></div><input type="range" id="sOL" min="3" max="14" step="0.25" value="8" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Max body depth</label><span class="v" id="vBD"></span></div><input type="range" id="sBD" min="0.15" max="0.55" step="0.005" value="0.32" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Max width ratio</label><span class="v" id="vWR"></span></div><input type="range" id="sWR" min="0.30" max="1.0" step="0.01" value="0.60" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Girth position</label><span class="v" id="vGP"></span></div><input type="range" id="sGP" min="0.25" max="0.50" step="0.005" value="0.34" oninput="U()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Head</div>
+    <div class="c"><div class="cr"><label>Head length</label><span class="v" id="vHL"></span></div><input type="range" id="sHL" min="0.15" max="0.35" step="0.005" value="0.24" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Snout bluntness</label><span class="v" id="vSB"></span></div><input type="range" id="sSB" min="0.15" max="0.85" step="0.01" value="0.50" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Head width</label><span class="v" id="vHW"></span></div><input type="range" id="sHW" min="0.5" max="1.1" step="0.01" value="0.85" oninput="U()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Profile shape</div>
+    <div class="c"><div class="cr"><label>Dorsal arch</label><span class="v" id="vDA"></span></div><input type="range" id="sDA" min="0.0" max="0.60" step="0.01" value="0.20" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Belly fullness</label><span class="v" id="vBF"></span></div><input type="range" id="sBF" min="0.0" max="0.70" step="0.01" value="0.30" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Body taper</label><span class="v" id="vBT"></span></div><input type="range" id="sBT" min="0.3" max="0.9" step="0.01" value="0.55" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Cross-section shape</label><span class="v" id="vCS"></span></div><input type="range" id="sCS" min="1.8" max="3.2" step="0.05" value="2.2" oninput="U()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Caudal peduncle</div>
+    <div class="c"><div class="cr"><label>Stalk length</label><span class="v" id="vSL"></span></div><input type="range" id="sSL" min="0.08" max="0.25" step="0.005" value="0.14" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Stalk depth</label><span class="v" id="vSD"></span></div><input type="range" id="sSD" min="0.12" max="0.40" step="0.01" value="0.22" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Stalk compression</label><span class="v" id="vSC"></span></div><input type="range" id="sSC" min="0.3" max="0.9" step="0.01" value="0.55" oninput="U()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Tail</div>
+    <div class="c"><div class="cr"><label>Tail size</label><span class="v" id="vTS"></span></div><input type="range" id="sTS" min="0.3" max="1.4" step="0.01" value="0.80" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Tail thickness</label><span class="v" id="vTT"></span></div><input type="range" id="sTT" min="0.05" max="0.40" step="0.01" value="0.15" oninput="U()"></div>
+    <div class="to">
+      <div class="tb on" data-t="paddle" onclick="ST(this)">Paddle</div>
+      <div class="tb" data-t="wedge" onclick="ST(this)">Wedge</div>
+      <div class="tb" data-t="boot" onclick="ST(this)">Boot</div>
+      <div class="tb" data-t="split" onclick="ST(this)">Split</div>
+      <div class="tb" data-t="fork" onclick="ST(this)">Fork</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Features</div>
+    <div class="c"><div class="cr"><label>Eye size</label><span class="v" id="vES"></span></div><input type="range" id="sES" min="0.2" max="1.0" step="0.01" value="0.55" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Hook slot</label><span class="v" id="vHS"></span></div><input type="range" id="sHS" min="0" max="0.8" step="0.01" value="0.40" oninput="U()"></div>
+    <div class="c"><div class="cr"><label>Weight pocket</label><span class="v" id="vWP"></span></div><input type="range" id="sWP" min="0" max="0.6" step="0.01" value="0.25" oninput="U()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Color</div>
+    <div class="clr">
+      <div class="cs on" style="background:#7a8e9a" data-c="0x7a8e9a" onclick="SC(this)"></div>
+      <div class="cs" style="background:#5e7e52" data-c="0x5e7e52" onclick="SC(this)"></div>
+      <div class="cs" style="background:#b8a86a" data-c="0xb8a86a" onclick="SC(this)"></div>
+      <div class="cs" style="background:#8e5a3a" data-c="0x8e5a3a" onclick="SC(this)"></div>
+      <div class="cs" style="background:#3a6880" data-c="0x3a6880" onclick="SC(this)"></div>
+      <div class="cs" style="background:#c2b090" data-c="0xc2b090" onclick="SC(this)"></div>
+      <div class="cs" style="background:#4a4a48" data-c="0x4a4a48" onclick="SC(this)"></div>
+      <div class="cs" style="background:#d4d0c8" data-c="0xd4d0c8" onclick="SC(this)"></div>
+    </div>
+  </div>
+
+  <div class="es">
+    <button class="eb" onclick="EX()">Export master STL</button>
+    <div class="esu">Mold generation coming v0.4</div>
+  </div>
+</div>
+<div class="vp" id="vp">
+  <div class="vl">Station-based lofted surface</div>
+  <div class="vs" id="stats"></div>
+  <div class="rh">Drag to orbit / scroll to zoom</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+let scene,cam,ren,bodyMesh,eyeGrpL,eyeGrpR,hsM,wpM;
+let tailType='paddle',baitColor=0x7a8e9a;
+let drag=false,px=0,py=0,ot=0.55,op=0.42,od=9;
+
+function init(){
+  const vp=document.getElementById('vp');
+  scene=new THREE.Scene();
+  cam=new THREE.PerspectiveCamera(30,vp.clientWidth/vp.clientHeight,0.1,100);
+  ren=new THREE.WebGLRenderer({antialias:true});
+  ren.setSize(vp.clientWidth,vp.clientHeight);
+  ren.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  ren.setClearColor(0x0e0e0d);
+  ren.toneMapping=THREE.ACESFilmicToneMapping;
+  ren.toneMappingExposure=1.2;
+  vp.appendChild(ren.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff,0.3));
+  const d1=new THREE.DirectionalLight(0xfff0dd,0.85);d1.position.set(4,10,6);scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x99aacc,0.3);d2.position.set(-5,3,-4);scene.add(d2);
+  const d3=new THREE.DirectionalLight(0xffffff,0.15);d3.position.set(0,-4,2);scene.add(d3);
+
+  const g=new THREE.GridHelper(16,32,0x252522,0x1a1a17);g.position.y=-2.2;scene.add(g);
+
+  vp.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY});
+  window.addEventListener('pointerup',()=>drag=false);
+  window.addEventListener('pointermove',e=>{if(!drag)return;ot-=(e.clientX-px)*.005;op=Math.max(.1,Math.min(3.0,op-(e.clientY-py)*.005));px=e.clientX;py=e.clientY;uc()});
+  vp.addEventListener('wheel',e=>{e.preventDefault();od=Math.max(3,Math.min(22,od+e.deltaY*.007));uc()},{passive:false});
+  uc();U();
+  (function a(){requestAnimationFrame(a);ren.render(scene,cam)})();
+  window.addEventListener('resize',()=>{cam.aspect=vp.clientWidth/vp.clientHeight;cam.updateProjectionMatrix();ren.setSize(vp.clientWidth,vp.clientHeight)});
+}
+function uc(){cam.position.set(od*Math.sin(op)*Math.cos(ot),od*Math.cos(op),od*Math.sin(op)*Math.sin(ot));cam.lookAt(0,-.15,0)}
+
+// Catmull-Rom interpolation
+function cr(p0,p1,p2,p3,t){
+  const t2=t*t,t3=t2*t;
+  return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);
+}
+
+function GP(){return{
+  OL:+document.getElementById('sOL').value,
+  BD:+document.getElementById('sBD').value,
+  WR:+document.getElementById('sWR').value,
+  GP:+document.getElementById('sGP').value,
+  HL:+document.getElementById('sHL').value,
+  SB:+document.getElementById('sSB').value,
+  HW:+document.getElementById('sHW').value,
+  DA:+document.getElementById('sDA').value,
+  BF:+document.getElementById('sBF').value,
+  BT:+document.getElementById('sBT').value,
+  CS:+document.getElementById('sCS').value,
+  SL:+document.getElementById('sSL').value,
+  SD:+document.getElementById('sSD').value,
+  SC:+document.getElementById('sSC').value,
+  TS:+document.getElementById('sTS').value,
+  TT:+document.getElementById('sTT').value,
+  ES:+document.getElementById('sES').value,
+  HS:+document.getElementById('sHS').value,
+  WP:+document.getElementById('sWP').value,
+  tail:tailType
+}}
+
+function buildStations(p){
+  const L=p.OL;
+  const maxD=L*p.BD;
+  const maxW=maxD*p.WR;
+  const headEnd=p.HL;
+  const girthPos=p.GP;
+  const stalkStart=1.0-p.SL-0.12;
+  const stalkMid=1.0-p.SL*0.5-0.06;
+  const tailStart=1.0-0.06;
+  const pedD=maxD*p.SD;
+  const pedW=pedD*p.SC;
+
+  // Each station: {t, h, w, cy, dorsalExtra, bellyExtra, nExp}
+  // t=position 0-1, h=half-height, w=half-width, cy=center Y offset
+  // dorsalExtra=extra dorsal bulge, bellyExtra=extra ventral bulge
+  // nExp=super-ellipse exponent
+
+  const n=p.CS;
+  const stations=[];
+
+  // S0: Nose tip
+  const noseR=maxD*0.10*p.SB;
+  stations.push({t:0, h:noseR, w:noseR*0.75, cy:0, de:0, be:0, n:2.0});
+
+  // S1: Snout / pre-eye
+  const s1t=headEnd*0.35;
+  const s1h=maxD*0.28*(0.5+p.SB*0.5);
+  stations.push({t:s1t, h:s1h, w:s1h*p.HW*0.78, cy:-maxD*0.01, de:0.05, be:p.BF*0.08, n:2.0});
+
+  // S2: Eye / mid-head
+  const s2t=headEnd*0.65;
+  const s2h=maxD*0.42*(0.55+p.SB*0.45);
+  stations.push({t:s2t, h:s2h, w:s2h*p.HW*0.85, cy:-maxD*0.015*p.BF, de:p.DA*0.15, be:p.BF*0.15, n:2.05});
+
+  // S3: Operculum / shoulder
+  const s3t=headEnd;
+  const s3h=maxD*0.44;
+  stations.push({t:s3t, h:s3h, w:s3h*p.WR*0.92, cy:-maxD*0.02*p.BF, de:p.DA*0.4, be:p.BF*0.35, n:n*0.97});
+
+  // S4: Maximum girth
+  stations.push({t:girthPos, h:maxD*0.5, w:maxW*0.5, cy:-maxD*0.025*p.BF, de:p.DA, be:p.BF, n:n});
+
+  // S5: Mid-body (taper zone)
+  const s5t=girthPos+(stalkStart-girthPos)*p.BT;
+  const s5f=1.0-(s5t-girthPos)/(stalkStart-girthPos)*0.4;
+  stations.push({t:s5t, h:maxD*0.5*s5f, w:maxW*0.5*s5f*0.88, cy:-maxD*0.015*p.BF*s5f, de:p.DA*s5f*0.4, be:p.BF*s5f*0.45, n:n*0.98});
+
+  // S6: Pre-peduncle
+  const s6t=stalkStart;
+  const s6f=0.42;
+  stations.push({t:s6t, h:maxD*0.5*s6f, w:maxW*0.5*s6f*0.68, cy:-maxD*0.005, de:0.02, be:p.BF*0.05, n:n*0.95});
+
+  // S7: Caudal peduncle (narrowest)
+  stations.push({t:stalkMid, h:pedD*0.5, w:pedW*0.5, cy:0, de:0, be:0, n:2.3});
+
+  // S8: Tail base
+  const tbh=pedD*0.55;
+  const tbw=pedW*0.22;
+  stations.push({t:tailStart, h:tbh, w:tbw, cy:0, de:0, be:0, n:2.0});
+
+  return stations;
+}
+
+function interpStations(stations,t){
+  // Find surrounding stations for Catmull-Rom
+  let i=0;
+  for(let k=0;k<stations.length-1;k++){if(t>=stations[k].t)i=k;}
+  const i0=Math.max(0,i-1);
+  const i1=i;
+  const i2=Math.min(stations.length-1,i+1);
+  const i3=Math.min(stations.length-1,i+2);
+
+  const s0=stations[i0],s1=stations[i1],s2=stations[i2],s3=stations[i3];
+  const range=s2.t-s1.t;
+  const lt=range>0.001?(t-s1.t)/range:0;
+
+  return {
+    h: cr(s0.h,s1.h,s2.h,s3.h,lt),
+    w: cr(s0.w,s1.w,s2.w,s3.w,lt),
+    cy:cr(s0.cy,s1.cy,s2.cy,s3.cy,lt),
+    de:cr(s0.de,s1.de,s2.de,s3.de,lt),
+    be:cr(s0.be,s1.be,s2.be,s3.be,lt),
+    n: cr(s0.n,s1.n,s2.n,s3.n,lt)
+  };
+}
+
+function superEllipse(angle,h,w,n,dorsalExtra,bellyExtra){
+  const ca=Math.cos(angle),sa=Math.sin(angle);
+  const absCa=Math.abs(ca),absSa=Math.abs(sa);
+  const seCa=Math.sign(ca)*Math.pow(absCa,2/n);
+  const seSa=Math.sign(sa)*Math.pow(absSa,2/n);
+
+  let y=seCa*h;
+  let z=seSa*w;
+
+  // Dorsal/ventral as additive offset — shifts the top up and bottom down
+  // smoothly blended by cos(angle) so it's max at top/bottom, zero at sides
+  const blend=ca*ca; // 1 at top/bottom, 0 at sides
+  if(ca>0) y+=dorsalExtra*h*0.35*blend;
+  if(ca<0) y-=bellyExtra*h*0.25*blend;
+
+  return {y,z};
+}
+
+function genBody(p){
+  const stations=buildStations(p);
+  const L=p.OL;
+  const hL=L/2;
+  const NS=96; // lengthwise segments
+  const RS=36; // radial segments
+  const tailStart=1.0-0.06;
+
+  const pos=[],idx=[];
+
+  for(let i=0;i<=NS;i++){
+    const t=i/NS;
+    const x=-hL+t*L;
+
+    let rh,rw,cy,n;
+
+    if(t<=tailStart){
+      // Body region — interpolate stations
+      const s=interpStations(stations,t);
+      rh=Math.max(s.h,0.005);
+      rw=Math.max(s.w,0.004);
+      cy=s.cy;
+
+      for(let j=0;j<=RS;j++){
+        const angle=(j/RS)*Math.PI*2;
+        const se=superEllipse(angle,rh,rw,Math.max(s.n,1.8),Math.max(s.de,0),Math.max(s.be,0));
+        pos.push(x,se.y+cy,se.z);
+      }
+    } else {
+      // Tail region
+      const lt=(t-tailStart)/(1.0-tailStart);
+      const maxD=L*p.BD;
+      const maxW=maxD*p.WR;
+      const pedD=maxD*p.SD;
+      const pedW=pedD*p.SC;
+      const ts=p.TS;
+      const tt=p.TT;
+
+      let th,tw;
+      if(p.tail==='paddle'){
+        const swell=Math.sin(lt*Math.PI);
+        const taper=1-lt*0.15;
+        th=pedD*0.5*(0.3+swell*ts*0.8)*taper;
+        tw=pedW*0.5*tt*(0.6+swell*0.4)*(1-lt*0.3);
+      } else if(p.tail==='wedge'){
+        const taper=Math.pow(1-lt*0.6,0.7);
+        th=pedD*0.5*(0.5+0.5*ts)*taper;
+        tw=pedW*0.5*tt*(0.8-lt*0.5);
+      } else if(p.tail==='boot'){
+        const thin=lt<0.5?1-lt*1.2:0.4;
+        const kick=lt>0.5?Math.pow((lt-0.5)/0.5,1.5)*ts:0;
+        th=pedD*0.5*(thin+kick*0.9);
+        tw=pedW*0.5*tt*(0.5+kick*0.3)*(1-lt*0.2);
+      } else if(p.tail==='split'){
+        const pinch=1-Math.pow(Math.sin(lt*Math.PI),0.5)*0.5;
+        const taper=1-lt*0.2;
+        th=pedD*0.5*ts*0.7*pinch*taper;
+        tw=pedW*0.5*tt*(0.7-lt*0.4);
+      } else { // fork
+        const spread=lt*0.8;
+        const taper=Math.pow(1-lt,0.5);
+        th=pedD*0.5*ts*0.6*taper;
+        tw=pedW*0.5*tt*(0.4+spread*0.4);
+      }
+
+      th=Math.max(th,0.008);
+      tw=Math.max(tw,0.005);
+
+      for(let j=0;j<=RS;j++){
+        const angle=(j/RS)*Math.PI*2;
+        const se=superEllipse(angle,th,tw,2.0,0,0);
+        pos.push(x,se.y,se.z);
+      }
+    }
+  }
+
+  for(let i=0;i<NS;i++){
+    for(let j=0;j<RS;j++){
+      const a=i*(RS+1)+j,b=a+RS+1;
+      idx.push(a,b,a+1,b,b+1,a+1);
+    }
+  }
+
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function U(){
+  const p=GP();
+  const L=p.OL;
+
+  document.getElementById('vOL').textContent=L.toFixed(1)+'"';
+  document.getElementById('vBD').textContent=p.BD.toFixed(2);
+  document.getElementById('vWR').textContent=p.WR.toFixed(2);
+  document.getElementById('vGP').textContent=Math.round(p.GP*100)+'%';
+  document.getElementById('vHL').textContent=Math.round(p.HL*100)+'%';
+  document.getElementById('vSB').textContent=p.SB.toFixed(2);
+  document.getElementById('vHW').textContent=p.HW.toFixed(2);
+  document.getElementById('vDA').textContent=p.DA.toFixed(2);
+  document.getElementById('vBF').textContent=p.BF.toFixed(2);
+  document.getElementById('vBT').textContent=p.BT.toFixed(2);
+  document.getElementById('vCS').textContent=p.CS.toFixed(1);
+  document.getElementById('vSL').textContent=Math.round(p.SL*100)+'%';
+  document.getElementById('vSD').textContent=p.SD.toFixed(2);
+  document.getElementById('vSC').textContent=p.SC.toFixed(2);
+  document.getElementById('vTS').textContent=p.TS.toFixed(2);
+  document.getElementById('vTT').textContent=p.TT.toFixed(2);
+  document.getElementById('vES').textContent=p.ES.toFixed(2);
+  document.getElementById('vHS').textContent=p.HS.toFixed(2);
+  document.getElementById('vWP').textContent=p.WP.toFixed(2);
+
+  [bodyMesh,eyeGrpL,eyeGrpR,hsM,wpM].forEach(m=>{if(m)scene.remove(m)});
+
+  const geo=genBody(p);
+  const mat=new THREE.MeshPhysicalMaterial({
+    color:baitColor,metalness:0.05,roughness:0.42,
+    clearcoat:0.6,clearcoatRoughness:0.2,
+    side:THREE.DoubleSide
+  });
+  bodyMesh=new THREE.Mesh(geo,mat);
+  scene.add(bodyMesh);
+
+  // Eyes
+  const maxD=L*p.BD;
+  const maxW=maxD*p.WR;
+  const eR=p.ES*0.06;
+  const eX=-L/2+L*p.HL*0.6;
+  const eY=maxD*0.15+p.DA*maxD*0.05;
+  const eZ=maxD*0.5*p.WR*p.HW*0.82;
+
+  const eGeo=new THREE.SphereGeometry(eR,14,14);
+  const pGeo=new THREE.SphereGeometry(eR*0.5,10,10);
+  const eM=new THREE.MeshPhysicalMaterial({color:0xeedd44,metalness:0.3,roughness:0.15,clearcoat:0.9});
+  const pM=new THREE.MeshPhysicalMaterial({color:0x111111,roughness:0.3});
+
+  eyeGrpL=new THREE.Group();
+  eyeGrpL.add(new THREE.Mesh(eGeo,eM));
+  const pL=new THREE.Mesh(pGeo,pM);pL.position.z=eR*0.55;eyeGrpL.add(pL);
+  eyeGrpL.position.set(eX,eY,eZ);
+  eyeGrpL.lookAt(eX-0.5,eY-0.05,eZ+1.5);
+  scene.add(eyeGrpL);
+
+  eyeGrpR=new THREE.Group();
+  eyeGrpR.add(new THREE.Mesh(eGeo.clone(),eM));
+  const pR=new THREE.Mesh(pGeo.clone(),pM);pR.position.z=eR*0.55;eyeGrpR.add(pR);
+  eyeGrpR.position.set(eX,eY,-eZ);
+  eyeGrpR.lookAt(eX-0.5,eY-0.05,-eZ-1.5);
+  scene.add(eyeGrpR);
+
+  // Hook slot indicator
+  if(p.HS>0.05){
+    const sg=new THREE.BoxGeometry(L*0.012,maxD*p.HS*0.3,maxW*0.35);
+    const sm=new THREE.MeshBasicMaterial({color:0xc4a04a,transparent:true,opacity:0.3});
+    hsM=new THREE.Mesh(sg,sm);
+    hsM.position.set(L*0.05,-maxD*0.22,0);
+    scene.add(hsM);
+  }
+
+  // Weight pocket indicator
+  if(p.WP>0.05){
+    const wg=new THREE.CylinderGeometry(p.WP*0.08,p.WP*0.08,maxW*0.25,10);
+    const wm=new THREE.MeshBasicMaterial({color:0x5a9a6b,transparent:true,opacity:0.3});
+    wpM=new THREE.Mesh(wg,wm);
+    wpM.rotation.x=Math.PI/2;
+    wpM.position.set(-L*0.06,-maxD*0.28,0);
+    scene.add(wpM);
+  }
+
+  const approxVol=L*maxD*maxW*0.35;
+  const wOz=(approxVol*1.1*0.035274).toFixed(1);
+  document.getElementById('stats').innerHTML=
+    `${L.toFixed(1)}" total length<br>${(maxD).toFixed(2)}" max depth<br>${(maxW).toFixed(2)}" max width<br>~${wOz} oz est.<br>${p.tail} tail`;
+}
+
+function ST(el){document.querySelectorAll('.tb').forEach(e=>e.classList.remove('on'));el.classList.add('on');tailType=el.dataset.t;U()}
+function SC(el){document.querySelectorAll('.cs').forEach(e=>e.classList.remove('on'));el.classList.add('on');baitColor=parseInt(el.dataset.c);U()}
+
+const PRESETS={
+  shad:   {OL:8,  BD:.30,WR:.58,GP:.34,HL:.24,SB:.48,HW:.82,DA:.15,BF:.25,BT:.55,CS:2.15,SL:.14,SD:.22,SC:.55,TS:.80,TT:.15,ES:.55,HS:.40,WP:.25,t:'paddle'},
+  gizzard:{OL:7,  BD:.36,WR:.65,GP:.37,HL:.23,SB:.52,HW:.88,DA:.25,BF:.35,BT:.50,CS:2.2,SL:.13,SD:.20,SC:.50,TS:.80,TT:.14,ES:.58,HS:.40,WP:.30,t:'paddle'},
+  gill:   {OL:6,  BD:.42,WR:.82,GP:.40,HL:.27,SB:.52,HW:.90,DA:.30,BF:.35,BT:.48,CS:2.05,SL:.11,SD:.18,SC:.48,TS:.65,TT:.12,ES:.62,HS:.42,WP:.30,t:'paddle'},
+  trout:  {OL:10, BD:.24,WR:.52,GP:.31,HL:.23,SB:.35,HW:.78,DA:.15,BF:.12,BT:.58,CS:2.1,SL:.16,SD:.26,SC:.55,TS:.55,TT:.12,ES:.42,HS:.35,WP:.22,t:'fork'},
+  herring:{OL:9,  BD:.26,WR:.46,GP:.32,HL:.22,SB:.32,HW:.76,DA:.10,BF:.14,BT:.58,CS:2.05,SL:.15,SD:.24,SC:.50,TS:.55,TT:.10,ES:.42,HS:.35,WP:.20,t:'fork'},
+  perch:  {OL:7,  BD:.28,WR:.52,GP:.34,HL:.26,SB:.42,HW:.80,DA:.20,BF:.18,BT:.55,CS:2.15,SL:.14,SD:.24,SC:.52,TS:.65,TT:.13,ES:.50,HS:.38,WP:.25,t:'split'},
+  hitch:  {OL:8,  BD:.30,WR:.60,GP:.36,HL:.24,SB:.45,HW:.84,DA:.16,BF:.28,BT:.52,CS:2.15,SL:.13,SD:.20,SC:.52,TS:.72,TT:.14,ES:.52,HS:.38,WP:.28,t:'fork'},
+  minnow: {OL:5,  BD:.20,WR:.48,GP:.32,HL:.23,SB:.30,HW:.76,DA:.08,BF:.06,BT:.60,CS:2.0,SL:.16,SD:.28,SC:.58,TS:.50,TT:.10,ES:.48,HS:.30,WP:.15,t:'fork'}
+};
+
+function LP(n){
+  const pr=PRESETS[n];if(!pr)return;
+  const map={OL:'sOL',BD:'sBD',WR:'sWR',GP:'sGP',HL:'sHL',SB:'sSB',HW:'sHW',DA:'sDA',BF:'sBF',BT:'sBT',CS:'sCS',SL:'sSL',SD:'sSD',SC:'sSC',TS:'sTS',TT:'sTT',ES:'sES',HS:'sHS',WP:'sWP'};
+  for(const[k,id]of Object.entries(map)){document.getElementById(id).value=pr[k]}
+  tailType=pr.t;
+  document.querySelectorAll('.tb').forEach(e=>e.classList.toggle('on',e.dataset.t===pr.t));
+  U();
+}
+
+function EX(){
+  if(!bodyMesh)return;
+  const g=bodyMesh.geometry,p=g.attributes.position,x=g.index,n=x?x.count/3:p.count/3;
+  let s='solid swimbait\n';
+  for(let i=0;i<n;i++){
+    const a=x?x.getX(i*3):i*3,b=x?x.getX(i*3+1):i*3+1,c=x?x.getX(i*3+2):i*3+2;
+    const v0=new THREE.Vector3(p.getX(a),p.getY(a),p.getZ(a)),v1=new THREE.Vector3(p.getX(b),p.getY(b),p.getZ(b)),v2=new THREE.Vector3(p.getX(c),p.getY(c),p.getZ(c));
+    const nm=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(v1,v0),new THREE.Vector3().subVectors(v2,v0)).normalize();
+    s+=`facet normal ${nm.x} ${nm.y} ${nm.z}\n outer loop\n  vertex ${v0.x} ${v0.y} ${v0.z}\n  vertex ${v1.x} ${v1.y} ${v1.z}\n  vertex ${v2.x} ${v2.y} ${v2.z}\n endloop\nendfacet\n`;
+  }
+  s+='endsolid swimbait\n';
+  const bl=new Blob([s],{type:'application/octet-stream'}),u=URL.createObjectURL(bl),a=document.createElement('a');
+  a.href=u;a.download='swimbait_master.stl';a.click();URL.revokeObjectURL(u);
+}
+
+init();
+</script>
+</body>
+</html>

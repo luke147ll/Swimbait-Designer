@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swimbait Designer v0.4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div id="app">
+<div class="pnl">
+  <div class="ph"><div class="sub">Spline-based profile engine v0.4</div><h1>Swimbait Designer</h1></div>
+
+  <div class="sec">
+    <div class="st ed-toggle-row" onclick="toggleEditors()">
+      <span><span id="edToggleArrow">▸</span> Profile editors</span>
+      <span class="ed-mode sliders" id="profileMode">SLIDER</span>
+    </div>
+    <div class="editors" id="editors" style="display:none">
+      <div class="ed-label">Side profile (drag points vertically)</div>
+      <div id="sideEditorContainer"></div>
+      <div class="ed-label">Width profile (top-down)</div>
+      <div id="widthEditorContainer"></div>
+      <div class="ed-hint">Dbl-click: add point &middot; Right-click: remove</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Body dimensions</div>
+    <div class="c"><div class="cr"><label>Overall length</label><span class="v" id="vOL"></span></div><input type="range" id="sOL" min="3" max="14" step="0.25" value="8" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Max body depth</label><span class="v" id="vBD"></span></div><input type="range" id="sBD" min="0.15" max="0.55" step="0.005" value="0.32" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Max width ratio</label><span class="v" id="vWR"></span></div><input type="range" id="sWR" min="0.30" max="1.0" step="0.01" value="0.60" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Girth position</label><span class="v" id="vGP"></span></div><input type="range" id="sGP" min="0.25" max="0.50" step="0.005" value="0.34" oninput="onSliderInput()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Head</div>
+    <div class="c"><div class="cr"><label>Head length</label><span class="v" id="vHL"></span></div><input type="range" id="sHL" min="0.15" max="0.35" step="0.005" value="0.24" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Snout bluntness</label><span class="v" id="vSB"></span></div><input type="range" id="sSB" min="0.15" max="0.85" step="0.01" value="0.50" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Head width</label><span class="v" id="vHW"></span></div><input type="range" id="sHW" min="0.5" max="1.1" step="0.01" value="0.85" oninput="onSliderInput()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Profile shape</div>
+    <div class="c"><div class="cr"><label>Dorsal arch</label><span class="v" id="vDA"></span></div><input type="range" id="sDA" min="0.0" max="0.60" step="0.01" value="0.20" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Belly fullness</label><span class="v" id="vBF"></span></div><input type="range" id="sBF" min="0.0" max="0.70" step="0.01" value="0.30" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Body taper</label><span class="v" id="vBT"></span></div><input type="range" id="sBT" min="0.3" max="0.9" step="0.01" value="0.55" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Cross-section shape</label><span class="v" id="vCS"></span></div><input type="range" id="sCS" min="1.8" max="3.2" step="0.05" value="2.2" oninput="onSliderInput()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Caudal peduncle</div>
+    <div class="c"><div class="cr"><label>Stalk length</label><span class="v" id="vSL"></span></div><input type="range" id="sSL" min="0.08" max="0.25" step="0.005" value="0.14" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Stalk depth</label><span class="v" id="vSD"></span></div><input type="range" id="sSD" min="0.12" max="0.40" step="0.01" value="0.22" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Stalk compression</label><span class="v" id="vSC"></span></div><input type="range" id="sSC" min="0.3" max="0.9" step="0.01" value="0.55" oninput="onSliderInput()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Tail</div>
+    <div class="c"><div class="cr"><label>Tail size</label><span class="v" id="vTS"></span></div><input type="range" id="sTS" min="0.3" max="1.4" step="0.01" value="0.80" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Tail thickness</label><span class="v" id="vTT"></span></div><input type="range" id="sTT" min="0.05" max="1.0" step="0.01" value="0.55" oninput="onSliderInput()"></div>
+    <div class="to">
+      <div class="tb on" data-t="paddle" onclick="setTailType(this)">Paddle</div>
+      <div class="tb" data-t="wedge" onclick="setTailType(this)">Wedge</div>
+      <div class="tb" data-t="boot" onclick="setTailType(this)">Boot</div>
+      <div class="tb" data-t="split" onclick="setTailType(this)">Split</div>
+      <div class="tb" data-t="fork" onclick="setTailType(this)">Fork</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Features</div>
+    <div class="c"><div class="cr"><label>Eye size</label><span class="v" id="vES"></span></div><input type="range" id="sES" min="0.2" max="2.0" step="0.01" value="0.55" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Eye bulge</label><span class="v" id="vEB"></span></div><input type="range" id="sEB" min="0.0" max="1.0" step="0.01" value="0.50" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Hook slot</label><span class="v" id="vHS"></span></div><input type="range" id="sHS" min="0" max="0.8" step="0.01" value="0.40" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Weight pocket</label><span class="v" id="vWP"></span></div><input type="range" id="sWP" min="0" max="0.6" step="0.01" value="0.25" oninput="onSliderInput()"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Color</div>
+    <div class="clr">
+      <div class="cs on" style="background:#7a8e9a" data-c="0x7a8e9a" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#5e7e52" data-c="0x5e7e52" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#b8a86a" data-c="0xb8a86a" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#8e5a3a" data-c="0x8e5a3a" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#3a6880" data-c="0x3a6880" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#c2b090" data-c="0xc2b090" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#4a4a48" data-c="0x4a4a48" onclick="setColor(this)"></div>
+      <div class="cs" style="background:#d4d0c8" data-c="0xd4d0c8" onclick="setColor(this)"></div>
+    </div>
+  </div>
+
+  <div class="es">
+    <button class="eb" onclick="exportSTL()">Export master STL</button>
+    <button class="eb" style="background:var(--ac2);margin-top:6px" onclick="dumpProfiles()">Dump profiles to console</button>
+    <div class="esu">Open DevTools (F12) → Console to see output</div>
+  </div>
+</div>
+<div class="vp" id="vp">
+  <div class="vl">Spline-based lofted surface</div>
+  <div class="vs" id="stats"></div>
+  <div class="rh">Drag to orbit / scroll to zoom</div>
+</div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
