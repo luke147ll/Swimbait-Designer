@@ -459,7 +459,6 @@ window.exportSTL = exportSTL;
 window.dumpAll = dumpAll;
 window.snapView = snapView;
 window.switchTab = switchTab;
-window.dumpProfiles = dumpProfiles;
 window.toggleEditors = toggleEditors;
 
 init();
