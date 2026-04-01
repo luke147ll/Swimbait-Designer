@@ -23,6 +23,8 @@
       <div id="sideEditorContainer"></div>
       <div class="ed-label">Width profile (top-down)</div>
       <div id="widthEditorContainer"></div>
+      <div class="ed-label">Cross-section shape (front view)</div>
+      <div id="xsecEditorContainer"></div>
       <div class="ed-label">Tail fin shape (side view)</div>
       <div id="finEditorContainer"></div>
       <div class="ed-hint" id="edHint">Dbl-click: add point &middot; Right-click: remove</div>
@@ -113,6 +115,12 @@
   <div class="mob-editor-wrap" id="widthEditorMob"></div>
 </div>
 
+<!-- Phone: full-screen cross-section editor -->
+<div class="mob-view" id="mobXSec">
+  <div class="mob-header">Cross-Section Shape</div>
+  <div class="mob-editor-wrap" id="xsecEditorMob"></div>
+</div>
+
 <!-- Phone: full-screen fin editor -->
 <div class="mob-view" id="mobFin">
   <div class="mob-header">Tail Fin Shape (Side View)</div>
@@ -136,6 +144,7 @@
   <button class="tab on" data-view="home" onclick="switchTab(this)">3D</button>
   <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
   <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
+  <button class="tab" data-view="mobXSec" onclick="switchTab(this)">XSec</button>
   <button class="tab" data-view="mobFin" onclick="switchTab(this)">Fin</button>
 </nav>
 

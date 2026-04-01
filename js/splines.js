@@ -66,6 +66,8 @@ export function createProfileState() {
     ventralCache: new Float32Array(NS + 1),
     widthCache: new Float32Array(NS + 1),
     nCache: new Float32Array(NS + 1),
+    // Cross-section keyframes: sparse map of ring index → normalized polygon
+    xsecKeyframes: {}, // e.g. { 24: [{y,z}, ...], 48: [{y,z}, ...] }
   };
 }
 

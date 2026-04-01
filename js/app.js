@@ -13,6 +13,7 @@ import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } fro
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createFinState, genFinMesh, FIN_PRESETS } from './fins.js';
 import { createFinEditor } from './fin-editor.js';
+import { createXSecEditor } from './xsec-editor.js';
 
 let scene, cam, ren, bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM;
 let tailType = 'paddle', baitColor = 0x7a8e9a;
@@ -22,7 +23,7 @@ let editorDragging = false;
 // Profile state — source of truth for body shape
 const profileState = createProfileState();
 const finState = createFinState('paddle');
-let sideEditor = null, widthEditor = null, finEditor = null;
+let sideEditor = null, widthEditor = null, finEditor = null, xsecEditor = null;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
@@ -162,6 +163,11 @@ function update() {
 
 function onSliderInput() {
   update();
+}
+
+// Called when cross-section keyframe changes — rebuild body mesh
+function onXSecEdit() {
+  rebuildScene();
 }
 
 // Called when the fin outline editor changes a point — only rebuild the fin mesh
@@ -453,6 +459,8 @@ function init() {
     if (sideContainer) sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
     if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
     if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
+    const xsecContainer = document.getElementById('xsecEditorContainer');
+    if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit);
     initPanelResize();
   }
 
@@ -466,6 +474,8 @@ function init() {
     if (sideMob && !sideMob.querySelector('svg')) sideEditor = createSideEditor(sideMob, profileState, onProfileEdit);
     if (widthMob && !widthMob.querySelector('svg')) widthEditor = createWidthEditor(widthMob, profileState, onProfileEdit);
     if (finMob && !finMob.querySelector('svg')) finEditor = createFinEditor(finMob, finState, onFinEdit);
+    const xsecMob = document.getElementById('xsecEditorMob');
+    if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit);
     mobEditorsCreated = true;
   };
 

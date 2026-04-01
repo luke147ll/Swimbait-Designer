@@ -83,6 +83,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .pe-outline-fill{fill:var(--ac);opacity:.08}
 .pe-outline-stroke{stroke:var(--ac);stroke-width:1.5;fill:none}
 
+/* Cross-section editor */
+.xsec-ref{fill:none;stroke:var(--mu);stroke-width:0.8;stroke-dasharray:3,3;opacity:.4}
+.xsec-shape{fill:none;stroke:var(--ac);stroke-width:1.5}
+.xsec-fill{fill:var(--ac);opacity:.06}
+.xsec-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px}
+.xsec-scrub{flex:1;min-width:100px}
+.xsec-btns{display:flex;gap:4px;align-items:center}
+.xsec-label{font-size:8px;color:var(--mu);min-width:70px}
+.xsec-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.xsec-btn:hover:not(:disabled){border-color:var(--ac);color:var(--tx)}
+.xsec-btn:disabled{opacity:.3;cursor:default}
+
 /* ── Tablet (481px — 1024px) ───────────────────────────────────────── */
 @media(max-width:1024px){
   #app{grid-template-columns:1fr;grid-template-rows:55vh 45vh;grid-template-rows:55dvh 45dvh}
