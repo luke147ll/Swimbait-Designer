@@ -7,9 +7,11 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;overfl
 #app{display:grid;grid-template-columns:var(--pnl-w) 1fr;height:100vh;height:100dvh}
 .pnl{background:var(--sf);border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column;position:relative;min-width:260px;max-width:600px}
 
-/* Drag handle to resize the panel — thin strip on the border */
-.pnl-resize{position:absolute;top:0;right:0;width:4px;height:100%;cursor:col-resize;z-index:20}
+/* Drag handle to resize the panel — sits OUTSIDE the panel on the viewport side */
+.pnl-resize{position:fixed;top:0;width:6px;height:100%;cursor:col-resize;z-index:20;
+  left:var(--pnl-w);margin-left:-1px}
 .pnl-resize:hover{background:var(--ac);opacity:.4}
+.pnl{user-select:none}
 .pnl::-webkit-scrollbar{width:4px}.pnl::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .ph{padding:18px 22px 14px;border-bottom:1px solid var(--bd)}
 .ph h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:21px}
