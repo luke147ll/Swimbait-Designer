@@ -170,8 +170,11 @@ function onXSecEdit() {
   rebuildScene();
 }
 
-// Show a ring on the 3D model at the given station index
+// Show a ring on the 3D model + marker lines on 2D editors at the given station
 function showStationRing(stationIdx) {
+  const t = stationIdx / NS;
+  if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(t);
+  if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(t);
   if (stationRing) scene.remove(stationRing);
   if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
 

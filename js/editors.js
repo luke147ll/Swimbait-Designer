@@ -121,10 +121,12 @@ export function createSideEditor(container, state, onEdit) {
   const dorsalPath = svgEl('path', { class: 'pe-curve pe-dorsal' });
   const ventralPath = svgEl('path', { class: 'pe-curve pe-ventral' });
   const centerLine = svgEl('line', { class: 'pe-center' });
+  const stationLine = svgEl('line', { class: 'pe-station-line' });
   const dotsG = svgEl('g');
   const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
   zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, dorsalPath, ventralPath, dotsG, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, dotsG, zoomLabel);
+  let stationT = -1;
 
   let drag = null, isDragging = false;
   let panState = null;
@@ -180,6 +182,14 @@ export function createSideEditor(container, state, onEdit) {
     addPts(state.ventral, 'ventral');
   }
 
+  function drawStationLine() {
+    if (stationT < 0) { stationLine.setAttribute('visibility', 'hidden'); return; }
+    stationLine.setAttribute('visibility', 'visible');
+    const sx = toX(stationT);
+    stationLine.setAttribute('x1', sx); stationLine.setAttribute('x2', sx);
+    stationLine.setAttribute('y1', MRG); stationLine.setAttribute('y2', VH - MRG);
+  }
+
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
     zoomLabel.textContent = vp.zoom.toFixed(1) + 'x';
@@ -188,6 +198,7 @@ export function createSideEditor(container, state, onEdit) {
     drawGrid();
     drawCurves();
     drawPoints();
+    drawStationLine();
   }
 
   function refresh() {
@@ -374,7 +385,10 @@ export function createSideEditor(container, state, onEdit) {
   });
 
   refresh();
-  return { refresh };
+  return {
+    refresh,
+    setStationMarker(t) { stationT = t; drawStationLine(); }
+  };
 }
 
 // ── Width Profile Editor (top-down, mirrored) ───────────────────────
@@ -408,10 +422,12 @@ export function createWidthEditor(container, state, onEdit) {
   const centerLine = svgEl('line', {
     x1: MRG, y1: VH / 2, x2: VW - MRG, y2: VH / 2, class: 'pe-center'
   });
+  const stationLine = svgEl('line', { class: 'pe-station-line' });
+  let stationT = -1;
   const dotsG = svgEl('g');
   const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
   zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, upperPath, lowerPath, dotsG, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, upperPath, lowerPath, dotsG, zoomLabel);
 
   let drag = null, isDragging = false;
   let panState = null;
@@ -454,6 +470,14 @@ export function createWidthEditor(container, state, onEdit) {
     });
   }
 
+  function drawStationLine() {
+    if (stationT < 0) { stationLine.setAttribute('visibility', 'hidden'); return; }
+    stationLine.setAttribute('visibility', 'visible');
+    const sx = toX(stationT);
+    stationLine.setAttribute('x1', sx); stationLine.setAttribute('x2', sx);
+    stationLine.setAttribute('y1', MRG); stationLine.setAttribute('y2', VH - MRG);
+  }
+
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
     zoomLabel.textContent = vp.zoom.toFixed(1) + 'x';
@@ -462,6 +486,7 @@ export function createWidthEditor(container, state, onEdit) {
     drawGrid();
     drawCurves();
     drawPoints();
+    drawStationLine();
   }
 
   function refresh() {
@@ -626,5 +651,8 @@ export function createWidthEditor(container, state, onEdit) {
   });
 
   refresh();
-  return { refresh };
+  return {
+    refresh,
+    setStationMarker(t) { stationT = t; drawStationLine(); }
+  };
 }

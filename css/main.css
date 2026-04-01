@@ -80,6 +80,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .pe-pt.ventral.active{fill:var(--ac2)}
 .pe-pt.width.active{fill:var(--ac)}
 .pe-zoom{font-family:'DM Mono',monospace;font-size:7px;fill:var(--mu);opacity:.5}
+.pe-station-line{stroke:var(--ac);stroke-width:1.2;stroke-dasharray:4,3;opacity:.7}
 .pe-outline-fill{fill:var(--ac);opacity:.08}
 .pe-outline-stroke{stroke:var(--ac);stroke-width:1.5;fill:none}
 
