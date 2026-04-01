@@ -2,27 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Swimbait Designer v0.4</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 <div id="app">
-<div class="pnl">
+<div class="pnl" id="pnlControls">
   <div class="ph"><div class="sub">Spline-based profile engine v0.4</div><h1>Swimbait Designer</h1></div>
 
   <div class="sec">
     <div class="st ed-toggle-row" onclick="toggleEditors()">
-      <span><span id="edToggleArrow">▸</span> Profile editors</span>
-      <span class="ed-mode sliders" id="profileMode">SLIDER</span>
+      <span><span id="edToggleArrow">▾</span> Profile editors</span>
+      <span class="ed-mode sliders" id="profileMode">BASE</span>
     </div>
-    <div class="editors" id="editors" style="display:none">
+    <div class="editors" id="editors">
       <div class="ed-label">Side profile (drag points vertically)</div>
       <div id="sideEditorContainer"></div>
       <div class="ed-label">Width profile (top-down)</div>
       <div id="widthEditorContainer"></div>
-      <div class="ed-hint">Dbl-click: add point &middot; Right-click: remove</div>
+      <div class="ed-hint" id="edHint">Dbl-click: add point &middot; Right-click: remove</div>
     </div>
   </div>
 
@@ -97,12 +97,33 @@
     <div class="esu">Open DevTools (F12) → Console to see output</div>
   </div>
 </div>
+
+<!-- Phone: full-screen side profile editor (hidden by default) -->
+<div class="mob-view" id="mobSide">
+  <div class="mob-header">Side Profile</div>
+  <div id="sideEditorMob"></div>
+</div>
+
+<!-- Phone: full-screen width profile editor (hidden by default) -->
+<div class="mob-view" id="mobPlan">
+  <div class="mob-header">Width Profile (Top-Down)</div>
+  <div id="widthEditorMob"></div>
+</div>
+
 <div class="vp" id="vp">
   <div class="vl">Spline-based lofted surface</div>
   <div class="vs" id="stats"></div>
-  <div class="rh">Drag to orbit / scroll to zoom</div>
+  <div class="rh" id="rhHint">Drag to orbit / scroll to zoom</div>
 </div>
 </div>
+
+<!-- Phone tab bar -->
+<nav class="tab-bar" id="tabBar">
+  <button class="tab on" data-view="vp" onclick="switchTab(this)">3D</button>
+  <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
+  <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
+  <button class="tab" data-view="pnlControls" onclick="switchTab(this)">Controls</button>
+</nav>
 
 <script type="module" src="js/app.js"></script>
 </body>

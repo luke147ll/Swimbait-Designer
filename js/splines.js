@@ -52,10 +52,13 @@ function computeNProfile(CS, headEnd) {
 /** Create a fresh profileState object with allocated caches. */
 export function createProfileState() {
   return {
-    source: 'sliders',
     dorsal: [],
     ventral: [],
     width: [],
+    // Manual edit deltas — additive offsets on top of slider-generated base
+    dDelta: [],
+    vDelta: [],
+    wDelta: [],
     nProfile: [],
     dorsalCache: new Float32Array(NS + 1),
     ventralCache: new Float32Array(NS + 1),

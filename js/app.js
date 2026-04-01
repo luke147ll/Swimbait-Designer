@@ -52,6 +52,59 @@ function getParams() {
   };
 }
 
+function rebuildScene() {
+  const p = getParams();
+  const L = p.OL;
+
+  [bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
+
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: baitColor, metalness: 0.05, roughness: 0.42,
+    clearcoat: 0.6, clearcoatRoughness: 0.2,
+    side: THREE.DoubleSide
+  });
+
+  const geo = genBody(p, profileState);
+  bodyMesh = new THREE.Mesh(geo, mat);
+  scene.add(bodyMesh);
+
+  const eyes = buildEyes(p, L, profileState);
+  eyeGrpL = eyes.eyeGrpL;
+  eyeGrpR = eyes.eyeGrpR;
+  scene.add(eyeGrpL);
+  scene.add(eyeGrpR);
+
+  hsM = buildHookSlot(p, L);
+  if (hsM) scene.add(hsM);
+  wpM = buildWeightPocket(p, L);
+  if (wpM) scene.add(wpM);
+
+  const tailStartIdx = Math.round(0.94 * 96);
+  let maxD = 0, maxW = 0;
+  for (let i = 0; i <= tailStartIdx; i++) {
+    const d = (profileState.dorsalCache[i] - profileState.ventralCache[i]) * L;
+    const w = profileState.widthCache[i] * L * 2;
+    if (d > maxD) maxD = d;
+    if (w > maxW) maxW = w;
+  }
+  const approxVol = L * maxD * maxW * 0.35;
+  const wOz = (approxVol * 1.1 * 0.035274).toFixed(1);
+  document.getElementById('stats').innerHTML =
+    `${L.toFixed(1)}" total length<br>${maxD.toFixed(2)}" max depth<br>${maxW.toFixed(2)}" max width<br>~${wOz} oz est.<br>${p.tail} tail`;
+
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
+
+  const badge = document.getElementById('profileMode');
+  if (badge) {
+    const hasDeltas = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
+                      profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
+                      profileState.wDelta.some(d => Math.abs(d) > 0.0001);
+    badge.textContent = hasDeltas ? 'EDITED' : 'BASE';
+    badge.className = 'ed-mode ' + (hasDeltas ? 'manual' : 'sliders');
+  }
+}
+
 function update() {
   const p = getParams();
   const L = p.OL;
@@ -77,68 +130,28 @@ function update() {
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
   document.getElementById('vHS').textContent = p.HS.toFixed(2);
   document.getElementById('vWP').textContent = p.WP.toFixed(2);
-  // Regenerate profiles from sliders when in slider mode
-  if (profileState.source === 'sliders') {
-    const profs = buildProfilesFromSliders(p);
-    profileState.dorsal = profs.dorsal;
-    profileState.ventral = profs.ventral;
-    profileState.width = profs.width;
-  }
+  // Always regenerate base profiles from sliders, then apply manual deltas
+  const base = buildProfilesFromSliders(p);
 
-  // Always rebuild caches (uses current profiles + CS/HL for n-exponent)
+  // Ensure delta arrays match base length (pad with zeros if needed)
+  while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
+  while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
+  while (profileState.wDelta.length < base.width.length) profileState.wDelta.push(0);
+
+  // Final profiles = base + manual deltas
+  profileState.dorsal = base.dorsal.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.dDelta[i]
+  }));
+  profileState.ventral = base.ventral.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.vDelta[i]
+  }));
+  profileState.width = base.width.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.wDelta[i]
+  }));
+
+  lastBase = base; // cache for onProfileEdit to avoid recomputing
   rebuildProfileCache(profileState, p.CS, p.HL);
-
-  // Remove old meshes
-  [bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
-
-  const mat = new THREE.MeshPhysicalMaterial({
-    color: baitColor, metalness: 0.05, roughness: 0.42,
-    clearcoat: 0.6, clearcoatRoughness: 0.2,
-    side: THREE.DoubleSide
-  });
-
-  // Single unified geometry: body + face cap + tail cap
-  const geo = genBody(p, profileState);
-  bodyMesh = new THREE.Mesh(geo, mat);
-  scene.add(bodyMesh);
-
-  // Eyes
-  const eyes = buildEyes(p, L, profileState);
-  eyeGrpL = eyes.eyeGrpL;
-  eyeGrpR = eyes.eyeGrpR;
-  scene.add(eyeGrpL);
-  scene.add(eyeGrpR);
-
-  // Hook slot & weight pocket
-  hsM = buildHookSlot(p, L);
-  if (hsM) scene.add(hsM);
-  wpM = buildWeightPocket(p, L);
-  if (wpM) scene.add(wpM);
-
-  // Stats — derive from profile caches
-  const tailStartIdx = Math.round(0.94 * 96);
-  let maxD = 0, maxW = 0;
-  for (let i = 0; i <= tailStartIdx; i++) {
-    const d = (profileState.dorsalCache[i] - profileState.ventralCache[i]) * L;
-    const w = profileState.widthCache[i] * L * 2;
-    if (d > maxD) maxD = d;
-    if (w > maxW) maxW = w;
-  }
-  const approxVol = L * maxD * maxW * 0.35;
-  const wOz = (approxVol * 1.1 * 0.035274).toFixed(1);
-  document.getElementById('stats').innerHTML =
-    `${L.toFixed(1)}" total length<br>${maxD.toFixed(2)}" max depth<br>${maxW.toFixed(2)}" max width<br>~${wOz} oz est.<br>${p.tail} tail`;
-
-  // Refresh editors
-  if (sideEditor) sideEditor.refresh();
-  if (widthEditor) widthEditor.refresh();
-
-  // Mode badge
-  const badge = document.getElementById('profileMode');
-  if (badge) {
-    badge.textContent = profileState.source === 'sliders' ? 'SLIDER' : 'MANUAL';
-    badge.className = 'ed-mode ' + profileState.source;
-  }
+  rebuildScene();
 }
 
 // Called by ALL sliders — never resets profiles from slider movement.
@@ -148,10 +161,23 @@ function onSliderInput() {
   update();
 }
 
-// Called by editor drag — forces manual mode
+// Called by editor drag — snapshot deltas, then do a lightweight update
+// (skips regenerating base since we just need to rebuild caches + mesh)
+let lastBase = null;
 function onProfileEdit() {
-  profileState.source = 'manual';
-  update();
+  if (!lastBase) lastBase = buildProfilesFromSliders(getParams());
+  for (let i = 0; i < profileState.dorsal.length && i < lastBase.dorsal.length; i++) {
+    profileState.dDelta[i] = profileState.dorsal[i].v - lastBase.dorsal[i].v;
+  }
+  for (let i = 0; i < profileState.ventral.length && i < lastBase.ventral.length; i++) {
+    profileState.vDelta[i] = profileState.ventral[i].v - lastBase.ventral[i].v;
+  }
+  for (let i = 0; i < profileState.width.length && i < lastBase.width.length; i++) {
+    profileState.wDelta[i] = profileState.width[i].v - lastBase.width[i].v;
+  }
+  // Lightweight: skip base regeneration, just rebuild caches + mesh
+  rebuildProfileCache(profileState, +document.getElementById('sCS').value, +document.getElementById('sHL').value);
+  rebuildScene();
 }
 
 function setTailType(el) {
@@ -173,7 +199,10 @@ function loadPreset(name) {
   if (newTail === null) return;
   tailType = newTail;
   document.querySelectorAll('.tb').forEach(e => e.classList.toggle('on', e.dataset.t === newTail));
-  profileState.source = 'sliders';
+  // Reset manual deltas — preset gives a clean baseline
+  profileState.dDelta = [];
+  profileState.vDelta = [];
+  profileState.wDelta = [];
   update();
 }
 
@@ -206,6 +235,33 @@ const width = ${fmt(profileState.width)};
   }
 }
 
+function switchTab(btn) {
+  const viewId = btn.dataset.view;
+  // Hide all views
+  document.querySelectorAll('.pnl, .vp, .mob-view').forEach(el => el.style.display = 'none');
+  // Show selected view
+  const target = document.getElementById(viewId);
+  if (target) {
+    target.style.display = target.classList.contains('vp') ? 'block' : 'flex';
+    if (target.classList.contains('mob-view')) target.style.display = 'block';
+    if (target.classList.contains('pnl')) target.style.display = 'flex';
+  }
+  // Update tab active state
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  // Resize 3D viewport if switching to it
+  if (viewId === 'vp') {
+    setTimeout(() => {
+      const vp = document.getElementById('vp');
+      if (vp && vp.clientWidth > 0) {
+        cam.aspect = vp.clientWidth / vp.clientHeight;
+        cam.updateProjectionMatrix();
+        ren.setSize(vp.clientWidth, vp.clientHeight);
+      }
+    }, 50);
+  }
+}
+
 function toggleEditors() {
   const el = document.getElementById('editors');
   const arrow = document.getElementById('edToggleArrow');
@@ -233,11 +289,16 @@ function init() {
 
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
 
-  // Orbit controls
-  vp.addEventListener('pointerdown', e => { drag = true; px = e.clientX; py = e.clientY; });
-  window.addEventListener('pointerup', () => drag = false);
+  // ── Orbit controls: mouse ──
+  vp.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') return; // handled by touch events
+    drag = true; px = e.clientX; py = e.clientY;
+  });
+  window.addEventListener('pointerup', e => {
+    if (e.pointerType !== 'touch') drag = false;
+  });
   window.addEventListener('pointermove', e => {
-    if (!drag || editorDragging) return;
+    if (!drag || editorDragging || e.pointerType === 'touch') return;
     ot -= (e.clientX - px) * .005;
     op = Math.max(.1, Math.min(3.0, op - (e.clientY - py) * .005));
     px = e.clientX; py = e.clientY;
@@ -249,7 +310,54 @@ function init() {
     updateCamera();
   }, { passive: false });
 
-  // Initialize profile editors
+  // ── Orbit controls: touch ──
+  let touchStartDist = 0;
+  let touchStartOd = od;
+
+  vp.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      drag = true;
+      px = e.touches[0].clientX;
+      py = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      drag = false;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      touchStartDist = Math.sqrt(dx * dx + dy * dy);
+      touchStartOd = od;
+    }
+  }, { passive: false });
+
+  vp.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && drag) {
+      const cx = e.touches[0].clientX, cy2 = e.touches[0].clientY;
+      ot -= (cx - px) * .005;
+      op = Math.max(.1, Math.min(3.0, op - (cy2 - py) * .005));
+      px = cx; py = cy2;
+      updateCamera();
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (touchStartDist > 0) {
+        od = Math.max(3, Math.min(22, touchStartOd * (touchStartDist / dist)));
+        updateCamera();
+      }
+    }
+  }, { passive: false });
+
+  vp.addEventListener('touchend', () => { drag = false; });
+
+  // ── Touch hints ──
+  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const hint = document.getElementById('rhHint');
+  if (hint && isTouch) hint.textContent = 'Drag to orbit / pinch to zoom';
+  const edHint = document.getElementById('edHint');
+  if (edHint && isTouch) edHint.textContent = 'Tap point to drag / pinch to zoom';
+
+  // ── Initialize profile editors ──
   const sideContainer = document.getElementById('sideEditorContainer');
   const widthContainer = document.getElementById('widthEditorContainer');
   if (sideContainer) {
@@ -259,16 +367,29 @@ function init() {
     widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
   }
 
+  // Phone: also create editors in mobile full-screen containers
+  const sideMob = document.getElementById('sideEditorMob');
+  const widthMob = document.getElementById('widthEditorMob');
+  if (sideMob && window.innerWidth <= 480) {
+    createSideEditor(sideMob, profileState, onProfileEdit);
+  }
+  if (widthMob && window.innerWidth <= 480) {
+    createWidthEditor(widthMob, profileState, onProfileEdit);
+  }
+
   updateCamera();
   update();
 
   (function animate() { requestAnimationFrame(animate); ren.render(scene, cam); })();
 
-  window.addEventListener('resize', () => {
-    cam.aspect = vp.clientWidth / vp.clientHeight;
-    cam.updateProjectionMatrix();
-    ren.setSize(vp.clientWidth, vp.clientHeight);
-  });
+  function onResize() {
+    if (vp.clientWidth > 0 && vp.clientHeight > 0) {
+      cam.aspect = vp.clientWidth / vp.clientHeight;
+      cam.updateProjectionMatrix();
+      ren.setSize(vp.clientWidth, vp.clientHeight);
+    }
+  }
+  window.addEventListener('resize', onResize);
 }
 
 // Expose to inline HTML handlers
@@ -278,6 +399,7 @@ window.loadPreset = loadPreset;
 window.setTailType = setTailType;
 window.setColor = setColor;
 window.exportSTL = exportSTL;
+window.switchTab = switchTab;
 window.dumpProfiles = dumpProfiles;
 window.toggleEditors = toggleEditors;
 
