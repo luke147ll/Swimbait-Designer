@@ -182,12 +182,42 @@ export function createSideEditor(container, state, onEdit) {
     addPts(state.ventral, 'ventral');
   }
 
+  // Station line + xsec indicators on the side profile
+  const stationDotsG = svgEl('g');
+  svg.appendChild(stationDotsG);
+
   function drawStationLine() {
+    stationDotsG.innerHTML = '';
     if (stationT < 0) { stationLine.setAttribute('visibility', 'hidden'); return; }
     stationLine.setAttribute('visibility', 'visible');
     const sx = toX(stationT);
     stationLine.setAttribute('x1', sx); stationLine.setAttribute('x2', sx);
     stationLine.setAttribute('y1', MRG); stationLine.setAttribute('y2', VH - MRG);
+
+    // Show xsec keyframe indicators: top/bottom ticks on the station line
+    const stationIdx = Math.round(stationT * 96);
+    const kf = state.xsecKeyframes && state.xsecKeyframes[stationIdx];
+    if (kf && kf.length > 0) {
+      // Find actual top/bottom of the keyframe polygon
+      const dY = sampleProfile(state.dorsal, stationT);
+      const vY = sampleProfile(state.ventral, stationT);
+      const cy = (dY + vY) / 2;
+      const dH = dY - cy, vH = cy - vY;
+      let topY = -Infinity, botY = Infinity;
+      for (const p of kf) {
+        const y = p.y >= 0 ? p.y * dH + cy : p.y * vH + cy;
+        topY = Math.max(topY, y);
+        botY = Math.min(botY, y);
+      }
+      // Draw diamond markers at top and bottom
+      const r = 3 * (vp.vw / vp.VW);
+      for (const yVal of [topY, botY]) {
+        const sy = toY(yVal);
+        stationDotsG.appendChild(svgEl('circle', {
+          cx: sx, cy: sy, r, class: 'pe-station-dot'
+        }));
+      }
+    }
   }
 
   function redraw() {
@@ -387,7 +417,7 @@ export function createSideEditor(container, state, onEdit) {
   refresh();
   return {
     refresh,
-    setStationMarker(t) { stationT = t; drawStationLine(); }
+    setStationMarker(t) { stationT = t; redraw(); }
   };
 }
 
@@ -470,12 +500,28 @@ export function createWidthEditor(container, state, onEdit) {
     });
   }
 
+  const stationDotsG = svgEl('g');
+  svg.appendChild(stationDotsG);
+
   function drawStationLine() {
+    stationDotsG.innerHTML = '';
     if (stationT < 0) { stationLine.setAttribute('visibility', 'hidden'); return; }
     stationLine.setAttribute('visibility', 'visible');
     const sx = toX(stationT);
     stationLine.setAttribute('x1', sx); stationLine.setAttribute('x2', sx);
     stationLine.setAttribute('y1', MRG); stationLine.setAttribute('y2', VH - MRG);
+
+    // Show xsec keyframe width indicator
+    const stationIdx = Math.round(stationT * 96);
+    const kf = state.xsecKeyframes && state.xsecKeyframes[stationIdx];
+    if (kf && kf.length > 0) {
+      const hW = sampleProfile(state.width, stationT);
+      let maxZ = 0;
+      for (const p of kf) maxZ = Math.max(maxZ, Math.abs(p.z) * hW);
+      const r = 3 * (vp.vw / vp.VW);
+      stationDotsG.appendChild(svgEl('circle', { cx: sx, cy: toYUp(maxZ), r, class: 'pe-station-dot' }));
+      stationDotsG.appendChild(svgEl('circle', { cx: sx, cy: toYDn(maxZ), r, class: 'pe-station-dot' }));
+    }
   }
 
   function redraw() {
@@ -653,6 +699,6 @@ export function createWidthEditor(container, state, onEdit) {
   refresh();
   return {
     refresh,
-    setStationMarker(t) { stationT = t; drawStationLine(); }
+    setStationMarker(t) { stationT = t; redraw(); }
   };
 }
