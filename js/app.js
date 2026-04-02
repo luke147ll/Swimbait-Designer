@@ -338,9 +338,9 @@ function initPanelResize() {
 }
 
 function snapView(view) {
-  if (view === 'side')  { ot = 0; op = Math.PI / 2; }       // looking from +Z, level
-  if (view === 'top')   { ot = 0; op = 0.01; }               // looking straight down
-  if (view === 'front') { ot = -Math.PI / 2; op = Math.PI / 2; } // looking from -X (head-on)
+  if (view === 'side')  { ot = Math.PI / 2; op = Math.PI / 2; }   // from +Z, level side profile
+  if (view === 'top')   { ot = 0; op = 0.01; }                     // straight down
+  if (view === 'front') { ot = Math.PI; op = Math.PI / 2; }        // from -X, head-on face
   updateCamera();
 }
 
