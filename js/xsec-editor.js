@@ -56,7 +56,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   };
 
   // ── SVG setup ──
-  const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'none' });
+  const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
 
