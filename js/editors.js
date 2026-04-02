@@ -260,11 +260,11 @@ export function createSideEditor(container, state, onEdit) {
     drag = hit;
     isDragging = true;
     if (e && e.pointerId != null) {
-      try { svg.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return true;
   }
 
+  // Convert client coords to SVG coords using getScreenCTM (handles all transforms)
   function clientToSvg(cx, cy) {
     const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
     const ctm = svg.getScreenCTM();
@@ -298,7 +298,6 @@ export function createSideEditor(container, state, onEdit) {
     if (e.pointerType === 'touch') return; // handled by touch events
     if (e.altKey || e.button === 1) {
       panState = { lastX: e.clientX, lastY: e.clientY };
-      try { svg.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault(); e.stopPropagation();
       return;
     }
@@ -564,11 +563,11 @@ export function createWidthEditor(container, state, onEdit) {
     drag = hit;
     isDragging = true;
     if (e && e.pointerId != null) {
-      try { svg.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return true;
   }
 
+  // Convert client coords to SVG coords using getScreenCTM (handles all transforms)
   function clientToSvg(cx, cy) {
     const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
     const ctm = svg.getScreenCTM();
@@ -602,7 +601,6 @@ export function createWidthEditor(container, state, onEdit) {
     if (e.pointerType === 'touch') return;
     if (e.altKey || e.button === 1) {
       panState = { lastX: e.clientX, lastY: e.clientY };
-      try { svg.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault(); e.stopPropagation(); return;
     }
     if (startDrag(e.clientX, e.clientY, e, e.target)) { e.preventDefault(); e.stopPropagation(); }
