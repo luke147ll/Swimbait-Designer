@@ -275,17 +275,19 @@ export function createSideEditor(container, state, onEdit) {
     return true;
   }
 
-  function moveDrag(clientX, clientY) {
+  function moveDrag(clientX, clientY, shiftKey) {
     if (!drag) return;
-    if (drag.profile[drag.idx].locked) return; // locked points don't move at all
+    if (drag.profile[drag.idx].locked) return;
     const rect = svg.getBoundingClientRect();
     const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
     drag.profile[drag.idx].v = range.mx - (vb.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
-    // Also move T — clamp between neighbors to keep order
-    const newT = (vb.x - MRG) / (VW - MRG * 2);
-    const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
-    const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
-    drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    // Only move T when holding Shift — default is vertical-only
+    if (shiftKey) {
+      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
+      const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
+      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    }
     drawCurves();
     drawPoints();
     onEdit();
@@ -316,7 +318,7 @@ export function createSideEditor(container, state, onEdit) {
       panState.lastX = e.clientX; panState.lastY = e.clientY;
       redraw(); e.stopPropagation(); return;
     }
-    if (drag) { moveDrag(e.clientX, e.clientY); e.stopPropagation(); }
+    if (drag) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointerup', e => {
@@ -346,7 +348,7 @@ export function createSideEditor(container, state, onEdit) {
   svg.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && drag) {
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -583,16 +585,19 @@ export function createWidthEditor(container, state, onEdit) {
     return true;
   }
 
-  function moveDrag(clientX, clientY) {
+  function moveDrag(clientX, clientY, shiftKey) {
     if (!drag) return;
-    if (state.width[drag.idx].locked) return; // locked points don't move
+    if (state.width[drag.idx].locked) return;
     const rect = svg.getBoundingClientRect();
     const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
     state.width[drag.idx].v = Math.max(0, (VH / 2 - vb.y) / ((VH - MRG * 2) / 2) * wr);
-    const newT = (vb.x - MRG) / (VW - MRG * 2);
-    const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
-    const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
-    state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    // Only move T when holding Shift
+    if (shiftKey) {
+      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
+      const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
+      state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    }
     drawCurves();
     drawPoints();
     onEdit();
@@ -622,7 +627,7 @@ export function createWidthEditor(container, state, onEdit) {
       panState.lastX = e.clientX; panState.lastY = e.clientY;
       redraw(); e.stopPropagation(); return;
     }
-    if (drag) { moveDrag(e.clientX, e.clientY); e.stopPropagation(); }
+    if (drag) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointerup', e => {
@@ -652,7 +657,7 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && drag) {
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
