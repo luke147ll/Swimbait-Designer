@@ -269,12 +269,14 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     return true;
   }
 
-  const BRUSH_RADIUS = 6; // how many neighbors on each side get smoothly affected
+  const BRUSH_RADIUS = 6;
+  let useBrush = false; // Shift key enables soft brush mode
 
-  function moveDrag(cx, cy) {
+  function moveDrag(cx, cy, shiftKey) {
     if (drag === null) return;
     const shape = getShape();
     if (!shape) return;
+    useBrush = !!shiftKey;
     const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
     const sx = (cx - rect.left) / rect.width * VW;
@@ -285,34 +287,41 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const hRef = worldY >= 0 ? dims.dH : dims.vH;
     const newY = hRef > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / hRef)) : 0;
 
-    // Lock top center (vertex 0) and bottom center (vertex RS/2) to vertical only
     const isTopCenter = drag === 0;
     const isBotCenter = drag === Math.round(RS / 2);
     const dz = (isTopCenter || isBotCenter) ? 0 : newZ - shape[drag].z;
     const dy = newY - shape[drag].y;
 
-    // Apply delta with soft falloff to neighbors (wrapping around the loop)
-    // Also mirror: vertex j's mirror is vertex (N-1 - j) since the polygon
-    // goes 0→2PI and the mirror across Z=0 is at the opposite angular position.
-    const N = shape.length - 1; // last vertex == first (closed loop), so N = RS
-    function applyBrush(centerIdx, deltaY, deltaZ) {
-      for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
-        const idx = ((centerIdx + offset) % N + N) % N;
-        if (shape[idx].locked) continue; // skip locked points
-        const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
-        const w = 1 - t * t;
-        shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + deltaY * w));
-        shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + deltaZ * w));
+    const N = shape.length - 1;
+
+    if (useBrush) {
+      // Shift held: soft brush affects neighbors
+      function applyBrush(centerIdx, deltaY, deltaZ) {
+        for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
+          const idx = ((centerIdx + offset) % N + N) % N;
+          if (shape[idx].locked) continue;
+          const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
+          const w = 1 - t * t;
+          shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + deltaY * w));
+          shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + deltaZ * w));
+        }
+        shape[N] = { ...shape[0] };
+      }
+      applyBrush(drag, dy, dz);
+      const mirrorIdx = (N - drag) % N;
+      if (mirrorIdx !== drag) applyBrush(mirrorIdx, dy, -dz);
+    } else {
+      // Default: move only the dragged point + its mirror
+      if (!shape[drag].locked) {
+        shape[drag].y = newY;
+        shape[drag].z = (isTopCenter || isBotCenter) ? shape[drag].z : newZ;
+      }
+      const mirrorIdx = (N - drag) % N;
+      if (mirrorIdx !== drag && !shape[mirrorIdx].locked) {
+        shape[mirrorIdx].y = newY;
+        shape[mirrorIdx].z = (isTopCenter || isBotCenter) ? shape[mirrorIdx].z : -newZ;
       }
       shape[N] = { ...shape[0] };
-    }
-
-    // Primary side
-    applyBrush(drag, dy, dz);
-    // Mirror side: same Y delta, negated Z delta
-    const mirrorIdx = (N - drag) % N;
-    if (mirrorIdx !== drag) {
-      applyBrush(mirrorIdx, dy, -dz);
     }
 
     draw(); drawPoints(); onEdit();
@@ -326,7 +335,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     if (startDrag(e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); }
   });
   svg.addEventListener('pointermove', e => {
-    if (e.pointerType !== 'touch' && drag !== null) { moveDrag(e.clientX, e.clientY); e.stopPropagation(); }
+    if (e.pointerType !== 'touch' && drag !== null) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
   });
   svg.addEventListener('pointerup', e => { if (e.pointerType !== 'touch') endDrag(); });
 
@@ -337,7 +346,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }, { passive: false });
   svg.addEventListener('touchmove', e => {
     e.preventDefault();
-    if (e.touches.length === 1 && drag !== null) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    if (e.touches.length === 1 && drag !== null) moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
   }, { passive: false });
   svg.addEventListener('touchend', () => endDrag());
 
