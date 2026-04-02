@@ -103,7 +103,6 @@ export function genBody(p, profiles) {
   const forkDepth = p.FD || 0;      // 0 to 1
   const forkAsym = p.FA || 0;       // -1 to 1
   const TAIL_ZONE = 0.85;           // where fork X-offset begins
-  const TAPER_START = 0.95;         // where width tapers to knife-edge
 
   // ═══════════════════════════════════════════════════════════
   // RIGHT HALF-SHELL: vertices at angles 0 to PI (Z >= 0)
@@ -125,11 +124,6 @@ export function genBody(p, profiles) {
       const ventralY = profiles.ventralCache[i] * L;
       let halfW = Math.max(profiles.widthCache[i] * L, 0.004);
 
-      // Trailing edge width taper
-      if (t > TAPER_START) {
-        const taperT = (t - TAPER_START) / (1.0 - TAPER_START);
-        halfW = halfW * Math.pow(1 - taperT, 2) + 0.001 * (1 - Math.pow(1 - taperT, 2));
-      }
 
       const n = profiles.nCache[i];
       const cy = (dorsalY + ventralY) / 2;
