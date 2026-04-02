@@ -29,21 +29,25 @@ export function sampleProfile(pts, t) {
 }
 
 /**
- * Sample a closed loop of {y, z} points at parametric t (0-1 wraps around).
+ * Sample a closed loop of points at parametric t (0-1 wraps around).
+ * Works with any point format — interpolates all numeric properties.
  */
 export function sampleClosedLoop(pts, t) {
   const N = pts.length;
-  if (N < 3) return pts[0] || { y: 0, z: 0 };
-  t = ((t % 1) + 1) % 1; // wrap to [0,1)
+  if (N < 3) return pts[0] ? { ...pts[0] } : {};
+  t = ((t % 1) + 1) % 1;
   const raw = t * N;
   const seg = Math.floor(raw) % N;
   const lt = raw - Math.floor(raw);
   const i0 = (seg - 1 + N) % N, i1 = seg;
   const i2 = (seg + 1) % N, i3 = (seg + 2) % N;
-  return {
-    y: catmullRom(pts[i0].y, pts[i1].y, pts[i2].y, pts[i3].y, lt),
-    z: catmullRom(pts[i0].z, pts[i1].z, pts[i2].z, pts[i3].z, lt),
-  };
+  const result = {};
+  for (const key of Object.keys(pts[0])) {
+    if (typeof pts[0][key] === 'number') {
+      result[key] = catmullRom(pts[i0][key], pts[i1][key], pts[i2][key], pts[i3][key], lt);
+    }
+  }
+  return result;
 }
 
 /** Compute n-exponent profile from CS slider and head length. */
