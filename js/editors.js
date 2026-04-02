@@ -464,18 +464,10 @@ export function createSideEditor(container, state, onEdit) {
     redraw();
   }, { passive: false });
 
-  // ── Double-click: add point or reset view ──
+  // ── Double-click: always add a point ──
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
     const m = localXY(e);
-    
-    // If zoomed, reset view
-    if (Math.abs(vp.zoom - 1) > 0.05) {
-      vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
-      redraw();
-      return;
-    }
-    // Add a new point
     const data = screenToData(m.x, m.y);
     const t = Math.max(0.005, Math.min(0.995, data.t));
     const dV = sampleProfile(state.dorsal, t);
@@ -807,12 +799,6 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
     const m = localXY(e);
-    
-    if (Math.abs(vp.zoom - 1) > 0.05) {
-      vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
-      redraw();
-      return;
-    }
     const data = screenToData(m.x, m.y);
     const t = Math.max(0.005, Math.min(0.995, data.t));
     insertProfilePoint(state.width, t);
