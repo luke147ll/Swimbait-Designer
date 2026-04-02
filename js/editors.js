@@ -201,7 +201,7 @@ export function createSideEditor(container, state, onEdit) {
       profile.forEach((p, i) => {
         const scr = dataToScreen(p.t, p.v);
         const dot = document.createElement('div');
-        dot.className = `pe-html-dot ${cls}${p.locked ? ' locked' : ''}`;
+        dot.className = `pe-html-dot ${cls}`;
         dot.style.cssText = `position:absolute;left:${scr.x - DOT_PX/2}px;top:${scr.y - DOT_PX/2}px;width:${DOT_PX}px;height:${DOT_PX}px;pointer-events:none`;
         dotOverlay.appendChild(dot);
       });
@@ -332,7 +332,6 @@ export function createSideEditor(container, state, onEdit) {
     const hit = findNearestPt(mouseX, mouseY);
     if (!hit) return false;
     if (hit.cls === 'eye') { drag = hit; isDragging = true; return true; }
-    if (hit.profile[hit.idx].locked) return false;
     drag = hit;
     isDragging = true;
     return true;
@@ -354,7 +353,6 @@ export function createSideEditor(container, state, onEdit) {
       onEdit();
       return;
     }
-    if (drag.profile[drag.idx].locked) return;
     const data = screenToData(mouseX, mouseY);
     drag.profile[drag.idx].v = data.v;
     if (shiftKey) {
@@ -466,17 +464,11 @@ export function createSideEditor(container, state, onEdit) {
     redraw();
   }, { passive: false });
 
-  // ── Double-click: toggle lock on point, add point, or reset view ──
+  // ── Double-click: add point or reset view ──
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
     const m = localXY(e);
-    // Check if double-clicking on an existing point — toggle lock
-    const hit = findNearestPt(m.x, m.y);
-    if (hit) {
-      hit.profile[hit.idx].locked = !hit.profile[hit.idx].locked;
-      drawPoints();
-      return;
-    }
+    
     // If zoomed, reset view
     if (Math.abs(vp.zoom - 1) > 0.05) {
       vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
@@ -500,7 +492,7 @@ export function createSideEditor(container, state, onEdit) {
     e.preventDefault();
     e.stopPropagation();
     const tgt = e.target;
-    if (!tgt.classList.contains('pe-pt') || tgt.classList.contains('locked')) return;
+    if (!tgt.classList.contains('pe-pt') ) return;
     const cls = tgt.dataset.cls;
     const idx = +tgt.dataset.idx;
     const profile = cls === 'dorsal' ? state.dorsal : state.ventral;
@@ -616,7 +608,7 @@ export function createWidthEditor(container, state, onEdit) {
     state.width.forEach((p, i) => {
       const scr = dataToScreen(p.t, p.v);
       const dot = document.createElement('div');
-      dot.className = `pe-html-dot width${p.locked ? ' locked' : ''}`;
+      dot.className = `pe-html-dot width`;
       dot.style.cssText = `position:absolute;left:${scr.x - DOT_PX/2}px;top:${scr.y - DOT_PX/2}px;width:${DOT_PX}px;height:${DOT_PX}px;pointer-events:none`;
       dotOverlay.appendChild(dot);
     });
@@ -703,8 +695,7 @@ export function createWidthEditor(container, state, onEdit) {
   }
 
   function startDrag(mouseX, mouseY) {
-    const hit = findNearestPt(mouseX, mouseY);
-    if (!hit || state.width[hit.idx].locked) return false;
+    const hit = findNearestPt(mouseX, mouseY);    if (!hit) return false;
     drag = hit;
     isDragging = true;
     return true;
@@ -712,7 +703,6 @@ export function createWidthEditor(container, state, onEdit) {
 
   function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
-    if (state.width[drag.idx].locked) return;
     const data = screenToData(mouseX, mouseY);
     state.width[drag.idx].v = data.v;
     if (shiftKey) {
@@ -817,13 +807,7 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
     const m = localXY(e);
-    // Check if double-clicking on a point — toggle lock
-    const hit = findNearestPt(m.x, m.y);
-    if (hit) {
-      state.width[hit.idx].locked = !state.width[hit.idx].locked;
-      drawPoints();
-      return;
-    }
+    
     if (Math.abs(vp.zoom - 1) > 0.05) {
       vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
       redraw();
@@ -840,7 +824,7 @@ export function createWidthEditor(container, state, onEdit) {
     e.preventDefault();
     e.stopPropagation();
     const tgt = e.target;
-    if (!tgt.classList.contains('pe-pt') || tgt.classList.contains('locked')) return;
+    if (!tgt.classList.contains('pe-pt') ) return;
     if (removeProfilePoint(state.width, +tgt.dataset.idx)) { refresh(); onEdit(); }
   });
 

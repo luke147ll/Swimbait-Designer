@@ -84,8 +84,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     <input type="range" min="1" max="96" value="${station}" step="1" class="xsec-scrub">
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel"></span>
-      <button class="xsec-btn" id="xsecLockAll">Lock All</button>
-      <button class="xsec-btn" id="xsecReset">Reset</button>
+            <button class="xsec-btn" id="xsecReset">Reset</button>
     </div>
   `;
 
@@ -97,17 +96,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const scrubEl = bar.querySelector('.xsec-scrub');
   const labelEl = bar.querySelector('#xsecLabel');
   const resetBtn = bar.querySelector('#xsecReset');
-  const lockAllBtn = bar.querySelector('#xsecLockAll');
-
-  lockAllBtn.addEventListener('click', () => {
-    const shape = getShape();
-    if (!shape) return;
-    // If any unlocked, lock all. If all locked, unlock all.
-    const allLocked = shape.every(p => p.locked);
-    for (const p of shape) p.locked = !allLocked;
-    lockAllBtn.textContent = allLocked ? 'Lock All' : 'Unlock All';
-    drawPoints();
-  });
 
   // Get sorted snap positions from profile control points
   function getSnapPositions() {
@@ -224,10 +212,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
     labelEl.textContent = name + (isEditing ? ' *' : '');
     resetBtn.disabled = !isEditing;
-    if (shape) {
-      const allLocked = shape.every(p => p.locked);
-      lockAllBtn.textContent = allLocked ? 'Unlock All' : 'Lock All';
-    }
   }
 
   // Screen-space helpers
@@ -317,7 +301,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const idx = findNearest(cx, cy);
     if (idx === null) return false;
     const shape = getShape();
-    if (shape && shape[idx] && shape[idx].locked) return false; // can't drag locked
     drag = idx;
     return true;
   }
@@ -351,7 +334,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       function applyBrush(centerIdx, deltaY, deltaZ) {
         for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
           const idx = ((centerIdx + offset) % N + N) % N;
-          if (shape[idx].locked) continue;
           const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
           const w = 1 - t * t;
           shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + deltaY * w));
@@ -364,12 +346,12 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       if (mirrorIdx !== drag) applyBrush(mirrorIdx, dy, -dz);
     } else {
       // Default: move only the dragged point + its mirror
-      if (!shape[drag].locked) {
+      {
         shape[drag].y = newY;
         shape[drag].z = (isTopCenter || isBotCenter) ? shape[drag].z : newZ;
       }
       const mirrorIdx = (N - drag) % N;
-      if (mirrorIdx !== drag && !shape[mirrorIdx].locked) {
+      if (mirrorIdx !== drag) {
         shape[mirrorIdx].y = newY;
         shape[mirrorIdx].z = (isTopCenter || isBotCenter) ? shape[mirrorIdx].z : -newZ;
       }
@@ -440,17 +422,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     // Auto-create keyframe if needed
     if (!profileState.xsecKeyframes[station]) {
       profileState.xsecKeyframes[station] = getDefaultPoly();
-    }
-    const shape = getShape();
-    if (!shape) return;
-    if (idx !== null) {
-      const newLocked = !shape[idx].locked;
-      shape[idx].locked = newLocked;
-      // Mirror: lock the corresponding point on the other side
-      const N = shape.length - 1; // last vertex == first (closed loop)
-      const mirrorIdx = (N - idx) % N;
-      if (mirrorIdx !== idx) shape[mirrorIdx].locked = newLocked;
-      drawPoints();
     }
   });
 
