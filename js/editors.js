@@ -120,6 +120,9 @@ export function createSideEditor(container, state, onEdit) {
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
+  svg.style.minHeight = '80px';
+  svg.style.resize = 'vertical';
+  svg.style.overflow = 'hidden';
   wrap.appendChild(svg);
 
   // Dot overlay: HTML div with absolutely positioned dots in CSS pixels
@@ -518,6 +521,9 @@ export function createWidthEditor(container, state, onEdit) {
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
+  svg.style.minHeight = '80px';
+  svg.style.resize = 'vertical';
+  svg.style.overflow = 'hidden';
   wrap.appendChild(svg);
 
   const dotOverlay = document.createElement('div');
