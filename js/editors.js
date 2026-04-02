@@ -120,13 +120,31 @@ export function createSideEditor(container, state, onEdit) {
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
-  svg.style.minHeight = '80px';
-  svg.style.resize = 'vertical';
-  svg.style.overflow = 'hidden';
   wrap.appendChild(svg);
 
-  // Dot overlay: HTML div with absolutely positioned dots in CSS pixels
+  // Dot overlay
   const dotOverlay = document.createElement('div');
+
+  // Resize handle at the bottom
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'pe-resize-handle';
+  resizeHandle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = svg.offsetHeight;
+    const onMove = ev => {
+      const newH = Math.max(80, startH + ev.clientY - startY);
+      svg.style.height = newH + 'px';
+      drawPoints(); // reposition dots for new height
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  wrap.appendChild(resizeHandle);
   dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
   wrap.appendChild(dotOverlay);
 
@@ -521,14 +539,31 @@ export function createWidthEditor(container, state, onEdit) {
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
-  svg.style.minHeight = '80px';
-  svg.style.resize = 'vertical';
-  svg.style.overflow = 'hidden';
   wrap.appendChild(svg);
 
   const dotOverlay = document.createElement('div');
   dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
   wrap.appendChild(dotOverlay);
+
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'pe-resize-handle';
+  resizeHandle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = svg.offsetHeight;
+    const onMove = ev => {
+      const newH = Math.max(60, startH + ev.clientY - startY);
+      svg.style.height = newH + 'px';
+      drawPoints();
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  wrap.appendChild(resizeHandle);
 
   const gridG = svgEl('g');
   const fillPath = svgEl('path', { class: 'pe-fill pe-wfill' });
