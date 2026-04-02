@@ -164,7 +164,7 @@ export function createSideEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    const ptR = 4.5; // fixed in viewBox space — shrinks on screen when zoomed in
+    const ptR = 3.5 / Math.max(vp.zoom, 1); // smaller in viewBox units when zoomed = constant screen size
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
         const c = svgEl('circle', {
@@ -225,7 +225,7 @@ export function createSideEditor(container, state, onEdit) {
     const dorsalV = sampleProfile(state.dorsal, eyeT);
     eyeMarker.setAttribute("cx", toX(eyeT));
     eyeMarker.setAttribute("cy", toY(dorsalV + eyeV));
-    eyeMarker.setAttribute("r", 6);
+    eyeMarker.setAttribute("r", 5 / Math.max(vp.zoom, 1));
   }
 
   function redraw() {
@@ -549,7 +549,7 @@ export function createWidthEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    const ptR = 4.5; // fixed in viewBox space — shrinks on screen when zoomed in
+    const ptR = 3.5 / Math.max(vp.zoom, 1); // smaller in viewBox units when zoomed = constant screen size
     state.width.forEach((p, i) => {
       const c = svgEl('circle', {
         cx: toX(p.t), cy: toYUp(p.v), r: Math.max(ptR, 3),
