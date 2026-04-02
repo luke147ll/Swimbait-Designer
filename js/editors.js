@@ -278,10 +278,16 @@ export function createSideEditor(container, state, onEdit) {
   function moveDrag(clientX, clientY) {
     if (!drag) return;
     const rect = svg.getBoundingClientRect();
-    const py = (clientY - rect.top) * (VH / rect.height);
-    const vbPt = vp.pixToVB(0, clientY - rect.top, rect);
-    const newV = range.mx - (vbPt.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
+    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
+    const newV = range.mx - (vb.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
     drag.profile[drag.idx].v = newV;
+    // Also move T (horizontal) — clamp between neighbors to keep order
+    if (!drag.profile[drag.idx].locked) {
+      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
+      const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
+      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    }
     drawCurves();
     drawPoints();
     onEdit();
@@ -577,9 +583,16 @@ export function createWidthEditor(container, state, onEdit) {
   function moveDrag(clientX, clientY) {
     if (!drag) return;
     const rect = svg.getBoundingClientRect();
-    const vbPt = vp.pixToVB(0, clientY - rect.top, rect);
-    const newV = Math.max(0, (VH / 2 - vbPt.y) / ((VH - MRG * 2) / 2) * wr);
+    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
+    const newV = Math.max(0, (VH / 2 - vb.y) / ((VH - MRG * 2) / 2) * wr);
     state.width[drag.idx].v = newV;
+    // Also move T — clamp between neighbors
+    if (!state.width[drag.idx].locked) {
+      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
+      const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
+      state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
+    }
     drawCurves();
     drawPoints();
     onEdit();
