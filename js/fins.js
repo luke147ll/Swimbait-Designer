@@ -112,20 +112,14 @@ export function genFinMesh(fin, L, profiles, ts, tt, material) {
     idx.push(a, b, c, c, b, d);
   }
 
-  // +Z face cap
-  const capA = N * 2;
-  let cx = 0, cy = 0;
-  for (let i = 0; i < N; i++) { cx += pos[i * 3]; cy += pos[i * 3 + 1]; }
-  pos.push(cx / N, cy / N, halfZ);
-  for (let i = 0; i < N; i++) {
-    idx.push(capA, i, (i + 1) % N);
+  // Flat face caps using triangle fan from vertex 0 (no centroid needed)
+  // +Z face
+  for (let i = 1; i < N - 1; i++) {
+    idx.push(0, i, i + 1);
   }
-
-  // -Z face cap
-  const capB = capA + 1;
-  pos.push(cx / N, cy / N, -halfZ);
-  for (let i = 0; i < N; i++) {
-    idx.push(capB, ((i + 1) % N) + N, i + N);
+  // -Z face (reversed winding for outward normal)
+  for (let i = 1; i < N - 1; i++) {
+    idx.push(N, N + i + 1, N + i);
   }
 
   const geo = new THREE.BufferGeometry();
