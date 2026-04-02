@@ -193,7 +193,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
     labelEl.textContent = name + (isEditing ? ' *' : '');
     resetBtn.disabled = !isEditing;
-    const shape = getShape();
     if (shape) {
       const allLocked = shape.every(p => p.locked);
       lockAllBtn.textContent = allLocked ? 'Unlock All' : 'Lock All';
