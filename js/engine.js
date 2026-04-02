@@ -132,19 +132,31 @@ export function genBody(p, profiles) {
       const xsec = getXSecAtRing(i, profiles);
 
       if (xsec && xsec.length === RS + 1) {
-        // Use keyframe polygon — scale normalized coords by actual dimensions
         for (let j = 0; j <= RS; j++) {
           const pt = xsec[j];
           const y = pt.y >= 0 ? pt.y * dorsalH : pt.y * ventralH;
           const z = pt.z * halfW;
-          pos.push(x, y + cy, z);
+          // In taper region, offset X based on vertex height
+          let vx = x;
+          if (t > TAPER_START) {
+            const taperT = (t - TAPER_START) / (1.0 - TAPER_START);
+            const yNorm = Math.abs(y) / Math.max(dorsalH, ventralH, 0.01);
+            vx += yNorm * taperT * (dorsalH + ventralH) * 0.8;
+          }
+          pos.push(vx, y + cy, z);
         }
       } else {
-        // Default super-ellipse
         for (let j = 0; j <= RS; j++) {
           const angle = (j / RS) * Math.PI * 2;
           const se = superEllipse(angle, dorsalH, ventralH, halfW, Math.max(n, 1.8));
-          pos.push(x, se.y + cy, se.z);
+          // In taper region, offset X: top/bottom vertices extend rearward
+          let vx = x;
+          if (t > TAPER_START) {
+            const taperT = (t - TAPER_START) / (1.0 - TAPER_START);
+            const yNorm = Math.abs(se.y) / Math.max(dorsalH, ventralH, 0.01);
+            vx += yNorm * taperT * (dorsalH + ventralH) * 0.8;
+          }
+          pos.push(vx, se.y + cy, se.z);
         }
       }
     }
