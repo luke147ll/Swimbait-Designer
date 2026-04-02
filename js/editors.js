@@ -111,10 +111,21 @@ export function createSideEditor(container, state, onEdit) {
   const toY = v => vp.toSvgY(v, range.mn, range.mx, MRG);
   const fromY = sy => range.mx - (sy - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
 
+  // Wrapper for SVG + dot overlay
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  wrap.style.marginBottom = '4px';
+  container.appendChild(wrap);
+
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
-  container.appendChild(svg);
+  wrap.appendChild(svg);
+
+  // Dot overlay: HTML div with absolutely positioned dots in CSS pixels
+  const dotOverlay = document.createElement('div');
+  dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
+  wrap.appendChild(dotOverlay);
 
   const gridG = svgEl('g');
   const fillPath = svgEl('path', { class: 'pe-fill' });
@@ -122,11 +133,9 @@ export function createSideEditor(container, state, onEdit) {
   const ventralPath = svgEl('path', { class: 'pe-curve pe-ventral' });
   const centerLine = svgEl('line', { class: 'pe-center' });
   const stationLine = svgEl('line', { class: 'pe-station-line' });
-  const dotsG = svgEl('g');
   const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
   zoomLabel.textContent = '1.0x';
-  const eyeMarker = svgEl('circle', { r: 6, class: 'pe-eye-marker', 'data-cls': 'eye' });
-  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, dotsG, eyeMarker, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, zoomLabel);
   let stationT = -1;
 
   let drag = null, isDragging = false;
@@ -163,20 +172,28 @@ export function createSideEditor(container, state, onEdit) {
   }
 
   function drawPoints() {
-    dotsG.innerHTML = '';
-    const ptR = 3.5 / Math.max(vp.zoom, 1); // smaller in viewBox units when zoomed = constant screen size
+    dotOverlay.innerHTML = '';
+    const DOT_PX = 7; // fixed pixel size
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
-        const c = svgEl('circle', {
-          cx: toX(p.t), cy: toY(p.v), r: Math.max(ptR, 3),
-          class: `pe-pt ${cls}${p.locked ? ' locked' : ''}`,
-          'data-cls': cls, 'data-idx': i
-        });
-        dotsG.appendChild(c);
+        const scr = dataToScreen(p.t, p.v);
+        const dot = document.createElement('div');
+        dot.className = `pe-html-dot ${cls}${p.locked ? ' locked' : ''}`;
+        dot.style.cssText = `position:absolute;left:${scr.x - DOT_PX/2}px;top:${scr.y - DOT_PX/2}px;width:${DOT_PX}px;height:${DOT_PX}px;pointer-events:none`;
+        dotOverlay.appendChild(dot);
       });
     }
     addPts(state.dorsal, 'dorsal');
     addPts(state.ventral, 'ventral');
+    // Eye marker
+    if (eyeT > 0) {
+      const dorsalV = sampleProfile(state.dorsal, eyeT);
+      const scr = dataToScreen(eyeT, dorsalV + eyeV);
+      const dot = document.createElement('div');
+      dot.className = 'pe-html-dot eye';
+      dot.style.cssText = `position:absolute;left:${scr.x - 5}px;top:${scr.y - 5}px;width:10px;height:10px;pointer-events:none`;
+      dotOverlay.appendChild(dot);
+    }
   }
 
   // Station line + xsec indicators on the side profile
@@ -217,16 +234,7 @@ export function createSideEditor(container, state, onEdit) {
     }
   }
 
-  let eyeT = 0.08, eyeV = 0; // eyeV = vertical offset from dorsal line
-
-  function drawEyeMarker() {
-    if (eyeT <= 0) { eyeMarker.setAttribute("visibility", "hidden"); return; }
-    eyeMarker.setAttribute("visibility", "visible");
-    const dorsalV = sampleProfile(state.dorsal, eyeT);
-    eyeMarker.setAttribute("cx", toX(eyeT));
-    eyeMarker.setAttribute("cy", toY(dorsalV + eyeV));
-    eyeMarker.setAttribute("r", 5 / Math.max(vp.zoom, 1));
-  }
+  let eyeT = 0.08, eyeV = 0;
 
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
@@ -237,7 +245,6 @@ export function createSideEditor(container, state, onEdit) {
     drawCurves();
     drawPoints();
     drawStationLine();
-    drawEyeMarker();
   }
 
   function refresh() {
@@ -318,7 +325,6 @@ export function createSideEditor(container, state, onEdit) {
       if (epSlider) epSlider.value = eyeT;
       const epLabel = document.getElementById('vEP');
       if (epLabel) epLabel.textContent = (eyeT * 100).toFixed(0) + '%';
-      drawEyeMarker();
       onEdit();
       return;
     }
@@ -479,7 +485,7 @@ export function createSideEditor(container, state, onEdit) {
   return {
     refresh,
     setStationMarker(t) { stationT = t; redraw(); },
-    setEyePosition(t, v) { eyeT = t; if (v !== undefined) eyeV = v; drawEyeMarker(); },
+    setEyePosition(t, v) { eyeT = t; if (v !== undefined) eyeV = v; drawPoints(); },
     getEyePosition() { return { t: eyeT, v: eyeV }; }
   };
 }
@@ -503,10 +509,19 @@ export function createWidthEditor(container, state, onEdit) {
   const toYDn = v => VH / 2 + (v / wr) * ((VH - MRG * 2) / 2);
   const fromYUp = sy => (VH / 2 - sy) / ((VH - MRG * 2) / 2) * wr;
 
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  wrap.style.marginBottom = '4px';
+  container.appendChild(wrap);
+
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
-  container.appendChild(svg);
+  wrap.appendChild(svg);
+
+  const dotOverlay = document.createElement('div');
+  dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
+  wrap.appendChild(dotOverlay);
 
   const gridG = svgEl('g');
   const fillPath = svgEl('path', { class: 'pe-fill pe-wfill' });
@@ -517,10 +532,9 @@ export function createWidthEditor(container, state, onEdit) {
   });
   const stationLine = svgEl('line', { class: 'pe-station-line' });
   let stationT = -1;
-  const dotsG = svgEl('g');
   const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
   zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, stationLine, upperPath, lowerPath, dotsG, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, upperPath, lowerPath, zoomLabel);
 
   let drag = null, isDragging = false;
   let panState = null;
@@ -548,15 +562,14 @@ export function createWidthEditor(container, state, onEdit) {
   }
 
   function drawPoints() {
-    dotsG.innerHTML = '';
-    const ptR = 3.5 / Math.max(vp.zoom, 1); // smaller in viewBox units when zoomed = constant screen size
+    dotOverlay.innerHTML = '';
+    const DOT_PX = 7;
     state.width.forEach((p, i) => {
-      const c = svgEl('circle', {
-        cx: toX(p.t), cy: toYUp(p.v), r: Math.max(ptR, 3),
-        class: `pe-pt width${p.locked ? ' locked' : ''}`,
-        'data-idx': i
-      });
-      dotsG.appendChild(c);
+      const scr = dataToScreen(p.t, p.v);
+      const dot = document.createElement('div');
+      dot.className = `pe-html-dot width${p.locked ? ' locked' : ''}`;
+      dot.style.cssText = `position:absolute;left:${scr.x - DOT_PX/2}px;top:${scr.y - DOT_PX/2}px;width:${DOT_PX}px;height:${DOT_PX}px;pointer-events:none`;
+      dotOverlay.appendChild(dot);
     });
   }
 
