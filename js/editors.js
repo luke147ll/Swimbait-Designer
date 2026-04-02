@@ -113,41 +113,38 @@ export function createSideEditor(container, state, onEdit) {
 
   // Wrapper for SVG + dot overlay
   const wrap = document.createElement('div');
-  wrap.style.position = 'relative';
-  wrap.style.marginBottom = '4px';
+  wrap.style.cssText = 'position:relative;margin-bottom:0';
   container.appendChild(wrap);
 
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
-  svg.style.width = '100%';
-  svg.style.height = `${VH}px`;
+  svg.style.cssText = `width:100%;height:${VH}px;display:block`;
   wrap.appendChild(svg);
 
-  // Dot overlay
   const dotOverlay = document.createElement('div');
 
-  // Resize handle below the editor
+  // Resize handle
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'pe-resize-handle';
-  resizeHandle.addEventListener('mousedown', e => {
+  resizeHandle.addEventListener('pointerdown', e => {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const startH = svg.offsetHeight;
+    const startH = parseInt(svg.style.height) || VH;
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
     const onMove = ev => {
-      const newH = Math.max(80, startH + ev.clientY - startY);
+      const newH = Math.max(80, startH + (ev.clientY - startY));
       svg.style.height = newH + 'px';
       drawPoints();
     };
     const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   });
   wrap.after(resizeHandle);
   dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
@@ -537,13 +534,11 @@ export function createWidthEditor(container, state, onEdit) {
   const fromYUp = sy => (VH / 2 - sy) / ((VH - MRG * 2) / 2) * wr;
 
   const wrap = document.createElement('div');
-  wrap.style.position = 'relative';
-  wrap.style.marginBottom = '4px';
+  wrap.style.cssText = 'position:relative;margin-bottom:0';
   container.appendChild(wrap);
 
   const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'xMidYMid meet' });
-  svg.style.width = '100%';
-  svg.style.height = `${VH}px`;
+  svg.style.cssText = `width:100%;height:${VH}px;display:block`;
   wrap.appendChild(svg);
 
   const dotOverlay = document.createElement('div');
@@ -552,26 +547,26 @@ export function createWidthEditor(container, state, onEdit) {
 
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'pe-resize-handle';
-  resizeHandle.addEventListener('mousedown', e => {
+  resizeHandle.addEventListener('pointerdown', e => {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const startH = svg.offsetHeight;
+    const startH = parseInt(svg.style.height) || VH;
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
     const onMove = ev => {
-      const newH = Math.max(60, startH + ev.clientY - startY);
+      const newH = Math.max(60, startH + (ev.clientY - startY));
       svg.style.height = newH + 'px';
       drawPoints();
     };
     const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   });
   wrap.after(resizeHandle);
 
