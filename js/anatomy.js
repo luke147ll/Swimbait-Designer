@@ -10,7 +10,7 @@ import { superEllipse } from './engine.js';
 
 /** Build left and right eye groups, positioned on the actual body surface. */
 export function buildEyes(p, L, profiles) {
-  const eyeT = p.HL * 0.6;
+  const eyeT = p.EP || p.HL * 0.6;
 
   const dY = sampleProfile(profiles.dorsal, eyeT) * L;
   const vY = sampleProfile(profiles.ventral, eyeT) * L;

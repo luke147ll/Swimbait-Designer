@@ -125,7 +125,8 @@ export function createSideEditor(container, state, onEdit) {
   const dotsG = svgEl('g');
   const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
   zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, dotsG, zoomLabel);
+  const eyeMarker = svgEl('circle', { r: 6, class: 'pe-eye-marker', 'data-cls': 'eye' });
+  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, dotsG, eyeMarker, zoomLabel);
   let stationT = -1;
 
   let drag = null, isDragging = false;
@@ -216,6 +217,17 @@ export function createSideEditor(container, state, onEdit) {
     }
   }
 
+  let eyeT = 0.08;
+
+  function drawEyeMarker() {
+    if (eyeT <= 0) { eyeMarker.setAttribute("visibility", "hidden"); return; }
+    eyeMarker.setAttribute("visibility", "visible");
+    const dorsalV = sampleProfile(state.dorsal, eyeT);
+    eyeMarker.setAttribute("cx", toX(eyeT));
+    eyeMarker.setAttribute("cy", toY(dorsalV));
+    eyeMarker.setAttribute("r", 6 * (vp.vw / vp.VW));
+  }
+
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
     zoomLabel.textContent = vp.zoom.toFixed(1) + 'x';
@@ -225,6 +237,7 @@ export function createSideEditor(container, state, onEdit) {
     drawCurves();
     drawPoints();
     drawStationLine();
+    drawEyeMarker();
   }
 
   function refresh() {
@@ -270,12 +283,23 @@ export function createSideEditor(container, state, onEdit) {
     }
     check(state.dorsal, 'dorsal');
     check(state.ventral, 'ventral');
+    // Also check eye marker
+    if (eyeT > 0) {
+      const dorsalV = sampleProfile(state.dorsal, eyeT);
+      const s = dataToScreen(eyeT, dorsalV);
+      const d = Math.hypot(mouseX - s.x, mouseY - s.y);
+      if (d < HIT_RADIUS && (!best || d < best.dist)) {
+        best = { cls: 'eye', idx: -1, profile: null, dist: d };
+      }
+    }
     return best;
   }
 
   function startDrag(mouseX, mouseY) {
     const hit = findNearestPt(mouseX, mouseY);
-    if (!hit || hit.profile[hit.idx].locked) return false;
+    if (!hit) return false;
+    if (hit.cls === 'eye') { drag = hit; isDragging = true; return true; }
+    if (hit.profile[hit.idx].locked) return false;
     drag = hit;
     isDragging = true;
     return true;
@@ -283,6 +307,19 @@ export function createSideEditor(container, state, onEdit) {
 
   function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
+    if (drag.cls === 'eye') {
+      // Dragging the eye — update eye position along body
+      const data = screenToData(mouseX, mouseY);
+      eyeT = Math.max(0.02, Math.min(0.25, data.t));
+      // Update the slider
+      const epSlider = document.getElementById('sEP');
+      if (epSlider) epSlider.value = eyeT;
+      const epLabel = document.getElementById('vEP');
+      if (epLabel) epLabel.textContent = (eyeT * 100).toFixed(0) + '%';
+      drawEyeMarker();
+      onEdit();
+      return;
+    }
     if (drag.profile[drag.idx].locked) return;
     const data = screenToData(mouseX, mouseY);
     drag.profile[drag.idx].v = data.v;
@@ -439,7 +476,8 @@ export function createSideEditor(container, state, onEdit) {
   refresh();
   return {
     refresh,
-    setStationMarker(t) { stationT = t; redraw(); }
+    setStationMarker(t) { stationT = t; redraw(); },
+    setEyePosition(t) { eyeT = t; drawEyeMarker(); }
   };
 }
 

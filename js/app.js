@@ -45,6 +45,7 @@ function getParams() {
     SC: +document.getElementById('sSC').value,
     TS: +document.getElementById('sTS').value,
     TT: +document.getElementById('sTT').value,
+    EP: +document.getElementById('sEP').value,
     ES: +document.getElementById('sES').value,
     EB: +document.getElementById('sEB').value,
     HS: +document.getElementById('sHS').value,
@@ -92,7 +93,10 @@ function rebuildScene() {
   document.getElementById('stats').innerHTML =
     `${L.toFixed(1)}" total length<br>${maxD.toFixed(2)}" max depth<br>${maxW.toFixed(2)}" max width<br>~${wOz} oz est.<br>${p.tail} tail`;
 
-  if (sideEditor) sideEditor.refresh();
+  if (sideEditor) {
+    sideEditor.setEyePosition(p.EP || p.HL * 0.6);
+    sideEditor.refresh();
+  }
   if (widthEditor) widthEditor.refresh();
   if (xsecEditor) xsecEditor.refresh();
 
@@ -127,6 +131,7 @@ function update() {
   document.getElementById('vSC').textContent = p.SC.toFixed(2);
   document.getElementById('vTS').textContent = p.TS.toFixed(2);
   document.getElementById('vTT').textContent = p.TT.toFixed(2);
+  document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
   document.getElementById('vHS').textContent = p.HS.toFixed(2);
