@@ -125,7 +125,7 @@ export function createTailEditor(container, tailState, onEdit) {
 
   function draw() {
     // Sample the full mirrored outline for smooth curve display
-    const sampled = sampleFullOutline(tailState.outline, SAMPLES);
+    const sampled = sampleFullOutline(tailState.tailOutline, SAMPLES);
     let d = '';
     for (let i = 0; i < sampled.length; i++) {
       d += `${i === 0 ? 'M' : 'L'}${toSX(sampled[i].z).toFixed(1)},${toSY(sampled[i].y).toFixed(1)} `;
@@ -139,7 +139,7 @@ export function createTailEditor(container, tailState, onEdit) {
     dotOverlay.innerHTML = '';
     const DOT_PX = Math.min(70, Math.max(4, 7));
     // Only show right-half points (editable)
-    tailState.outline.forEach((p, i) => {
+    tailState.tailOutline.forEach((p, i) => {
       const scr = dataToScreen(p.z, p.y);
       const dot = document.createElement('div');
       dot.className = 'pe-html-dot dorsal';
@@ -161,7 +161,7 @@ export function createTailEditor(container, tailState, onEdit) {
 
   function findNearest(mx, my) {
     let best = null;
-    tailState.outline.forEach((p, i) => {
+    tailState.tailOutline.forEach((p, i) => {
       const scr = dataToScreen(p.z, p.y);
       const d = Math.hypot(mx - scr.x, my - scr.y);
       if (d < HIT_RADIUS && (!best || d < best.dist)) {
@@ -181,8 +181,8 @@ export function createTailEditor(container, tailState, onEdit) {
   function moveDrag(mx, my) {
     if (drag === null) return;
     const data = screenToData(mx, my);
-    tailState.outline[drag].y = data.y;
-    tailState.outline[drag].z = Math.max(0, data.z); // right half only: z >= 0
+    tailState.tailOutline[drag].y = data.y;
+    tailState.tailOutline[drag].z = Math.max(0, data.z); // right half only: z >= 0
     draw(); drawPoints(); onEdit();
   }
 
@@ -217,7 +217,7 @@ export function createTailEditor(container, tailState, onEdit) {
     const data = screenToData(m.x, m.y);
     if (data.z < 0) return; // only add on right half
     // Find nearest segment to insert between
-    const pts = tailState.outline;
+    const pts = tailState.tailOutline;
     let bestSeg = 0, bestD = Infinity;
     for (let i = 0; i < pts.length - 1; i++) {
       const mz = (pts[i].z + pts[i+1].z) / 2, my2 = (pts[i].y + pts[i+1].y) / 2;
@@ -232,10 +232,10 @@ export function createTailEditor(container, tailState, onEdit) {
   // Right-click: delete point
   svg.addEventListener('contextmenu', e => {
     e.preventDefault(); e.stopPropagation();
-    if (tailState.outline.length <= 6) return;
+    if (tailState.tailOutline.length <= 6) return;
     const m = localXY(e);
     const hit = findNearest(m.x, m.y);
-    if (hit) { tailState.outline.splice(hit.idx, 1); refresh(); onEdit(); }
+    if (hit) { tailState.tailOutline.splice(hit.idx, 1); refresh(); onEdit(); }
   });
 
   refresh();
