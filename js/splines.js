@@ -143,9 +143,9 @@ export function buildProfilesFromSliders(p) {
     [depthR * taperF,  depthR * taperF,           widthR * taperF,  s7t],
     [depthR * 0.85,    depthR * 0.85,             widthR * 0.75,    stalkStart],
     [pedDR,            pedDR,                     pedWR,            stalkMid],
-    [pedDR,            pedDR,                     pedWR * 0.6,      1.0 - 0.06],
-    [pedDR * 0.5,      pedDR * 0.5,              pedWR * 0.25,     0.97],
-    [pedDR * 0.18,     pedDR * 0.18,             pedWR * 0.08,     1.0],
+    [pedDR,            pedDR,                     pedWR,            1.0 - 0.06],
+    [pedDR,            pedDR,                     pedWR,            0.97],
+    [pedDR,            pedDR,                     pedWR,            1.0],
   ];
 
   const dorsal = [], ventral = [], width = [];
