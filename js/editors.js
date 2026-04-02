@@ -277,17 +277,15 @@ export function createSideEditor(container, state, onEdit) {
 
   function moveDrag(clientX, clientY) {
     if (!drag) return;
+    if (drag.profile[drag.idx].locked) return; // locked points don't move at all
     const rect = svg.getBoundingClientRect();
     const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
-    const newV = range.mx - (vb.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
-    drag.profile[drag.idx].v = newV;
-    // Also move T (horizontal) — clamp between neighbors to keep order
-    if (!drag.profile[drag.idx].locked) {
-      const newT = (vb.x - MRG) / (VW - MRG * 2);
-      const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
-      const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
-      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
-    }
+    drag.profile[drag.idx].v = range.mx - (vb.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
+    // Also move T — clamp between neighbors to keep order
+    const newT = (vb.x - MRG) / (VW - MRG * 2);
+    const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
+    const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
+    drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
     drawCurves();
     drawPoints();
     onEdit();
@@ -384,17 +382,22 @@ export function createSideEditor(container, state, onEdit) {
     redraw();
   }, { passive: false });
 
-  // ── Double-click: add point OR reset view ──
+  // ── Double-click: toggle lock on point, add point, or reset view ──
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
+    // Check if double-clicking on an existing point — toggle lock
+    const hit = findNearestPt(e.clientX, e.clientY);
+    if (hit) {
+      hit.profile[hit.idx].locked = !hit.profile[hit.idx].locked;
+      drawPoints();
+      return;
+    }
     if (e.target === svg || e.target.classList.contains('pe-grid') || e.target === fillPath || e.target === dorsalPath || e.target === ventralPath || e.target === centerLine) {
-      // Check if zoomed — if so, reset view
       if (Math.abs(vp.zoom - 1) > 0.05) {
         vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
         redraw();
         return;
       }
-      // Otherwise add a point
       const pt = evtToVB(e);
       const t = Math.max(0.005, Math.min(0.93, (pt.x - MRG) / (VW - MRG * 2)));
       const dV = sampleProfile(state.dorsal, t);
@@ -582,17 +585,14 @@ export function createWidthEditor(container, state, onEdit) {
 
   function moveDrag(clientX, clientY) {
     if (!drag) return;
+    if (state.width[drag.idx].locked) return; // locked points don't move
     const rect = svg.getBoundingClientRect();
     const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
-    const newV = Math.max(0, (VH / 2 - vb.y) / ((VH - MRG * 2) / 2) * wr);
-    state.width[drag.idx].v = newV;
-    // Also move T — clamp between neighbors
-    if (!state.width[drag.idx].locked) {
-      const newT = (vb.x - MRG) / (VW - MRG * 2);
-      const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
-      const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
-      state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
-    }
+    state.width[drag.idx].v = Math.max(0, (VH / 2 - vb.y) / ((VH - MRG * 2) / 2) * wr);
+    const newT = (vb.x - MRG) / (VW - MRG * 2);
+    const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
+    const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
+    state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
     drawCurves();
     drawPoints();
     onEdit();
@@ -687,18 +687,23 @@ export function createWidthEditor(container, state, onEdit) {
 
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
-    if (!e.target.classList.contains('pe-pt')) {
-      if (Math.abs(vp.zoom - 1) > 0.05) {
-        vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
-        redraw();
-        return;
-      }
-      const pt = evtToVB(e);
-      const t = Math.max(0.005, Math.min(0.93, (pt.x - MRG) / (VW - MRG * 2)));
-      insertProfilePoint(state.width, t);
-      refresh();
-      onEdit();
+    // Check if double-clicking on a point — toggle lock
+    const hit = findNearestPt(e.clientX, e.clientY);
+    if (hit) {
+      state.width[hit.idx].locked = !state.width[hit.idx].locked;
+      drawPoints();
+      return;
     }
+    if (Math.abs(vp.zoom - 1) > 0.05) {
+      vp.vx = 0; vp.vy = 0; vp.vw = VW; vp.vh = VH; vp.zoom = 1;
+      redraw();
+      return;
+    }
+    const pt = evtToVB(e);
+    const t = Math.max(0.005, Math.min(0.93, (pt.x - MRG) / (VW - MRG * 2)));
+    insertProfilePoint(state.width, t);
+    refresh();
+    onEdit();
   });
 
   svg.addEventListener('contextmenu', e => {
