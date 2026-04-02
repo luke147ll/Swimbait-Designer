@@ -149,7 +149,7 @@ export function createSideEditor(container, state, onEdit) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  container.appendChild(resizeHandle);
+  wrap.after(resizeHandle);
   dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
   wrap.appendChild(dotOverlay);
 
@@ -573,7 +573,7 @@ export function createWidthEditor(container, state, onEdit) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  container.appendChild(resizeHandle);
+  wrap.after(resizeHandle);
 
   const gridG = svgEl('g');
   const fillPath = svgEl('path', { class: 'pe-fill pe-wfill' });
