@@ -30,7 +30,7 @@ export function sampleProfile(pts, t) {
 
 /**
  * Sample a closed loop of points at parametric t (0-1 wraps around).
- * Works with any point format — interpolates all numeric properties.
+ * Works with any point format - interpolates all numeric properties.
  */
 export function sampleClosedLoop(pts, t) {
   const N = pts.length;
@@ -70,8 +70,7 @@ export function createProfileState() {
     ventralCache: new Float32Array(NS + 1),
     widthCache: new Float32Array(NS + 1),
     nCache: new Float32Array(NS + 1),
-    // Cross-section keyframes: sparse map of ring index → normalized polygon
-    xsecKeyframes: {}, // e.g. { 24: [{y,z}, ...], 48: [{y,z}, ...] }
+    xsecKeyframes: {},
   };
 }
 
@@ -86,35 +85,35 @@ export function rebuildProfileCache(state, CS, HL) {
   }
 }
 
-// ── Tuned baseline profiles (13 points, t=0 to t=1.0) ──
+// -- Tuned baseline profiles with integrated tail shape --
 
 const BASE_D = [
-  { t: 0.0000, v: 0.008456 }, { t: 0.0080, v: 0.039375 },
-  { t: 0.0200, v: 0.058467 }, { t: 0.0450, v: 0.085568 },
-  { t: 0.0800, v: 0.112053 }, { t: 0.2400, v: 0.109956 },
-  { t: 0.3400, v: 0.108443 }, { t: 0.5600, v: 0.065674 },
-  { t: 0.7400, v: 0.041778 }, { t: 0.8700, v: 0.042720 },
-  { t: 0.9400, v: 0.037756 }, { t: 0.9700, v: 0.031757 },
-  { t: 1.0000, v: 0.027145 },
+  { t: 0.0000, v: 0.008456 }, { t: 0.0190, v: 0.045750 },
+  { t: 0.0298, v: 0.060189 }, { t: 0.0517, v: 0.085628 },
+  { t: 0.0952, v: 0.100067 }, { t: 0.2400, v: 0.109956 },
+  { t: 0.3400, v: 0.107266 }, { t: 0.5600, v: 0.065320 },
+  { t: 0.7400, v: 0.048160 }, { t: 0.8700, v: 0.042720 },
+  { t: 0.9287, v: 0.046128 }, { t: 0.9584, v: 0.086168 },
+  { t: 1.0000, v: 0.160829 },
 ];
 
 const BASE_V = [
   { t: 0.0000, v: -0.015229 }, { t: 0.0080, v: -0.026677 },
-  { t: 0.0200, v: -0.063366 }, { t: 0.0450, v: -0.083543 },
-  { t: 0.0800, v: -0.095141 }, { t: 0.2400, v: -0.110159 },
-  { t: 0.3400, v: -0.097414 }, { t: 0.5600, v: -0.064028 },
-  { t: 0.7400, v: -0.051466 }, { t: 0.8700, v: -0.042720 },
-  { t: 0.9400, v: -0.030628 }, { t: 0.9700, v: -0.012998 },
-  { t: 1.0000, v: -0.013441 },
+  { t: 0.0249, v: -0.053174 }, { t: 0.0450, v: -0.070053 },
+  { t: 0.0800, v: -0.077679 }, { t: 0.2400, v: -0.081493 },
+  { t: 0.3400, v: -0.071959 }, { t: 0.5600, v: -0.053944 },
+  { t: 0.7400, v: -0.043746 }, { t: 0.8700, v: -0.042720 },
+  { t: 0.9400, v: -0.035056 }, { t: 0.9700, v: -0.116876 },
+  { t: 1.0000, v: -0.160033 },
 ];
 
 const BASE_W = [
   { t: 0.0000, v: 0.001062 }, { t: 0.0080, v: 0.028453 },
   { t: 0.0200, v: 0.038626 }, { t: 0.0450, v: 0.056638 },
-  { t: 0.0800, v: 0.068933 }, { t: 0.2400, v: 0.084664 },
-  { t: 0.3400, v: 0.094573 }, { t: 0.5600, v: 0.039628 },
-  { t: 0.7400, v: 0.015541 }, { t: 0.8700, v: 0.022214 },
-  { t: 0.9400, v: 0.012493 }, { t: 0.9700, v: 0.011907 },
+  { t: 0.0800, v: 0.068933 }, { t: 0.2400, v: 0.074339 },
+  { t: 0.3400, v: 0.057604 }, { t: 0.5600, v: 0.051046 },
+  { t: 0.7400, v: 0.038317 }, { t: 0.8700, v: 0.022214 },
+  { t: 0.9400, v: 0.018746 }, { t: 0.9700, v: 0.012178 },
   { t: 1.0000, v: 0.009561 },
 ];
 
@@ -147,9 +146,9 @@ export function buildProfilesFromSliders(p) {
     [depthR * taperF,  depthR * taperF,           widthR * taperF,  s7t],
     [depthR * 0.85,    depthR * 0.85,             widthR * 0.75,    stalkStart],
     [pedDR,            pedDR,                     pedWR,            stalkMid],
-    [pedDR,            pedDR,                     pedWR,            1.0 - 0.06],
-    [pedDR,            pedDR,                     pedWR,            0.97],
-    [pedDR,            pedDR,                     pedWR,            1.0],
+    [pedDR,            pedDR,                     pedWR,            null],
+    [pedDR,            pedDR,                     pedWR,            null],
+    [pedDR,            pedDR,                     pedWR,            null],
   ];
 
   const dorsal = [], ventral = [], width = [];
@@ -179,7 +178,7 @@ export function removeProfilePoint(profile, index) {
 }
 
 export const STATION_LABELS = [
-  'Mouth slit', 'Lip edge', 'Snout', 'Nose bridge', 'Eye',
-  'Cheek/operculum', 'Max girth', 'Mid-body', 'Pre-peduncle',
-  'Peduncle', 'Tail base', 'Mid-stalk', 'Stalk tip'
+  'Mouth', 'Lip', 'Snout', 'Bridge', 'Eye',
+  'Cheek', 'Max girth', 'Mid-body', 'Pre-ped',
+  'Peduncle', 'Tail base', 'Tail mid', 'Tail tip'
 ];

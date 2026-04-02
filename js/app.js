@@ -11,19 +11,16 @@ import { loadPreset as applyPreset } from './presets.js';
 import { exportSTL as generateSTL } from './export-stl.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
-import { createFinState, genFinMesh, FIN_PRESETS } from './fins.js';
-import { createFinEditor } from './fin-editor.js';
 import { createXSecEditor } from './xsec-editor.js';
 
-let scene, cam, ren, bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM, stationRing;
+let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM, stationRing;
 let tailType = 'paddle', baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
 
 // Profile state — source of truth for body shape
 const profileState = createProfileState();
-const finState = createFinState('paddle');
-let sideEditor = null, widthEditor = null, finEditor = null, xsecEditor = null;
+let sideEditor = null, widthEditor = null, xsecEditor = null;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
@@ -60,7 +57,7 @@ function rebuildScene() {
   const p = getParams();
   const L = p.OL;
 
-  [bodyMesh, tailFinMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
+  [bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
 
   const mat = new THREE.MeshPhysicalMaterial({
     color: baitColor, metalness: 0.05, roughness: 0.42,
@@ -71,10 +68,6 @@ function rebuildScene() {
   const geo = genBody(p, profileState);
   bodyMesh = new THREE.Mesh(geo, mat);
   scene.add(bodyMesh);
-
-  // Tail fin
-  tailFinMesh = genFinMesh(finState, L, profileState, p.TS, p.TT, mat);
-  scene.add(tailFinMesh);
 
   const eyes = buildEyes(p, L, profileState);
   eyeGrpL = eyes.eyeGrpL;
@@ -102,7 +95,6 @@ function rebuildScene() {
   if (sideEditor) sideEditor.refresh();
   if (widthEditor) widthEditor.refresh();
   if (xsecEditor) xsecEditor.refresh();
-  if (finEditor) finEditor.refresh();
 
   const badge = document.getElementById('profileMode');
   if (badge) {
@@ -203,17 +195,6 @@ function showStationRing(stationIdx) {
   scene.add(stationRing);
 }
 
-// Called when the fin outline editor changes a point — only rebuild the fin mesh
-function onFinEdit() {
-  const p = getParams();
-  const mat = bodyMesh ? bodyMesh.material : new THREE.MeshPhysicalMaterial({
-    color: baitColor, metalness: 0.05, roughness: 0.42,
-    clearcoat: 0.6, clearcoatRoughness: 0.2, side: THREE.DoubleSide
-  });
-  if (tailFinMesh) scene.remove(tailFinMesh);
-  tailFinMesh = genFinMesh(finState, p.OL, profileState, p.TS, p.TT, mat);
-  if (tailFinMesh) scene.add(tailFinMesh);
-}
 
 // Called by editor drag — just rebuild caches from current profile data
 function onProfileEdit() {
@@ -222,17 +203,9 @@ function onProfileEdit() {
 }
 
 function setTailType(el) {
-  document.querySelectorAll('.tb').forEach(e => e.classList.remove('on'));
-  el.classList.add('on');
+  document.querySelectorAll(".tb").forEach(e => e.classList.remove("on"));
+  el.classList.add("on");
   tailType = el.dataset.t;
-  // Load fin preset outline
-  const preset = FIN_PRESETS[tailType];
-  if (preset) {
-    finState.type = tailType;
-    finState.outline = preset.outline.map(p => ({ ...p }));
-    finState.thickness = preset.thickness;
-  }
-  if (finEditor) finEditor.refresh();
   update();
 }
 
@@ -256,7 +229,7 @@ function loadPreset(name) {
 }
 
 function exportSTL() {
-  generateSTL([bodyMesh, tailFinMesh].filter(Boolean));
+  generateSTL([bodyMesh].filter(Boolean));
 }
 
 function dumpAll() {
@@ -285,9 +258,6 @@ const dorsal = ${fmtProfile(profileState.dorsal)};
 const ventral = ${fmtProfile(profileState.ventral)};
 const width = ${fmtProfile(profileState.width)};
 
-// ── Fin outline (copy into FIN_PRESETS.paddle.outline in fins.js) ──
-const finOutline = ${fmtFin(finState.outline)};
-// finType: '${finState.type}', thickness: ${finState.thickness}
 `;
   console.log(out);
   if (navigator.clipboard) {
@@ -353,7 +323,6 @@ function initPanelResize() {
       // Refresh editors so their hit detection uses updated bounding rects
       if (sideEditor) sideEditor.refresh();
       if (widthEditor) widthEditor.refresh();
-      if (finEditor) finEditor.refresh();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);

@@ -25,8 +25,6 @@
       <div id="widthEditorContainer"></div>
       <div class="ed-label">Cross-section shape (front view)</div>
       <div id="xsecEditorContainer"></div>
-      <div class="ed-label">Tail fin shape (side view)</div>
-      <div id="finEditorContainer"></div>
       <div class="ed-hint" id="edHint">Dbl-click: lock/unlock point &middot; Right-click: remove &middot; Shift+drag: move horizontally (profiles) / soft brush (cross-section) &middot; Scroll: zoom &middot; Alt+drag: pan</div>
     </div>
   </div>
@@ -121,11 +119,6 @@
   <div class="mob-editor-wrap" id="xsecEditorMob"></div>
 </div>
 
-<!-- Phone: full-screen fin editor -->
-<div class="mob-view" id="mobFin">
-  <div class="mob-header">Tail Fin Shape (Side View)</div>
-  <div class="mob-editor-wrap" id="finEditorMob"></div>
-</div>
 
 <div class="vp" id="vp">
   <div class="vl">Spline-based lofted surface</div>
@@ -145,7 +138,6 @@
   <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
   <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
   <button class="tab" data-view="mobXSec" onclick="switchTab(this)">XSec</button>
-  <button class="tab" data-view="mobFin" onclick="switchTab(this)">Fin</button>
 </nav>
 
 <script type="module" src="js/app.js"></script>
