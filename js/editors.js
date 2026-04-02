@@ -420,9 +420,8 @@ export function createSideEditor(container, state, onEdit) {
     const midV = (dV + vV) / 2;
     const profile = data.v > midV ? state.dorsal : state.ventral;
     insertProfilePoint(profile, t);
-      refresh();
-      onEdit();
-    }
+    refresh();
+    onEdit();
   });
 
   // ── Right-click delete ──
