@@ -194,7 +194,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       const z = p.z * dims.hW;
       const c = svgEl('circle', {
         cx: toSX(z), cy: toSY(y), r: 4,
-        class: 'pe-pt dorsal', 'data-idx': i
+        class: `pe-pt dorsal${p.locked ? ' locked' : ''}`, 'data-idx': i
       });
       dotsG.appendChild(c);
     });
@@ -247,6 +247,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
     const idx = findNearest(cx, cy);
     if (idx === null) return false;
+    const shape = getShape();
+    if (shape && shape[idx] && shape[idx].locked) return false; // can't drag locked
     drag = idx;
     return true;
   }
@@ -280,12 +282,12 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     function applyBrush(centerIdx, deltaY, deltaZ) {
       for (let offset = -BRUSH_RADIUS; offset <= BRUSH_RADIUS; offset++) {
         const idx = ((centerIdx + offset) % N + N) % N;
+        if (shape[idx].locked) continue; // skip locked points
         const t = Math.abs(offset) / (BRUSH_RADIUS + 1);
         const w = 1 - t * t;
         shape[idx].y = Math.max(-1.5, Math.min(1.5, shape[idx].y + deltaY * w));
         shape[idx].z = Math.max(-1.5, Math.min(1.5, shape[idx].z + deltaZ * w));
       }
-      // Keep last vertex == first vertex (closed loop)
       shape[N] = { ...shape[0] };
     }
 
@@ -322,6 +324,22 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     if (e.touches.length === 1 && drag !== null) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
   svg.addEventListener('touchend', () => endDrag());
+
+  // ── Double-click: toggle lock on nearest point ──
+  svg.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    // Auto-create keyframe if needed
+    if (!profileState.xsecKeyframes[station]) {
+      profileState.xsecKeyframes[station] = getDefaultPoly();
+    }
+    const shape = getShape();
+    if (!shape) return;
+    const idx = findNearest(e.clientX, e.clientY);
+    if (idx !== null) {
+      shape[idx].locked = !shape[idx].locked;
+      drawPoints();
+    }
+  });
 
   refresh();
   // Don't call onStationChange during init — scene may not be ready yet
