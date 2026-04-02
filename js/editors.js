@@ -163,19 +163,21 @@ export function createSideEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    // Dot radius scales inversely with zoom so dots spread apart when zoomed in
-    const ptR = 4.5 * (vp.vw / vp.VW);
+    const ptR = 4.5 * (vp.vw / vp.VW); // visual radius
+    const hitR = Math.max(ptR, 10 * (vp.vw / vp.VW)); // larger hit target
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
-        const c = svgEl('circle', {
-          cx: toX(p.t), cy: toY(p.v), r: ptR,
-          class: `pe-pt ${cls}${p.locked ? ' locked' : ''}`,
-          'data-cls': cls, 'data-idx': i
-        });
-        const title = svgEl('title');
-        title.textContent = STATION_LABELS[i] || `Point ${i}`;
-        c.appendChild(title);
-        dotsG.appendChild(c);
+        const cx = toX(p.t), cy = toY(p.v);
+        // Invisible hit target (larger)
+        dotsG.appendChild(svgEl('circle', {
+          cx, cy, r: hitR, fill: 'transparent', class: `pe-pt ${cls}${p.locked ? ' locked' : ''}`,
+          'data-cls': cls, 'data-idx': i, style: 'pointer-events:all'
+        }));
+        // Visible dot (smaller, no pointer events)
+        dotsG.appendChild(svgEl('circle', {
+          cx, cy, r: ptR, class: `pe-dot ${cls}${p.locked ? ' locked' : ''}`,
+          style: 'pointer-events:none'
+        }));
       });
     }
     addPts(state.dorsal, 'dorsal');
@@ -506,16 +508,19 @@ export function createWidthEditor(container, state, onEdit) {
   function drawPoints() {
     dotsG.innerHTML = '';
     const ptR = 4.5 * (vp.vw / vp.VW);
+    const hitR = Math.max(ptR, 10 * (vp.vw / vp.VW));
     state.width.forEach((p, i) => {
-      const c = svgEl('circle', {
-        cx: toX(p.t), cy: toYUp(p.v), r: ptR,
-        class: `pe-pt width${p.locked ? ' locked' : ''}`,
-        'data-idx': i
-      });
-      const title = svgEl('title');
-      title.textContent = STATION_LABELS[i] || `Point ${i}`;
-      c.appendChild(title);
-      dotsG.appendChild(c);
+      const cx = toX(p.t), cy = toYUp(p.v);
+      // Hit target (larger, invisible)
+      dotsG.appendChild(svgEl('circle', {
+        cx, cy, r: hitR, fill: 'transparent', class: `pe-pt width${p.locked ? ' locked' : ''}`,
+        'data-idx': i, style: 'pointer-events:all'
+      }));
+      // Visual dot (smaller, no pointer events)
+      dotsG.appendChild(svgEl('circle', {
+        cx, cy, r: ptR, class: `pe-dot width${p.locked ? ' locked' : ''}`,
+        style: 'pointer-events:none'
+      }));
     });
   }
 

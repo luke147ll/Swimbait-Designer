@@ -75,6 +75,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .pe-pt.ventral{stroke:var(--ac2)}
 .pe-pt.width{stroke:var(--ac)}
 .pe-pt.locked{opacity:1;fill:var(--ac);stroke:var(--bg);stroke-width:2.5}
+.pe-dot{fill:var(--sf);stroke-width:1.8}
+.pe-dot.dorsal{stroke:var(--ac)}
+.pe-dot.ventral{stroke:var(--ac2)}
+.pe-dot.width{stroke:var(--ac)}
+.pe-dot.locked{fill:var(--ac);stroke:var(--bg);stroke-width:2.5}
 .pe-pt:hover:not(.locked){r:6;fill:var(--sf2)}
 .pe-pt.active{r:7;fill:var(--ac)}
 .pe-pt.ventral.active{fill:var(--ac2)}
