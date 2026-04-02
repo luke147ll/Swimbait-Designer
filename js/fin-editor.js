@@ -1,9 +1,9 @@
 /**
  * @file fin-editor.js
- * 2D closed-polygon editor for fin shapes (side view).
- * Points are the polygon vertices — drag freely in X and Y.
- * No spline interpolation. What you see is what you get.
+ * 2D closed-outline editor for fin shapes (side view).
+ * Control points define the shape, rendered with smooth Catmull-Rom curves.
  */
+import { sampleClosedLoop } from './splines.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -42,17 +42,24 @@ export function createFinEditor(container, finState, onEdit) {
   container.appendChild(svg);
 
   const gridG = svgEl('g');
-  const fillPoly = svgEl('polygon', { class: 'pe-outline-fill' });
-  const strokePoly = svgEl('polygon', { class: 'pe-outline-stroke' });
+  const fillPath = svgEl('path', { class: 'pe-outline-fill' });
+  const strokePath = svgEl('path', { class: 'pe-outline-stroke' });
   const centerH = svgEl('line', { class: 'pe-center' });
   const attachV = svgEl('line', { class: 'pe-center' });
   const dotsG = svgEl('g');
-  svg.append(gridG, fillPoly, centerH, attachV, strokePoly, dotsG);
+  svg.append(gridG, fillPath, centerH, attachV, strokePath, dotsG);
 
   let drag = null, isDragging = false;
+  const CURVE_SAMPLES = 80;
 
-  function polyPoints() {
-    return finState.outline.map(p => `${toSX(p.x).toFixed(1)},${toSY(p.y).toFixed(1)}`).join(' ');
+  function splinePathD() {
+    if (finState.outline.length < 3) return '';
+    let d = '';
+    for (let i = 0; i <= CURVE_SAMPLES; i++) {
+      const pt = sampleClosedLoop(finState.outline, i / CURVE_SAMPLES);
+      d += `${i === 0 ? 'M' : 'L'}${toSX(pt.x).toFixed(1)},${toSY(pt.y).toFixed(1)} `;
+    }
+    return d + 'Z';
   }
 
   function drawGrid() {
@@ -70,9 +77,9 @@ export function createFinEditor(container, finState, onEdit) {
   }
 
   function draw() {
-    const pts = polyPoints();
-    fillPoly.setAttribute('points', pts);
-    strokePoly.setAttribute('points', pts);
+    const d = splinePathD();
+    fillPath.setAttribute('d', d);
+    strokePath.setAttribute('d', d);
   }
 
   function drawPoints() {

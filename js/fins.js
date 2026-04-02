@@ -1,10 +1,13 @@
 /**
  * @file fins.js
  * Fin data model, preset outlines, and 3D mesh generation.
- * Fin = closed polygon in the X-Y plane (side view), extruded thin in Z.
- * No spline interpolation — the control points ARE the polygon vertices.
+ * Control points define fin shape, Catmull-Rom spline smooths the outline.
+ * The fin is extruded thin in Z (lateral).
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
+import { sampleClosedLoop } from './splines.js';
+
+const FIN_MESH_SAMPLES = 48; // vertices around the smooth fin outline
 
 // ── Preset outlines (side view: x = rearward, y = vertical) ────────
 
@@ -81,28 +84,35 @@ export function genFinMesh(fin, L, profiles, ts, tt, material) {
   const halfZ = fin.thickness * L * tt * 0.5;
   const xBase = hL; // body tip
 
-  const N = fin.outline.length;
-  if (N < 3) return null;
+  if (fin.outline.length < 3) return null;
+
+  // Sample the outline with Catmull-Rom for smooth curves
+  const N = FIN_MESH_SAMPLES;
+  const ring = [];
+  for (let i = 0; i < N; i++) {
+    const pt = sampleClosedLoop(fin.outline, i / N);
+    ring.push({ x: pt.x * finSize, y: pt.y * finSize });
+  }
 
   const pos = [], idx = [];
 
   // +Z face vertices (front)
   for (let i = 0; i < N; i++) {
-    pos.push(xBase + fin.outline[i].x * finSize, fin.outline[i].y * finSize + tipCY, halfZ);
+    pos.push(xBase + ring[i].x, ring[i].y + tipCY, halfZ);
   }
   // -Z face vertices (back)
   for (let i = 0; i < N; i++) {
-    pos.push(xBase + fin.outline[i].x * finSize, fin.outline[i].y * finSize + tipCY, -halfZ);
+    pos.push(xBase + ring[i].x, ring[i].y + tipCY, -halfZ);
   }
 
-  // Edge surface: quad strip connecting +Z ring to -Z ring
+  // Edge surface: quad strip
   for (let i = 0; i < N; i++) {
     const a = i, b = (i + 1) % N;
     const c = a + N, d = b + N;
     idx.push(a, b, c, c, b, d);
   }
 
-  // +Z face cap (triangle fan from centroid)
+  // +Z face cap
   const capA = N * 2;
   let cx = 0, cy = 0;
   for (let i = 0; i < N; i++) { cx += pos[i * 3]; cy += pos[i * 3 + 1]; }
