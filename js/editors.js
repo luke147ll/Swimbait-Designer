@@ -163,21 +163,15 @@ export function createSideEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotsG.innerHTML = '';
-    const ptR = 4.5 * (vp.vw / vp.VW); // visual radius
-    const hitR = Math.max(ptR, 10 * (vp.vw / vp.VW)); // larger hit target
+    const ptR = 4.5 * (vp.vw / vp.VW);
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
-        const cx = toX(p.t), cy = toY(p.v);
-        // Invisible hit target (larger)
-        dotsG.appendChild(svgEl('circle', {
-          cx, cy, r: hitR, fill: 'transparent', class: `pe-pt ${cls}${p.locked ? ' locked' : ''}`,
-          'data-cls': cls, 'data-idx': i, style: 'pointer-events:all'
-        }));
-        // Visible dot (smaller, no pointer events)
-        dotsG.appendChild(svgEl('circle', {
-          cx, cy, r: ptR, class: `pe-dot ${cls}${p.locked ? ' locked' : ''}`,
-          style: 'pointer-events:none'
-        }));
+        const c = svgEl('circle', {
+          cx: toX(p.t), cy: toY(p.v), r: Math.max(ptR, 3),
+          class: `pe-pt ${cls}${p.locked ? ' locked' : ''}`,
+          'data-cls': cls, 'data-idx': i
+        });
+        dotsG.appendChild(c);
       });
     }
     addPts(state.dorsal, 'dorsal');
@@ -248,30 +242,20 @@ export function createSideEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find control point from the actual SVG element under the pointer ──
-  function findNearestPt(clientX, clientY) {
-    // Use elementFromPoint to find which dot the pointer is over/near
-    const el = document.elementFromPoint(clientX, clientY);
+  // ── Find control point from event target or elementFromPoint ──
+  function findNearestPt(clientX, clientY, target) {
+    // First check the direct event target
+    const el = target && target.classList && target.classList.contains('pe-pt') ? target : document.elementFromPoint(clientX, clientY);
     if (el && el.classList.contains('pe-pt')) {
       const cls = el.dataset.cls;
       const idx = +el.dataset.idx;
       return { cls, idx, profile: cls === 'dorsal' ? state.dorsal : state.ventral };
     }
-    // Fallback: check nearby elements by expanding search area
-    const offsets = [[-6,0],[6,0],[0,-6],[0,6],[-4,-4],[4,-4],[-4,4],[4,4]];
-    for (const [ox, oy] of offsets) {
-      const el2 = document.elementFromPoint(clientX + ox, clientY + oy);
-      if (el2 && el2.classList.contains('pe-pt')) {
-        const cls = el2.dataset.cls;
-        const idx = +el2.dataset.idx;
-        return { cls, idx, profile: cls === 'dorsal' ? state.dorsal : state.ventral };
-      }
-    }
     return null;
   }
 
-  function startDrag(clientX, clientY, e) {
-    const hit = findNearestPt(clientX, clientY);
+  function startDrag(clientX, clientY, e, target) {
+    const hit = findNearestPt(clientX, clientY, target);
     if (!hit) return false;
     drag = hit;
     isDragging = true;
@@ -318,7 +302,7 @@ export function createSideEditor(container, state, onEdit) {
       e.preventDefault(); e.stopPropagation();
       return;
     }
-    if (startDrag(e.clientX, e.clientY, e)) { e.preventDefault(); e.stopPropagation(); }
+    if (startDrag(e.clientX, e.clientY, e, e.target)) { e.preventDefault(); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointermove', e => {
@@ -508,19 +492,13 @@ export function createWidthEditor(container, state, onEdit) {
   function drawPoints() {
     dotsG.innerHTML = '';
     const ptR = 4.5 * (vp.vw / vp.VW);
-    const hitR = Math.max(ptR, 10 * (vp.vw / vp.VW));
     state.width.forEach((p, i) => {
-      const cx = toX(p.t), cy = toYUp(p.v);
-      // Hit target (larger, invisible)
-      dotsG.appendChild(svgEl('circle', {
-        cx, cy, r: hitR, fill: 'transparent', class: `pe-pt width${p.locked ? ' locked' : ''}`,
-        'data-idx': i, style: 'pointer-events:all'
-      }));
-      // Visual dot (smaller, no pointer events)
-      dotsG.appendChild(svgEl('circle', {
-        cx, cy, r: ptR, class: `pe-dot width${p.locked ? ' locked' : ''}`,
-        style: 'pointer-events:none'
-      }));
+      const c = svgEl('circle', {
+        cx: toX(p.t), cy: toYUp(p.v), r: Math.max(ptR, 3),
+        class: `pe-pt width${p.locked ? ' locked' : ''}`,
+        'data-idx': i
+      });
+      dotsG.appendChild(c);
     });
   }
 
@@ -573,20 +551,15 @@ export function createWidthEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find width control point from element under pointer ──
-  function findNearestPt(clientX, clientY) {
-    const el = document.elementFromPoint(clientX, clientY);
+  // ── Find width control point ──
+  function findNearestPt(clientX, clientY, target) {
+    const el = target && target.classList && target.classList.contains('pe-pt') ? target : document.elementFromPoint(clientX, clientY);
     if (el && el.classList.contains('pe-pt')) return { idx: +el.dataset.idx };
-    const offsets = [[-6,0],[6,0],[0,-6],[0,6],[-4,-4],[4,-4],[-4,4],[4,4]];
-    for (const [ox, oy] of offsets) {
-      const el2 = document.elementFromPoint(clientX + ox, clientY + oy);
-      if (el2 && el2.classList.contains('pe-pt')) return { idx: +el2.dataset.idx };
-    }
     return null;
   }
 
-  function startDrag(clientX, clientY, e) {
-    const hit = findNearestPt(clientX, clientY);
+  function startDrag(clientX, clientY, e, target) {
+    const hit = findNearestPt(clientX, clientY, target);
     if (!hit) return false;
     drag = hit;
     isDragging = true;
@@ -632,7 +605,7 @@ export function createWidthEditor(container, state, onEdit) {
       try { svg.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault(); e.stopPropagation(); return;
     }
-    if (startDrag(e.clientX, e.clientY, e)) { e.preventDefault(); e.stopPropagation(); }
+    if (startDrag(e.clientX, e.clientY, e, e.target)) { e.preventDefault(); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointermove', e => {
