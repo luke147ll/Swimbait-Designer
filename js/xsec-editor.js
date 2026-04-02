@@ -60,15 +60,22 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
 
+  // Dot overlay for screen-space dots
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  container.insertBefore(wrap, container.lastChild || null);
+
+  const dotOverlay = document.createElement('div');
+  dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
+
   const gridG = svgEl('g');
-  const refPoly = svgEl('polygon', { class: 'xsec-ref' }); // default super-ellipse reference
-  const shapePoly = svgEl('polygon', { class: 'xsec-shape' }); // current shape (editable or preview)
+  const refPoly = svgEl('polygon', { class: 'xsec-ref' });
+  const shapePoly = svgEl('polygon', { class: 'xsec-shape' });
   const fillPoly = svgEl('polygon', { class: 'xsec-fill' });
   const centerH = svgEl('line', { class: 'pe-center' });
   const centerV = svgEl('line', { class: 'pe-center' });
-  const dotsG = svgEl('g');
   const label = svgEl('text', { x: 6, y: 14, class: 'pe-zoom' });
-  svg.append(gridG, fillPoly, refPoly, centerH, centerV, shapePoly, dotsG, label);
+  svg.append(gridG, fillPoly, refPoly, centerH, centerV, shapePoly, label);
 
   // ── Controls bar ──
   const bar = document.createElement('div');
@@ -83,7 +90,9 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   `;
 
   container.appendChild(bar);
-  container.appendChild(svg);
+  wrap.appendChild(svg);
+  wrap.appendChild(dotOverlay);
+  container.appendChild(wrap);
 
   const scrubEl = bar.querySelector('.xsec-scrub');
   const labelEl = bar.querySelector('#xsecLabel');
@@ -221,20 +230,36 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
   }
 
+  // Screen-space helpers
+  function dataToScreen(z, y) {
+    const ctm = svg.getScreenCTM();
+    const rect = svg.getBoundingClientRect();
+    if (!ctm) return { x: 0, y: 0 };
+    const sx = toSX(z), sy = toSY(y);
+    return { x: ctm.a * sx + ctm.e - rect.left, y: ctm.d * sy + ctm.f - rect.top };
+  }
+
+  function screenToSvg(px, py) {
+    const ctm = svg.getScreenCTM();
+    const rect = svg.getBoundingClientRect();
+    if (!ctm) return { x: 0, y: 0 };
+    return { x: (px + rect.left - ctm.e) / ctm.a, y: (py + rect.top - ctm.f) / ctm.d };
+  }
+
   function drawPoints() {
-    dotsG.innerHTML = '';
-    // Always show points — auto-create keyframe on first drag
+    dotOverlay.innerHTML = '';
     const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
+    const DOT_PX = Math.min(70, Math.max(4, 5 * Math.sqrt(vp.zoom)));
     shape.forEach((p, i) => {
-      if (i === shape.length - 1) return; // skip duplicate closing vertex
+      if (i === shape.length - 1) return;
       const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
       const z = p.z * dims.hW;
-      const c = svgEl('circle', {
-        cx: toSX(z), cy: toSY(y), r: 3,
-        class: `pe-pt dorsal${p.locked ? ' locked' : ''}`, 'data-idx': i
-      });
-      dotsG.appendChild(c);
+      const scr = dataToScreen(z, y);
+      const dot = document.createElement('div');
+      dot.className = `pe-html-dot dorsal${p.locked ? ' locked' : ''}`;
+      dot.style.cssText = `position:absolute;left:${scr.x - DOT_PX/2}px;top:${scr.y - DOT_PX/2}px;width:${DOT_PX}px;height:${DOT_PX}px;pointer-events:none`;
+      dotOverlay.appendChild(dot);
     });
   }
 
@@ -262,17 +287,19 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   // ── Point dragging ──
   let drag = null;
 
-  function findNearest(cx, cy) {
+  const HIT_RADIUS = 20; // screen pixels
+  function findNearest(mouseX, mouseY) {
     const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
-    const sx = (cx - rect.left) / rect.width * VW;
-    const sy = (cy - rect.top) / rect.height * VH;
-    let best = null, bestD = PT_HIT_R;
+    const mx = mouseX - rect.left, my = mouseY - rect.top;
+    let best = null, bestD = HIT_RADIUS;
     shape.forEach((p, i) => {
+      if (i === shape.length - 1) return;
       const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
       const z = p.z * dims.hW;
-      const d = Math.sqrt((toSX(z) - sx) ** 2 + (toSY(y) - sy) ** 2);
+      const scr = dataToScreen(z, y);
+      const d = Math.hypot(mx - scr.x, my - scr.y);
       if (d < bestD) { bestD = d; best = i; }
     });
     return best;
@@ -302,10 +329,9 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     useBrush = !!shiftKey;
     const dims = getStationDims();
     const rect = svg.getBoundingClientRect();
-    const sx = (cx - rect.left) / rect.width * VW;
-    const sy = (cy - rect.top) / rect.height * VH;
-    const worldZ = fromSX(sx);
-    const worldY = fromSY(sy);
+    const svgPt = screenToSvg(cx - rect.left, cy - rect.top);
+    const worldZ = fromSX(svgPt.x);
+    const worldY = fromSY(svgPt.y);
     const newZ = dims.hW > 0.001 ? Math.max(-1.5, Math.min(1.5, worldZ / dims.hW)) : 0;
     const hRef = worldY >= 0 ? dims.dH : dims.vH;
     const newY = hRef > 0.001 ? Math.max(-1.5, Math.min(1.5, worldY / hRef)) : 0;
