@@ -55,6 +55,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     <input type="range" min="1" max="96" value="${station}" step="1" class="xsec-scrub">
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel"></span>
+      <button class="xsec-btn" id="xsecLockAll">Lock All</button>
       <button class="xsec-btn" id="xsecReset">Reset</button>
     </div>
   `;
@@ -65,6 +66,17 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const scrubEl = bar.querySelector('.xsec-scrub');
   const labelEl = bar.querySelector('#xsecLabel');
   const resetBtn = bar.querySelector('#xsecReset');
+  const lockAllBtn = bar.querySelector('#xsecLockAll');
+
+  lockAllBtn.addEventListener('click', () => {
+    const shape = getShape();
+    if (!shape) return;
+    // If any unlocked, lock all. If all locked, unlock all.
+    const allLocked = shape.every(p => p.locked);
+    for (const p of shape) p.locked = !allLocked;
+    lockAllBtn.textContent = allLocked ? 'Lock All' : 'Unlock All';
+    drawPoints();
+  });
 
   // Get sorted snap positions from profile control points
   function getSnapPositions() {
@@ -181,6 +193,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
     labelEl.textContent = name + (isEditing ? ' *' : '');
     resetBtn.disabled = !isEditing;
+    const shape = getShape();
+    if (shape) {
+      const allLocked = shape.every(p => p.locked);
+      lockAllBtn.textContent = allLocked ? 'Unlock All' : 'Lock All';
+    }
   }
 
   function drawPoints() {
