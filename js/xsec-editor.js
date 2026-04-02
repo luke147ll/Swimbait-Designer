@@ -33,8 +33,30 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     : 33;
   let isEditing = false; // true if current station has a keyframe
 
+  // ── Viewport for zoom/pan ──
+  const vp = {
+    vx: 0, vy: 0, vw: VW, vh: VH,
+    viewBox() { return `${this.vx} ${this.vy} ${this.vw} ${this.vh}`; },
+    get zoom() { return VW / this.vw; },
+    applyZoom(delta, px, py, rect) {
+      const f = delta > 0 ? 1.12 : 1 / 1.12;
+      const nw = Math.max(VW * 0.1, Math.min(VW * 4, this.vw * f));
+      const nh = Math.max(VH * 0.1, Math.min(VH * 4, this.vh * f));
+      const mx = this.vx + (px / rect.width) * this.vw;
+      const my = this.vy + (py / rect.height) * this.vh;
+      const rx = (mx - this.vx) / this.vw, ry = (my - this.vy) / this.vh;
+      this.vx = mx - rx * nw; this.vy = my - ry * nh;
+      this.vw = nw; this.vh = nh;
+    },
+    applyPan(dx, dy, rect) {
+      this.vx -= (dx / rect.width) * this.vw;
+      this.vy -= (dy / rect.height) * this.vh;
+    },
+    reset() { this.vx = 0; this.vy = 0; this.vw = VW; this.vh = VH; }
+  };
+
   // ── SVG setup ──
-  const svg = svgEl('svg', { viewBox: `0 0 ${VW} ${VH}`, class: 'pe-svg', preserveAspectRatio: 'none' });
+  const svg = svgEl('svg', { viewBox: vp.viewBox(), class: 'pe-svg', preserveAspectRatio: 'none' });
   svg.style.width = '100%';
   svg.style.height = `${VH}px`;
 
@@ -220,6 +242,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const dims = getStationDims();
     viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
     scrubEl.value = station;
+    svg.setAttribute('viewBox', vp.viewBox());
     drawGrid(); draw(); drawPoints();
   }
 
@@ -330,14 +353,38 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function endDrag() { drag = null; }
 
   // ── Mouse ──
+  let panState = null;
   svg.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') return;
+    if (e.altKey || e.button === 1) {
+      panState = { lx: e.clientX, ly: e.clientY };
+      e.preventDefault(); e.stopPropagation(); return;
+    }
     if (startDrag(e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); }
   });
   svg.addEventListener('pointermove', e => {
-    if (e.pointerType !== 'touch' && drag !== null) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
+    if (e.pointerType === 'touch') return;
+    if (panState) {
+      vp.applyPan(e.clientX - panState.lx, e.clientY - panState.ly, svg.getBoundingClientRect());
+      panState.lx = e.clientX; panState.ly = e.clientY;
+      svg.setAttribute('viewBox', vp.viewBox());
+      drawGrid(); draw(); drawPoints();
+      e.stopPropagation(); return;
+    }
+    if (drag !== null) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
   });
-  svg.addEventListener('pointerup', e => { if (e.pointerType !== 'touch') endDrag(); });
+  svg.addEventListener('pointerup', e => {
+    if (e.pointerType !== 'touch') { panState = null; endDrag(); }
+  });
+
+  // ── Scroll to zoom ──
+  svg.addEventListener('wheel', e => {
+    e.preventDefault(); e.stopPropagation();
+    const r = svg.getBoundingClientRect();
+    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r);
+    svg.setAttribute('viewBox', vp.viewBox());
+    drawGrid(); draw(); drawPoints();
+  }, { passive: false });
 
   // ── Touch ──
   svg.addEventListener('touchstart', e => {
@@ -350,9 +397,17 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }, { passive: false });
   svg.addEventListener('touchend', () => endDrag());
 
-  // ── Double-click: toggle lock on nearest point ──
+  // ── Double-click: toggle lock on nearest point, or reset view if zoomed ──
   svg.addEventListener('dblclick', e => {
     e.stopPropagation();
+    // If zoomed, check if clicking on empty space to reset view
+    const idx = findNearest(e.clientX, e.clientY);
+    if (idx === null && Math.abs(vp.zoom - 1) > 0.05) {
+      vp.reset();
+      svg.setAttribute('viewBox', vp.viewBox());
+      drawGrid(); draw(); drawPoints();
+      return;
+    }
     // Auto-create keyframe if needed
     if (!profileState.xsecKeyframes[station]) {
       profileState.xsecKeyframes[station] = getDefaultPoly();
