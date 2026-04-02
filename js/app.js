@@ -102,6 +102,7 @@ function rebuildScene() {
   if (sideEditor) sideEditor.refresh();
   if (widthEditor) widthEditor.refresh();
   if (xsecEditor) xsecEditor.refresh();
+  if (finEditor) finEditor.refresh();
 
   const badge = document.getElementById('profileMode');
   if (badge) {
@@ -157,7 +158,6 @@ function update() {
     ...pt, v: pt.v + profileState.wDelta[i]
   }));
 
-  lastBase = base; // cache for onProfileEdit to avoid recomputing
   rebuildProfileCache(profileState, p.CS, p.HL);
   rebuildScene();
 }
@@ -215,21 +215,18 @@ function onFinEdit() {
   if (tailFinMesh) scene.add(tailFinMesh);
 }
 
-// Called by editor drag — snapshot deltas, then do a lightweight update
-// (skips regenerating base since we just need to rebuild caches + mesh)
-let lastBase = null;
+// Called by editor drag — snapshot deltas against a FRESH base, then rebuild
 function onProfileEdit() {
-  if (!lastBase) lastBase = buildProfilesFromSliders(getParams());
-  for (let i = 0; i < profileState.dorsal.length && i < lastBase.dorsal.length; i++) {
-    profileState.dDelta[i] = profileState.dorsal[i].v - lastBase.dorsal[i].v;
+  const base = buildProfilesFromSliders(getParams()); // always fresh, no stale cache
+  for (let i = 0; i < profileState.dorsal.length && i < base.dorsal.length; i++) {
+    profileState.dDelta[i] = profileState.dorsal[i].v - base.dorsal[i].v;
   }
-  for (let i = 0; i < profileState.ventral.length && i < lastBase.ventral.length; i++) {
-    profileState.vDelta[i] = profileState.ventral[i].v - lastBase.ventral[i].v;
+  for (let i = 0; i < profileState.ventral.length && i < base.ventral.length; i++) {
+    profileState.vDelta[i] = profileState.ventral[i].v - base.ventral[i].v;
   }
-  for (let i = 0; i < profileState.width.length && i < lastBase.width.length; i++) {
-    profileState.wDelta[i] = profileState.width[i].v - lastBase.width[i].v;
+  for (let i = 0; i < profileState.width.length && i < base.width.length; i++) {
+    profileState.wDelta[i] = profileState.width[i].v - base.width[i].v;
   }
-  // Lightweight: skip base regeneration, just rebuild caches + mesh
   rebuildProfileCache(profileState, +document.getElementById('sCS').value, +document.getElementById('sHL').value);
   rebuildScene();
 }
