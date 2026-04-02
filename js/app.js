@@ -45,6 +45,8 @@ function getParams() {
     SC: +document.getElementById('sSC').value,
     TS: +document.getElementById('sTS').value,
     TT: +document.getElementById('sTT').value,
+    FD: +document.getElementById('sFD').value,
+    FA: +document.getElementById('sFA').value,
     EP: +document.getElementById('sEP').value,
     EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
     ES: +document.getElementById('sES').value,
@@ -132,6 +134,8 @@ function update() {
   document.getElementById('vSC').textContent = p.SC.toFixed(2);
   document.getElementById('vTS').textContent = p.TS.toFixed(2);
   document.getElementById('vTT').textContent = p.TT.toFixed(2);
+  document.getElementById('vFD').textContent = p.FD.toFixed(2);
+  document.getElementById('vFA').textContent = p.FA.toFixed(2);
   document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);

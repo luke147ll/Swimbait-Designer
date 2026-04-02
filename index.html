@@ -63,13 +63,8 @@
     <div class="st">Tail</div>
     <div class="c"><div class="cr"><label>Tail size</label><span class="v" id="vTS"></span></div><input type="range" id="sTS" min="0.3" max="1.4" step="0.01" value="0.80" oninput="onSliderInput()"></div>
     <div class="c"><div class="cr"><label>Tail thickness</label><span class="v" id="vTT"></span></div><input type="range" id="sTT" min="0.05" max="1.0" step="0.01" value="0.55" oninput="onSliderInput()"></div>
-    <div class="to">
-      <div class="tb on" data-t="paddle" onclick="setTailType(this)">Paddle</div>
-      <div class="tb" data-t="wedge" onclick="setTailType(this)">Wedge</div>
-      <div class="tb" data-t="boot" onclick="setTailType(this)">Boot</div>
-      <div class="tb" data-t="split" onclick="setTailType(this)">Split</div>
-      <div class="tb" data-t="fork" onclick="setTailType(this)">Fork</div>
-    </div>
+    <div class="c"><div class="cr"><label>Fork depth</label><span class="v" id="vFD"></span></div><input type="range" id="sFD" min="0" max="1.0" step="0.01" value="0" oninput="onSliderInput()"></div>
+    <div class="c"><div class="cr"><label>Fork asymmetry</label><span class="v" id="vFA"></span></div><input type="range" id="sFA" min="-1.0" max="1.0" step="0.01" value="0" oninput="onSliderInput()"></div>
   </div>
 
   <div class="sec">

@@ -1,15 +1,17 @@
 /**
  * @file engine.js
- * Core geometry engine — profile-sampled lofting with per-station cross-section
- * keyframes. Default cross-sections use asymmetric super-ellipse. Stations with
- * keyframes use user-defined polygons. Intermediate stations interpolate.
+ * Core geometry engine — two mirrored half-shells (right + left).
+ * Each cross-section is a half-ring from dorsal (angle=0) to ventral (angle=PI).
+ * The left half mirrors across Z=0 with shared midline vertices.
+ * Enables forked tails via per-vertex X offset in the tail zone.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
 
 export const NS = 96;
 export const RS = 36;
+const HRS = RS / 2; // half-ring segments: 18 vertices from dorsal to ventral
 
-/** Asymmetric super-ellipse cross-section (default when no keyframe). */
+/** Asymmetric super-ellipse cross-section. */
 export function superEllipse(angle, dorsalH, ventralH, w, n) {
   const ca = Math.cos(angle), sa = Math.sin(angle);
   const h = ca >= 0 ? dorsalH : ventralH;
@@ -19,7 +21,7 @@ export function superEllipse(angle, dorsalH, ventralH, w, n) {
   return { y: seCa * h, z: seSa * w };
 }
 
-/** Generate a default normalized cross-section polygon from super-ellipse. */
+/** Generate a default normalized cross-section polygon (full ring, RS+1 points). */
 export function defaultXSecPoly(n) {
   const pts = [];
   for (let j = 0; j <= RS; j++) {
@@ -30,34 +32,20 @@ export function defaultXSecPoly(n) {
   return pts;
 }
 
-const BLEND_RADIUS = 8; // rings over which a keyframe eases in/out to default
+const BLEND_RADIUS = 8;
 
-/**
- * Get the cross-section polygon for ring i, accounting for keyframes.
- * Keyframes blend smoothly into the default super-ellipse over BLEND_RADIUS rings.
- * Returns null if ring should use default super-ellipse, or RS+1 {y,z} points.
- */
 function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
   const keys = Object.keys(kf).map(Number).sort((a, b) => a - b);
   if (keys.length === 0) return null;
 
-  // Find nearest keyframes on each side
   let lo = -1, hi = -1;
   for (const k of keys) {
     if (k <= i) lo = k;
     if (k >= i && hi < 0) hi = k;
   }
-
-  // No keyframes in range — check if we're in a blend zone
   if (lo < 0 && hi < 0) return null;
 
-  // Helper: get keyframe shape or generate default
-  function getKfOrDefault(k) {
-    return kf[k] || null;
-  }
-
-  // Helper: blend between two polygons
   function lerpPoly(a, b, t) {
     const len = Math.min(a.length, b.length);
     const r = [];
@@ -67,109 +55,171 @@ function getXSecAtRing(i, profiles) {
     return r;
   }
 
-  // Get the default super-ellipse polygon for blending (lazy — only if needed)
   function getDefPoly() {
     const n = (profiles.nCache && profiles.nCache[i]) ? profiles.nCache[i] : 2.2;
     return defaultXSecPoly(n);
   }
 
-  // Case: between two keyframes — interpolate directly
   if (lo >= 0 && hi >= 0 && lo !== hi && kf[lo] && kf[hi]) {
-    const t = (i - lo) / (hi - lo);
-    return lerpPoly(kf[lo], kf[hi], t);
+    return lerpPoly(kf[lo], kf[hi], (i - lo) / (hi - lo));
   }
 
-  // Case: at or near a single keyframe — blend into default
   const nearest = (lo >= 0 && kf[lo]) ? lo : hi;
   if (nearest < 0 || !kf[nearest]) return null;
-
   const dist = Math.abs(i - nearest);
-  if (dist === 0) return kf[nearest]; // exact keyframe
-  if (dist > BLEND_RADIUS) return null; // too far, use default
-
-  // Smooth blend from keyframe to default using smoothstep
+  if (dist === 0) return kf[nearest];
+  if (dist > BLEND_RADIUS) return null;
   const t = dist / BLEND_RADIUS;
-  const ease = t * t * (3 - 2 * t); // 0 at keyframe, 1 at edge of blend zone
-  return lerpPoly(kf[nearest], getDefPoly(), ease);
+  return lerpPoly(kf[nearest], getDefPoly(), t * t * (3 - 2 * t));
 }
 
 /**
- * Generate the fish body mesh. Rings use keyframe polygons when available,
- * interpolated polygons between keyframes, or default super-ellipse.
+ * Compute the Y and Z for a half-ring vertex at index j (0..HRS).
+ * angle goes from 0 (dorsal, Z=0) to PI (ventral, Z=0).
+ * Z is always >= 0 (right side). Left side mirrors Z.
+ */
+function halfRingVertex(j, dorsalH, ventralH, halfW, n, xsec) {
+  const angle = (j / HRS) * Math.PI;
+  if (xsec && xsec.length === RS + 1) {
+    // Map half-ring j to full-ring index: j maps to first half of the full ring
+    const fullIdx = j; // 0..HRS maps to 0..HRS of the full RS+1 ring
+    const pt = xsec[fullIdx];
+    const y = pt.y >= 0 ? pt.y * dorsalH : pt.y * ventralH;
+    const z = Math.abs(pt.z * halfW); // force right side positive
+    return { y, z };
+  }
+  const se = superEllipse(angle, dorsalH, ventralH, halfW, Math.max(n, 1.8));
+  return { y: se.y, z: Math.abs(se.z) }; // force positive Z for right half
+}
+
+/**
+ * Generate the fish body as two mirrored half-shells.
  */
 export function genBody(p, profiles) {
   const L = p.OL;
   const hL = L / 2;
   const pos = [], idx = [];
 
+  const forkDepth = p.FD || 0;      // 0 to 1
+  const forkAsym = p.FA || 0;       // -1 to 1
+  const TAIL_ZONE = 0.85;           // where fork X-offset begins
+  const TAPER_START = 0.95;         // where width tapers to knife-edge
+
+  // ═══════════════════════════════════════════════════════════
+  // RIGHT HALF-SHELL: vertices at angles 0 to PI (Z >= 0)
+  // Each ring has HRS+1 vertices (19 points from dorsal to ventral)
+  // ═══════════════════════════════════════════════════════════
+
   for (let i = 0; i <= NS; i++) {
     const t = i / NS;
-    const x = -hL + t * L;
+    let x = -hL + t * L;
 
     if (i === 0) {
+      // Nose: all vertices converge to a point
       const dY = profiles.dorsalCache[0] * L;
       const vY = profiles.ventralCache[0] * L;
-      for (let j = 0; j <= RS; j++) pos.push(x, (dY + vY) / 2, 0);
+      const tipY = (dY + vY) / 2;
+      for (let j = 0; j <= HRS; j++) pos.push(x, tipY, 0);
     } else {
       const dorsalY = profiles.dorsalCache[i] * L;
       const ventralY = profiles.ventralCache[i] * L;
       let halfW = Math.max(profiles.widthCache[i] * L, 0.004);
 
-      // Trailing edge taper: force width to near-zero in the last 5% of body
-      // Creates a knife-edge (vertical line) instead of a flat wall
-      const TAPER_START = 0.95; // t where taper begins
+      // Trailing edge width taper
       if (t > TAPER_START) {
-        const taperT = (t - TAPER_START) / (1.0 - TAPER_START); // 0 at start, 1 at tip
-        const taperFactor = Math.pow(1 - taperT, 2); // quadratic taper to near-zero
-        halfW = halfW * taperFactor + 0.001 * (1 - taperFactor);
+        const taperT = (t - TAPER_START) / (1.0 - TAPER_START);
+        halfW = halfW * Math.pow(1 - taperT, 2) + 0.001 * (1 - Math.pow(1 - taperT, 2));
       }
+
       const n = profiles.nCache[i];
       const cy = (dorsalY + ventralY) / 2;
       const dorsalH = Math.max(dorsalY - cy, 0.003);
       const ventralH = Math.max(cy - ventralY, 0.003);
-
-      // Check for cross-section keyframe
       const xsec = getXSecAtRing(i, profiles);
 
-      if (xsec && xsec.length === RS + 1) {
-        for (let j = 0; j <= RS; j++) {
-          const pt = xsec[j];
-          const y = pt.y >= 0 ? pt.y * dorsalH : pt.y * ventralH;
-          const z = pt.z * halfW;
-          pos.push(x, y + cy, z);
+      for (let j = 0; j <= HRS; j++) {
+        const v = halfRingVertex(j, dorsalH, ventralH, halfW, n, xsec);
+
+        // Fork X-offset in tail zone
+        let vx = x;
+        if (t > TAIL_ZONE && forkDepth > 0) {
+          const tailT = (t - TAIL_ZONE) / (1.0 - TAIL_ZONE);
+          const angle = (j / HRS) * Math.PI;
+          const ca = Math.cos(angle);
+          // lobeExtension: 1 at dorsal (ca=1) and ventral (ca=-1), 0 at sides (ca=0)
+          const lobe = ca * ca;
+          // Asymmetry: bias toward dorsal or ventral
+          const dorsalBias = ca >= 0 ? (1 + forkAsym) : (1 - forkAsym);
+          const xOff = tailT * tailT * forkDepth * (dorsalH + ventralH) * lobe * Math.max(0, dorsalBias) * 0.5;
+          vx += xOff;
         }
-      } else {
-        for (let j = 0; j <= RS; j++) {
-          const angle = (j / RS) * Math.PI * 2;
-          const se = superEllipse(angle, dorsalH, ventralH, halfW, Math.max(n, 1.8));
-          pos.push(x, se.y + cy, se.z);
-        }
+
+        pos.push(vx, v.y + cy, v.z);
       }
     }
   }
 
-  // Quad strips
+  // Right half-shell quad strips
+  const ringsR = NS + 1;
+  const vertsPerRing = HRS + 1;
   for (let i = 0; i < NS; i++) {
-    for (let j = 0; j < RS; j++) {
-      const a = i * (RS + 1) + j;
-      const b = a + RS + 1;
+    for (let j = 0; j < HRS; j++) {
+      const a = i * vertsPerRing + j;
+      const b = a + vertsPerRing;
       idx.push(a, b, a + 1, b, b + 1, a + 1);
     }
   }
 
-  // Trailing edge: the last ring is a near-zero-width vertical line.
-  // No flat cap needed — the tapered width naturally closes the mesh.
-  // Add a simple fan cap for watertight STL export.
-  const capIdx = pos.length / 3;
-  const lastRingBase = NS * (RS + 1);
-  let cx = 0, cy2 = 0;
-  for (let j = 0; j < RS; j++) {
-    cx += pos[(lastRingBase + j) * 3];
-    cy2 += pos[(lastRingBase + j) * 3 + 1];
+  // ═══════════════════════════════════════════════════════════
+  // LEFT HALF-SHELL: mirror of right across Z=0
+  // Dorsal (j=0) and ventral (j=HRS) vertices are SHARED
+  // All other vertices are new with Z negated
+  // ═══════════════════════════════════════════════════════════
+
+  const rightVertCount = pos.length / 3;
+  const leftMap = new Int32Array(ringsR * vertsPerRing); // maps left (i,j) to vertex index
+
+  for (let i = 0; i < ringsR; i++) {
+    for (let j = 0; j <= HRS; j++) {
+      const rightIdx = i * vertsPerRing + j;
+      if (j === 0 || j === HRS) {
+        // Shared midline vertex — reuse right side index
+        leftMap[i * vertsPerRing + j] = rightIdx;
+      } else {
+        // Mirrored vertex — new vertex with negated Z
+        const vi = rightIdx * 3;
+        pos.push(pos[vi], pos[vi + 1], -pos[vi + 2]); // same X, same Y, negate Z
+        leftMap[i * vertsPerRing + j] = (pos.length / 3) - 1;
+      }
+    }
   }
-  pos.push(cx / RS, cy2 / RS, 0); // cap center on the Z=0 plane
-  for (let j = 0; j < RS; j++) {
-    idx.push(capIdx, lastRingBase + j, lastRingBase + j + 1);
+
+  // Left half-shell quad strips (reversed winding for outward normals)
+  for (let i = 0; i < NS; i++) {
+    for (let j = 0; j < HRS; j++) {
+      const a = leftMap[i * vertsPerRing + j];
+      const b = leftMap[(i + 1) * vertsPerRing + j];
+      const a1 = leftMap[i * vertsPerRing + j + 1];
+      const b1 = leftMap[(i + 1) * vertsPerRing + j + 1];
+      idx.push(b, a, a1, b1, b, a1); // reversed winding
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // TRAILING EDGE CAP (for watertight STL)
+  // ═══════════════════════════════════════════════════════════
+
+  // Right side cap: fan from last ring's dorsal vertex
+  const lastRingStart = NS * vertsPerRing;
+  for (let j = 0; j < HRS - 1; j++) {
+    idx.push(lastRingStart, lastRingStart + j + 1, lastRingStart + j + 2);
+  }
+  // Left side cap
+  for (let j = 0; j < HRS - 1; j++) {
+    const a = leftMap[NS * vertsPerRing];
+    const b = leftMap[NS * vertsPerRing + j + 1];
+    const c = leftMap[NS * vertsPerRing + j + 2];
+    idx.push(a, c, b); // reversed winding
   }
 
   const geo = new THREE.BufferGeometry();
