@@ -217,14 +217,14 @@ export function createSideEditor(container, state, onEdit) {
     }
   }
 
-  let eyeT = 0.08;
+  let eyeT = 0.08, eyeV = 0; // eyeV = vertical offset from dorsal line
 
   function drawEyeMarker() {
     if (eyeT <= 0) { eyeMarker.setAttribute("visibility", "hidden"); return; }
     eyeMarker.setAttribute("visibility", "visible");
     const dorsalV = sampleProfile(state.dorsal, eyeT);
     eyeMarker.setAttribute("cx", toX(eyeT));
-    eyeMarker.setAttribute("cy", toY(dorsalV));
+    eyeMarker.setAttribute("cy", toY(dorsalV + eyeV));
     eyeMarker.setAttribute("r", 6 * (vp.vw / vp.VW));
   }
 
@@ -286,7 +286,7 @@ export function createSideEditor(container, state, onEdit) {
     // Also check eye marker
     if (eyeT > 0) {
       const dorsalV = sampleProfile(state.dorsal, eyeT);
-      const s = dataToScreen(eyeT, dorsalV);
+      const s = dataToScreen(eyeT, dorsalV + eyeV);
       const d = Math.hypot(mouseX - s.x, mouseY - s.y);
       if (d < HIT_RADIUS && (!best || d < best.dist)) {
         best = { cls: 'eye', idx: -1, profile: null, dist: d };
@@ -308,10 +308,12 @@ export function createSideEditor(container, state, onEdit) {
   function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
     if (drag.cls === 'eye') {
-      // Dragging the eye — update eye position along body
       const data = screenToData(mouseX, mouseY);
       eyeT = Math.max(0.02, Math.min(0.25, data.t));
-      // Update the slider
+      // Vertical offset from the dorsal line
+      const dorsalV = sampleProfile(state.dorsal, eyeT);
+      eyeV = data.v - dorsalV;
+      // Update slider
       const epSlider = document.getElementById('sEP');
       if (epSlider) epSlider.value = eyeT;
       const epLabel = document.getElementById('vEP');
@@ -477,7 +479,8 @@ export function createSideEditor(container, state, onEdit) {
   return {
     refresh,
     setStationMarker(t) { stationT = t; redraw(); },
-    setEyePosition(t) { eyeT = t; drawEyeMarker(); }
+    setEyePosition(t, v) { eyeT = t; if (v !== undefined) eyeV = v; drawEyeMarker(); },
+    getEyePosition() { return { t: eyeT, v: eyeV }; }
   };
 }
 

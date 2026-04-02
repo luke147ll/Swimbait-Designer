@@ -46,6 +46,7 @@ function getParams() {
     TS: +document.getElementById('sTS').value,
     TT: +document.getElementById('sTT').value,
     EP: +document.getElementById('sEP').value,
+    EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
     ES: +document.getElementById('sES').value,
     EB: +document.getElementById('sEB').value,
     HS: +document.getElementById('sHS').value,

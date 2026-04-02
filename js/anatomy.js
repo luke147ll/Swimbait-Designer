@@ -21,7 +21,8 @@ export function buildEyes(p, L, profiles) {
   const dH = Math.max(dY - cy, 0.005);
   const vH = Math.max(cy - vY, 0.005);
 
-  const eyeAngle = 1.05; // higher on the head (~60° from dorsal, above midline)
+  const eyeVertOffset = (p.EV || 0) * L; // vertical offset from dorsal surface
+  const eyeAngle = 1.05;
   const nVal = Math.max(nv, 1.8);
   const surf = superEllipse(eyeAngle, dH, vH, hW, nVal);
 
@@ -52,7 +53,7 @@ export function buildEyes(p, L, profiles) {
   // EB controls how much the eye protrudes: 0 = flush/embedded, 1.0 = bug-eyed
   // Invert the sense: high EB = more outward protrusion
   const embed = eR * (0.50 - p.EB * 0.65);
-  const surfY = surf.y + cy - ny * embed;
+  const surfY = surf.y + cy - ny * embed + eyeVertOffset;
   const surfZL = surf.z - nz * embed;
   const surfZR = -(surf.z - nz * embed);
 
