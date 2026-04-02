@@ -414,7 +414,6 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
     const shape = getShape();
     if (!shape) return;
-    const idx = findNearest(e.clientX, e.clientY);
     if (idx !== null) {
       const newLocked = !shape[idx].locked;
       shape[idx].locked = newLocked;
