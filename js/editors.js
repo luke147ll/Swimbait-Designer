@@ -390,8 +390,8 @@ export function createSideEditor(container, state, onEdit) {
   svg.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
-    const { px, py, rect } = evtLocalPx(e);
-    vp.applyZoom(e.deltaY, px, py, rect);
+    const r = svg.getBoundingClientRect();
+    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r);
     redraw();
   }, { passive: false });
 
@@ -704,8 +704,8 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
-    const { px, py, rect } = evtLocalPx(e);
-    vp.applyZoom(e.deltaY, px, py, rect);
+    const r = svg.getBoundingClientRect();
+    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r);
     redraw();
   }, { passive: false });
 
