@@ -189,11 +189,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
     shape.forEach((p, i) => {
-      if (i % 2 !== 0 && i !== shape.length - 1) return;
+      if (i === shape.length - 1) return; // skip duplicate closing vertex
       const y = p.y >= 0 ? p.y * dims.dH : p.y * dims.vH;
       const z = p.z * dims.hW;
       const c = svgEl('circle', {
-        cx: toSX(z), cy: toSY(y), r: 4,
+        cx: toSX(z), cy: toSY(y), r: 3,
         class: `pe-pt dorsal${p.locked ? ' locked' : ''}`, 'data-idx': i
       });
       dotsG.appendChild(c);
@@ -253,7 +253,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     return true;
   }
 
-  const BRUSH_RADIUS = 4; // how many neighbors on each side get smoothly affected
+  const BRUSH_RADIUS = 6; // how many neighbors on each side get smoothly affected
 
   function moveDrag(cx, cy) {
     if (drag === null) return;
