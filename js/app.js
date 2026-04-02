@@ -10,6 +10,7 @@ import { buildEyes, buildHookSlot, buildWeightPocket } from './anatomy.js';
 import { loadPreset as applyPreset } from './presets.js';
 import { exportSTL as generateSTL } from './export-stl.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
+import { createTailEditor, defaultTailOutline } from './tail-editor.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
 
@@ -20,7 +21,8 @@ let editorDragging = false;
 
 // Profile state — source of truth for body shape
 const profileState = createProfileState();
-let sideEditor = null, widthEditor = null, xsecEditor = null;
+profileState.tailOutline = defaultTailOutline();
+let sideEditor = null, widthEditor = null, xsecEditor = null, tailEditor = null;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
@@ -100,6 +102,7 @@ function rebuildScene() {
   }
   if (widthEditor) widthEditor.refresh();
   if (xsecEditor) xsecEditor.refresh();
+  if (tailEditor) tailEditor.refresh();
 
   const badge = document.getElementById('profileMode');
   if (badge) {
@@ -157,6 +160,10 @@ function update() {
   }));
 
   rebuildProfileCache(profileState, p.CS, p.HL);
+  rebuildScene();
+}
+
+function onTailEdit() {
   rebuildScene();
 }
 
@@ -456,6 +463,8 @@ function init() {
     if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
     const xsecContainer = document.getElementById('xsecEditorContainer');
     if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit, showStationRing);
+    const tailContainer = document.getElementById('tailEditorContainer');
+    if (tailContainer) tailEditor = createTailEditor(tailContainer, profileState, onTailEdit);
     initPanelResize();
   }
 
@@ -471,6 +480,8 @@ function init() {
     if (finMob && !finMob.querySelector('svg')) finEditor = createFinEditor(finMob, finState, onFinEdit);
     const xsecMob = document.getElementById('xsecEditorMob');
     if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit, showStationRing);
+    const tailMob = document.getElementById('tailEditorMob');
+    if (tailMob && !tailMob.querySelector('svg')) tailEditor = createTailEditor(tailMob, profileState, onTailEdit);
     mobEditorsCreated = true;
   };
 

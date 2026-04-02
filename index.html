@@ -25,6 +25,8 @@
       <div id="widthEditorContainer"></div>
       <div class="ed-label">Cross-section shape (front view)</div>
       <div id="xsecEditorContainer"></div>
+      <div class="ed-label">Tail shape (rear view, right half editable)</div>
+      <div id="tailEditorContainer"></div>
       <div class="ed-hint" id="edHint">Dbl-click: add point &middot; Right-click: remove &middot; Shift+drag: move horizontally (profiles) / soft brush (cross-section) &middot; Scroll: zoom &middot; Alt+drag: pan</div>
     </div>
   </div>
@@ -121,6 +123,11 @@
 </div>
 
 
+<div class="mob-view" id="mobTail">
+  <div class="mob-header">Tail Shape (Rear View)</div>
+  <div class="mob-editor-wrap" id="tailEditorMob"></div>
+</div>
+
 <div class="vp" id="vp">
   <div class="vl">Spline-based lofted surface</div>
   <div class="vs" id="stats"></div>
@@ -139,6 +146,7 @@
   <button class="tab" data-view="mobSide" onclick="switchTab(this)">Profile</button>
   <button class="tab" data-view="mobPlan" onclick="switchTab(this)">Plan</button>
   <button class="tab" data-view="mobXSec" onclick="switchTab(this)">XSec</button>
+  <button class="tab" data-view="mobTail" onclick="switchTab(this)">Tail</button>
 </nav>
 
 <script type="module" src="js/app.js"></script>
