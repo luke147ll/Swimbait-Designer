@@ -232,55 +232,64 @@ export function createSideEditor(container, state, onEdit) {
     redraw();
   }
 
-  // Coordinate helpers for events
-  function evtLocalPx(e) {
-    const r = svg.getBoundingClientRect();
-    return { px: e.clientX - r.left, py: e.clientY - r.top, rect: r };
-  }
-  function evtToVB(e) {
-    const { px, py, rect } = evtLocalPx(e);
-    return vp.pixToVB(px, py, rect);
+  // ── Screen-space hit detection ──────────────────────────────────────
+  // Convert a data point (t, v) to screen pixels relative to the SVG element
+  function dataToScreen(t, v) {
+    const rect = svg.getBoundingClientRect();
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    // toX/toY give SVG user coords; CTM maps those to screen
+    const sx = toX(t), sy = toY(v);
+    return { x: ctm.a * sx + ctm.e - rect.left, y: ctm.d * sy + ctm.f - rect.top };
   }
 
-  // ── Find control point from event target or elementFromPoint ──
-  function findNearestPt(clientX, clientY, target) {
-    // First check the direct event target
-    const el = target && target.classList && target.classList.contains('pe-pt') ? target : document.elementFromPoint(clientX, clientY);
-    if (el && el.classList.contains('pe-pt')) {
-      const cls = el.dataset.cls;
-      const idx = +el.dataset.idx;
-      return { cls, idx, profile: cls === 'dorsal' ? state.dorsal : state.ventral };
+  // Convert screen pixels (relative to SVG element) back to data values
+  function screenToData(px, py) {
+    const rect = svg.getBoundingClientRect();
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { t: 0, v: 0 };
+    const svgX = (px + rect.left - ctm.e) / ctm.a;
+    const svgY = (py + rect.top - ctm.f) / ctm.d;
+    const t = (svgX - MRG) / (VW - MRG * 2);
+    const v = range.mx - (svgY - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
+    return { t, v };
+  }
+
+  // Find the closest point across dorsal + ventral in SCREEN PIXELS
+  const HIT_RADIUS = 20; // fixed pixels, constant regardless of zoom
+  function findNearestPt(mouseX, mouseY) {
+    let best = null;
+    function check(profile, cls) {
+      profile.forEach((p, i) => {
+        const s = dataToScreen(p.t, p.v);
+        const d = Math.hypot(mouseX - s.x, mouseY - s.y);
+        if (d < HIT_RADIUS && (!best || d < best.dist)) {
+          best = { cls, idx: i, profile: cls === 'dorsal' ? state.dorsal : state.ventral, dist: d };
+        }
+      });
     }
-    return null;
+    check(state.dorsal, 'dorsal');
+    check(state.ventral, 'ventral');
+    return best;
   }
 
-  function startDrag(clientX, clientY, e, target) {
-    const hit = findNearestPt(clientX, clientY, target);
-    if (!hit) return false;
+  function startDrag(mouseX, mouseY) {
+    const hit = findNearestPt(mouseX, mouseY);
+    if (!hit || hit.profile[hit.idx].locked) return false;
     drag = hit;
     isDragging = true;
-    if (e && e.pointerId != null) {
-    }
     return true;
   }
 
-  // Convert client coords to SVG coords using getScreenCTM (handles all transforms)
-  function clientToSvg(cx, cy) {
-    const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
-    const ctm = svg.getScreenCTM();
-    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
-  }
-
-  function moveDrag(clientX, clientY, shiftKey) {
+  function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
     if (drag.profile[drag.idx].locked) return;
-    const svgPt = clientToSvg(clientX, clientY);
-    drag.profile[drag.idx].v = range.mx - (svgPt.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
+    const data = screenToData(mouseX, mouseY);
+    drag.profile[drag.idx].v = data.v;
     if (shiftKey) {
-      const newT = (svgPt.x - MRG) / (VW - MRG * 2);
       const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
       const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
-      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
+      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, data.t));
     }
     drawCurves();
     drawPoints();
@@ -293,15 +302,22 @@ export function createSideEditor(container, state, onEdit) {
     range = yRange();
   }
 
+  // Helper: get mouse position relative to SVG element
+  function localXY(e) {
+    const r = svg.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
   // ── Pointer events (mouse + stylus) ──
   svg.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch') return; // handled by touch events
+    if (e.pointerType === 'touch') return;
     if (e.altKey || e.button === 1) {
       panState = { lastX: e.clientX, lastY: e.clientY };
       e.preventDefault(); e.stopPropagation();
       return;
     }
-    if (startDrag(e.clientX, e.clientY, e, e.target)) { e.preventDefault(); e.stopPropagation(); }
+    const m = localXY(e);
+    if (startDrag(m.x, m.y)) { e.preventDefault(); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointermove', e => {
@@ -311,7 +327,7 @@ export function createSideEditor(container, state, onEdit) {
       panState.lastX = e.clientX; panState.lastY = e.clientY;
       redraw(); e.stopPropagation(); return;
     }
-    if (drag) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
+    if (drag) { const m = localXY(e); moveDrag(m.x, m.y, e.shiftKey); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointerup', e => {
@@ -325,7 +341,8 @@ export function createSideEditor(container, state, onEdit) {
   svg.addEventListener('touchstart', e => {
     e.preventDefault();
     if (e.touches.length === 1) {
-      startDrag(e.touches[0].clientX, e.touches[0].clientY, null);
+      const r = svg.getBoundingClientRect();
+      startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
     } else if (e.touches.length === 2) {
       endDrag();
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -341,7 +358,8 @@ export function createSideEditor(container, state, onEdit) {
   svg.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && drag) {
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
+      const r = svg.getBoundingClientRect();
+      moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -541,49 +559,61 @@ export function createWidthEditor(container, state, onEdit) {
     redraw();
   }
 
-  function evtLocalPx(e) {
+  // ── Screen-space hit detection for width editor ──
+  function dataToScreen(t, v) {
+    const rect = svg.getBoundingClientRect();
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const sx = toX(t), sy = toYUp(v);
+    return { x: ctm.a * sx + ctm.e - rect.left, y: ctm.d * sy + ctm.f - rect.top };
+  }
+
+  function screenToData(px, py) {
+    const rect = svg.getBoundingClientRect();
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { t: 0, v: 0 };
+    const svgX = (px + rect.left - ctm.e) / ctm.a;
+    const svgY = (py + rect.top - ctm.f) / ctm.d;
+    const t = (svgX - MRG) / (VW - MRG * 2);
+    const v = Math.max(0, (VH / 2 - svgY) / ((VH - MRG * 2) / 2) * wr);
+    return { t, v };
+  }
+
+  function localXY(e) {
     const r = svg.getBoundingClientRect();
-    return { px: e.clientX - r.left, py: e.clientY - r.top, rect: r };
-  }
-  function evtToVB(e) {
-    const { px, py, rect } = evtLocalPx(e);
-    return vp.pixToVB(px, py, rect);
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  // ── Find width control point ──
-  function findNearestPt(clientX, clientY, target) {
-    const el = target && target.classList && target.classList.contains('pe-pt') ? target : document.elementFromPoint(clientX, clientY);
-    if (el && el.classList.contains('pe-pt')) return { idx: +el.dataset.idx };
-    return null;
+  const HIT_RADIUS = 20;
+  function findNearestPt(mouseX, mouseY) {
+    let best = null;
+    state.width.forEach((p, i) => {
+      const s = dataToScreen(p.t, p.v);
+      const d = Math.hypot(mouseX - s.x, mouseY - s.y);
+      if (d < HIT_RADIUS && (!best || d < best.dist)) {
+        best = { idx: i, dist: d };
+      }
+    });
+    return best;
   }
 
-  function startDrag(clientX, clientY, e, target) {
-    const hit = findNearestPt(clientX, clientY, target);
-    if (!hit) return false;
+  function startDrag(mouseX, mouseY) {
+    const hit = findNearestPt(mouseX, mouseY);
+    if (!hit || state.width[hit.idx].locked) return false;
     drag = hit;
     isDragging = true;
-    if (e && e.pointerId != null) {
-    }
     return true;
   }
 
-  // Convert client coords to SVG coords using getScreenCTM (handles all transforms)
-  function clientToSvg(cx, cy) {
-    const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
-    const ctm = svg.getScreenCTM();
-    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
-  }
-
-  function moveDrag(clientX, clientY, shiftKey) {
+  function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
     if (state.width[drag.idx].locked) return;
-    const svgPt = clientToSvg(clientX, clientY);
-    state.width[drag.idx].v = Math.max(0, (VH / 2 - svgPt.y) / ((VH - MRG * 2) / 2) * wr);
+    const data = screenToData(mouseX, mouseY);
+    state.width[drag.idx].v = data.v;
     if (shiftKey) {
-      const newT = (svgPt.x - MRG) / (VW - MRG * 2);
       const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
       const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
-      state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
+      state.width[drag.idx].t = Math.max(prev, Math.min(next, data.t));
     }
     drawCurves();
     drawPoints();
@@ -603,7 +633,8 @@ export function createWidthEditor(container, state, onEdit) {
       panState = { lastX: e.clientX, lastY: e.clientY };
       e.preventDefault(); e.stopPropagation(); return;
     }
-    if (startDrag(e.clientX, e.clientY, e, e.target)) { e.preventDefault(); e.stopPropagation(); }
+    const m = localXY(e);
+    if (startDrag(m.x, m.y)) { e.preventDefault(); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointermove', e => {
@@ -613,7 +644,7 @@ export function createWidthEditor(container, state, onEdit) {
       panState.lastX = e.clientX; panState.lastY = e.clientY;
       redraw(); e.stopPropagation(); return;
     }
-    if (drag) { moveDrag(e.clientX, e.clientY, e.shiftKey); e.stopPropagation(); }
+    if (drag) { const m = localXY(e); moveDrag(m.x, m.y, e.shiftKey); e.stopPropagation(); }
   });
 
   svg.addEventListener('pointerup', e => {
@@ -627,7 +658,8 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('touchstart', e => {
     e.preventDefault();
     if (e.touches.length === 1) {
-      startDrag(e.touches[0].clientX, e.touches[0].clientY, null);
+      const r = svg.getBoundingClientRect();
+      startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
     } else if (e.touches.length === 2) {
       endDrag();
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -643,7 +675,8 @@ export function createWidthEditor(container, state, onEdit) {
   svg.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && drag) {
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
+      const r = svg.getBoundingClientRect();
+      moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
