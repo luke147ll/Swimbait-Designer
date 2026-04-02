@@ -336,7 +336,12 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     if (!shape) return;
     const idx = findNearest(e.clientX, e.clientY);
     if (idx !== null) {
-      shape[idx].locked = !shape[idx].locked;
+      const newLocked = !shape[idx].locked;
+      shape[idx].locked = newLocked;
+      // Mirror: lock the corresponding point on the other side
+      const N = shape.length - 1; // last vertex == first (closed loop)
+      const mirrorIdx = (N - idx) % N;
+      if (mirrorIdx !== idx) shape[mirrorIdx].locked = newLocked;
       drawPoints();
     }
   });
