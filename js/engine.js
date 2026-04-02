@@ -200,20 +200,21 @@ export function genBody(p, profiles) {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TRAILING EDGE CAP (for watertight STL)
+  // TRAILING EDGE CAP — only when no fork (flat tail needs cap)
+  // With a fork, the space between lobes is intentionally open
   // ═══════════════════════════════════════════════════════════
 
-  // Right side cap: fan from last ring's dorsal vertex
-  const lastRingStart = NS * vertsPerRing;
-  for (let j = 0; j < HRS - 1; j++) {
-    idx.push(lastRingStart, lastRingStart + j + 1, lastRingStart + j + 2);
-  }
-  // Left side cap
-  for (let j = 0; j < HRS - 1; j++) {
-    const a = leftMap[NS * vertsPerRing];
-    const b = leftMap[NS * vertsPerRing + j + 1];
-    const c = leftMap[NS * vertsPerRing + j + 2];
-    idx.push(a, c, b); // reversed winding
+  if (forkDepth < 0.01) {
+    const lastRingStart = NS * vertsPerRing;
+    for (let j = 0; j < HRS - 1; j++) {
+      idx.push(lastRingStart, lastRingStart + j + 1, lastRingStart + j + 2);
+    }
+    for (let j = 0; j < HRS - 1; j++) {
+      const a = leftMap[NS * vertsPerRing];
+      const b = leftMap[NS * vertsPerRing + j + 1];
+      const c = leftMap[NS * vertsPerRing + j + 2];
+      idx.push(a, c, b);
+    }
   }
 
   const geo = new THREE.BufferGeometry();
