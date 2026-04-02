@@ -246,15 +246,23 @@ export function createSideEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find nearest control point within hit radius (viewBox-aware) ──
+  // Convert client coords to SVG viewBox coords using the SVG's own transform matrix
+  function clientToSvg(clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    return pt.matrixTransform(ctm.inverse());
+  }
+
+  // ── Find nearest control point within hit radius ──
   function findNearestPt(clientX, clientY) {
-    const rect = svg.getBoundingClientRect();
-    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
+    const svgPt = clientToSvg(clientX, clientY);
     const hitR = PT_HIT_R * (vp.vw / vp.VW);
     let best = null, bestDist = hitR;
     function check(profile, cls) {
       profile.forEach((p, i) => {
-        const dx = toX(p.t) - vb.x, dy = toY(p.v) - vb.y;
+        const dx = toX(p.t) - svgPt.x, dy = toY(p.v) - svgPt.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < bestDist) { bestDist = d; best = { cls, idx: i, profile: cls === 'dorsal' ? state.dorsal : state.ventral }; }
       });
@@ -278,12 +286,10 @@ export function createSideEditor(container, state, onEdit) {
   function moveDrag(clientX, clientY, shiftKey) {
     if (!drag) return;
     if (drag.profile[drag.idx].locked) return;
-    const rect = svg.getBoundingClientRect();
-    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
-    drag.profile[drag.idx].v = range.mx - (vb.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
-    // Only move T when holding Shift — default is vertical-only
+    const svgPt = clientToSvg(clientX, clientY);
+    drag.profile[drag.idx].v = range.mx - (svgPt.y - MRG) / (VH - MRG * 2) * (range.mx - range.mn);
     if (shiftKey) {
-      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const newT = (svgPt.x - MRG) / (VW - MRG * 2);
       const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
       const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
       drag.profile[drag.idx].t = Math.max(prev, Math.min(next, newT));
@@ -560,14 +566,21 @@ export function createWidthEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // ── Find nearest width control point (viewBox-aware) ──
+  function clientToSvg(clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    return pt.matrixTransform(ctm.inverse());
+  }
+
+  // ── Find nearest width control point ──
   function findNearestPt(clientX, clientY) {
-    const rect = svg.getBoundingClientRect();
-    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
+    const svgPt = clientToSvg(clientX, clientY);
     const hitR = PT_HIT_R * (vp.vw / vp.VW);
     let best = null, bestDist = hitR;
     state.width.forEach((p, i) => {
-      const dx = toX(p.t) - vb.x, dy = toYUp(p.v) - vb.y;
+      const dx = toX(p.t) - svgPt.x, dy = toYUp(p.v) - svgPt.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < bestDist) { bestDist = d; best = { idx: i }; }
     });
@@ -588,12 +601,10 @@ export function createWidthEditor(container, state, onEdit) {
   function moveDrag(clientX, clientY, shiftKey) {
     if (!drag) return;
     if (state.width[drag.idx].locked) return;
-    const rect = svg.getBoundingClientRect();
-    const vb = vp.pixToVB(clientX - rect.left, clientY - rect.top, rect);
-    state.width[drag.idx].v = Math.max(0, (VH / 2 - vb.y) / ((VH - MRG * 2) / 2) * wr);
-    // Only move T when holding Shift
+    const svgPt = clientToSvg(clientX, clientY);
+    state.width[drag.idx].v = Math.max(0, (VH / 2 - svgPt.y) / ((VH - MRG * 2) / 2) * wr);
     if (shiftKey) {
-      const newT = (vb.x - MRG) / (VW - MRG * 2);
+      const newT = (svgPt.x - MRG) / (VW - MRG * 2);
       const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
       const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
       state.width[drag.idx].t = Math.max(prev, Math.min(next, newT));
