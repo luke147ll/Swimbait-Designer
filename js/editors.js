@@ -246,30 +246,26 @@ export function createSideEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  // Convert client coords to SVG viewBox coords using the SVG's own transform matrix
-  function clientToSvg(clientX, clientY) {
-    const pt = svg.createSVGPoint();
-    pt.x = clientX; pt.y = clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0 };
-    return pt.matrixTransform(ctm.inverse());
-  }
-
-  // ── Find nearest control point within hit radius ──
+  // ── Find control point from the actual SVG element under the pointer ──
   function findNearestPt(clientX, clientY) {
-    const svgPt = clientToSvg(clientX, clientY);
-    const hitR = PT_HIT_R * (vp.vw / vp.VW);
-    let best = null, bestDist = hitR;
-    function check(profile, cls) {
-      profile.forEach((p, i) => {
-        const dx = toX(p.t) - svgPt.x, dy = toY(p.v) - svgPt.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < bestDist) { bestDist = d; best = { cls, idx: i, profile: cls === 'dorsal' ? state.dorsal : state.ventral }; }
-      });
+    // Use elementFromPoint to find which dot the pointer is over/near
+    const el = document.elementFromPoint(clientX, clientY);
+    if (el && el.classList.contains('pe-pt')) {
+      const cls = el.dataset.cls;
+      const idx = +el.dataset.idx;
+      return { cls, idx, profile: cls === 'dorsal' ? state.dorsal : state.ventral };
     }
-    check(state.dorsal, 'dorsal');
-    check(state.ventral, 'ventral');
-    return best;
+    // Fallback: check nearby elements by expanding search area
+    const offsets = [[-6,0],[6,0],[0,-6],[0,6],[-4,-4],[4,-4],[-4,4],[4,4]];
+    for (const [ox, oy] of offsets) {
+      const el2 = document.elementFromPoint(clientX + ox, clientY + oy);
+      if (el2 && el2.classList.contains('pe-pt')) {
+        const cls = el2.dataset.cls;
+        const idx = +el2.dataset.idx;
+        return { cls, idx, profile: cls === 'dorsal' ? state.dorsal : state.ventral };
+      }
+    }
+    return null;
   }
 
   function startDrag(clientX, clientY, e) {
@@ -281,6 +277,12 @@ export function createSideEditor(container, state, onEdit) {
       try { svg.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return true;
+  }
+
+  function clientToSvg(cx, cy) {
+    const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+    const ctm = svg.getScreenCTM();
+    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
   }
 
   function moveDrag(clientX, clientY, shiftKey) {
@@ -566,25 +568,16 @@ export function createWidthEditor(container, state, onEdit) {
     return vp.pixToVB(px, py, rect);
   }
 
-  function clientToSvg(clientX, clientY) {
-    const pt = svg.createSVGPoint();
-    pt.x = clientX; pt.y = clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0 };
-    return pt.matrixTransform(ctm.inverse());
-  }
-
-  // ── Find nearest width control point ──
+  // ── Find width control point from element under pointer ──
   function findNearestPt(clientX, clientY) {
-    const svgPt = clientToSvg(clientX, clientY);
-    const hitR = PT_HIT_R * (vp.vw / vp.VW);
-    let best = null, bestDist = hitR;
-    state.width.forEach((p, i) => {
-      const dx = toX(p.t) - svgPt.x, dy = toYUp(p.v) - svgPt.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestDist) { bestDist = d; best = { idx: i }; }
-    });
-    return best;
+    const el = document.elementFromPoint(clientX, clientY);
+    if (el && el.classList.contains('pe-pt')) return { idx: +el.dataset.idx };
+    const offsets = [[-6,0],[6,0],[0,-6],[0,6],[-4,-4],[4,-4],[-4,4],[4,4]];
+    for (const [ox, oy] of offsets) {
+      const el2 = document.elementFromPoint(clientX + ox, clientY + oy);
+      if (el2 && el2.classList.contains('pe-pt')) return { idx: +el2.dataset.idx };
+    }
+    return null;
   }
 
   function startDrag(clientX, clientY, e) {
@@ -596,6 +589,12 @@ export function createWidthEditor(container, state, onEdit) {
       try { svg.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return true;
+  }
+
+  function clientToSvg(cx, cy) {
+    const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+    const ctm = svg.getScreenCTM();
+    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
   }
 
   function moveDrag(clientX, clientY, shiftKey) {
