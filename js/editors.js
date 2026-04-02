@@ -276,6 +276,8 @@ export function createSideEditor(container, state, onEdit) {
     redraw();
   }
 
+  new ResizeObserver(() => drawPoints()).observe(svg);
+
   // ── Screen-space hit detection ──────────────────────────────────────
   // Convert a data point (t, v) to screen pixels relative to the SVG element
   function dataToScreen(t, v) {
@@ -659,6 +661,8 @@ export function createWidthEditor(container, state, onEdit) {
     if (!isDragging) wr = wMax();
     redraw();
   }
+
+  new ResizeObserver(() => drawPoints()).observe(svg);
 
   // ── Screen-space hit detection for width editor ──
   function dataToScreen(t, v) {

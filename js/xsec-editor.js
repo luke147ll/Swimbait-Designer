@@ -271,6 +271,9 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     drawGrid(); draw(); drawPoints();
   }
 
+  // Reposition dots when the SVG element resizes (panel drag, window resize)
+  new ResizeObserver(() => drawPoints()).observe(svg);
+
   function setStation(i) {
     station = Math.max(1, Math.min(96, i));
     refresh();
