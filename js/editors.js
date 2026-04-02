@@ -125,26 +125,31 @@ export function createSideEditor(container, state, onEdit) {
   // Dot overlay
   const dotOverlay = document.createElement('div');
 
-  // Resize handle at the bottom
+  // Resize handle below the editor
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'pe-resize-handle';
   resizeHandle.addEventListener('mousedown', e => {
     e.preventDefault();
+    e.stopPropagation();
     const startY = e.clientY;
     const startH = svg.offsetHeight;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
     const onMove = ev => {
       const newH = Math.max(80, startH + ev.clientY - startY);
       svg.style.height = newH + 'px';
-      drawPoints(); // reposition dots for new height
+      drawPoints();
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  wrap.appendChild(resizeHandle);
+  container.appendChild(resizeHandle);
   dotOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
   wrap.appendChild(dotOverlay);
 
@@ -549,8 +554,11 @@ export function createWidthEditor(container, state, onEdit) {
   resizeHandle.className = 'pe-resize-handle';
   resizeHandle.addEventListener('mousedown', e => {
     e.preventDefault();
+    e.stopPropagation();
     const startY = e.clientY;
     const startH = svg.offsetHeight;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
     const onMove = ev => {
       const newH = Math.max(60, startH + ev.clientY - startY);
       svg.style.height = newH + 'px';
@@ -559,11 +567,13 @@ export function createWidthEditor(container, state, onEdit) {
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  wrap.appendChild(resizeHandle);
+  container.appendChild(resizeHandle);
 
   const gridG = svgEl('g');
   const fillPath = svgEl('path', { class: 'pe-fill pe-wfill' });
