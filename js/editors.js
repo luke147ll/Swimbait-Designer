@@ -173,7 +173,7 @@ export function createSideEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotOverlay.innerHTML = '';
-    const DOT_PX = 7; // fixed pixel size
+    const DOT_PX = Math.min(70, Math.max(4, 5 * Math.sqrt(vp.zoom))); // fixed pixel size
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
         const scr = dataToScreen(p.t, p.v);
@@ -191,7 +191,8 @@ export function createSideEditor(container, state, onEdit) {
       const scr = dataToScreen(eyeT, dorsalV + eyeV);
       const dot = document.createElement('div');
       dot.className = 'pe-html-dot eye';
-      dot.style.cssText = `position:absolute;left:${scr.x - 5}px;top:${scr.y - 5}px;width:10px;height:10px;pointer-events:none`;
+      const eyeR = DOT_PX * 1.4;
+      dot.style.cssText = `position:absolute;left:${scr.x - eyeR/2}px;top:${scr.y - eyeR/2}px;width:${eyeR}px;height:${eyeR}px;pointer-events:none`;
       dotOverlay.appendChild(dot);
     }
   }
@@ -563,7 +564,7 @@ export function createWidthEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotOverlay.innerHTML = '';
-    const DOT_PX = 7;
+    const DOT_PX = Math.min(70, Math.max(4, 5 * Math.sqrt(vp.zoom)));
     state.width.forEach((p, i) => {
       const scr = dataToScreen(p.t, p.v);
       const dot = document.createElement('div');
