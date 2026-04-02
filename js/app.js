@@ -215,18 +215,8 @@ function onFinEdit() {
   if (tailFinMesh) scene.add(tailFinMesh);
 }
 
-// Called by editor drag — snapshot deltas against a FRESH base, then rebuild
+// Called by editor drag — just rebuild caches from current profile data
 function onProfileEdit() {
-  const base = buildProfilesFromSliders(getParams()); // always fresh, no stale cache
-  for (let i = 0; i < profileState.dorsal.length && i < base.dorsal.length; i++) {
-    profileState.dDelta[i] = profileState.dorsal[i].v - base.dorsal[i].v;
-  }
-  for (let i = 0; i < profileState.ventral.length && i < base.ventral.length; i++) {
-    profileState.vDelta[i] = profileState.ventral[i].v - base.ventral[i].v;
-  }
-  for (let i = 0; i < profileState.width.length && i < base.width.length; i++) {
-    profileState.wDelta[i] = profileState.width[i].v - base.width[i].v;
-  }
   rebuildProfileCache(profileState, +document.getElementById('sCS').value, +document.getElementById('sHL').value);
   rebuildScene();
 }
