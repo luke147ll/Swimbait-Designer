@@ -1,4 +1,1 @@
-/verify   /verify.html   200
-/d/*      /index.html    200
-/profile  /profile.html  200
-/login    /login.html    200
+/d/*  /index.html  200
