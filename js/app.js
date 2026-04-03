@@ -4,7 +4,7 @@
  * render loop, resize handler, profile state management, and UI wiring.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { genBody, superEllipse, NS } from './engine.js';
+import { genBody, superEllipse, NS, RS } from './engine.js';
 
 import { buildEyes, buildHookSlot, buildWeightPocket } from './anatomy.js';
 import { loadPreset as applyPreset } from './presets.js';
