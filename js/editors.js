@@ -361,11 +361,10 @@ export function createSideEditor(container, state, onEdit) {
     }
     const data = screenToData(mouseX, mouseY);
     drag.profile[drag.idx].v = data.v;
-    if (shiftKey) {
-      const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
-      const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
-      drag.profile[drag.idx].t = Math.max(prev, Math.min(next, data.t));
-    }
+    // Always allow horizontal movement (clamped between neighbors)
+    const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
+    const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
+    drag.profile[drag.idx].t = Math.max(prev, Math.min(next, data.t));
     drawCurves();
     drawPoints();
     onEdit();
@@ -703,11 +702,9 @@ export function createWidthEditor(container, state, onEdit) {
     if (!drag) return;
     const data = screenToData(mouseX, mouseY);
     state.width[drag.idx].v = data.v;
-    if (shiftKey) {
-      const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
-      const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
-      state.width[drag.idx].t = Math.max(prev, Math.min(next, data.t));
-    }
+    const prev = drag.idx > 0 ? state.width[drag.idx - 1].t + 0.002 : 0;
+    const next = drag.idx < state.width.length - 1 ? state.width[drag.idx + 1].t - 0.002 : 1;
+    state.width[drag.idx].t = Math.max(prev, Math.min(next, data.t));
     drawCurves();
     drawPoints();
     onEdit();
