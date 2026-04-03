@@ -199,6 +199,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   // Main thumb drag — move station
   function onThumbDrag(e) {
     e.preventDefault(); e.stopPropagation();
+    thumbEl.setPointerCapture(e.pointerId);
     const onMove = ev => {
       const rect = trackEl.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
@@ -207,14 +208,20 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       updateRangeBar(); refresh();
       if (onStationChange) onStationChange(station);
     };
-    const onUp = () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); };
-    document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
+    const onUp = () => {
+      thumbEl.removeEventListener('pointermove', onMove);
+      thumbEl.removeEventListener('pointerup', onUp);
+    };
+    thumbEl.addEventListener('pointermove', onMove);
+    thumbEl.addEventListener('pointerup', onUp);
   }
   thumbEl.addEventListener('pointerdown', onThumbDrag);
 
   // Left/right arrow drag — adjust blend radius
   function onRangeDrag(side, e) {
     e.preventDefault(); e.stopPropagation();
+    const target = e.target;
+    target.setPointerCapture(e.pointerId);
     const startX = e.clientX, startR = blendRadius;
     const onMove = ev => {
       const dx = ev.clientX - startX;
@@ -224,15 +231,15 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       updateRangeBar();
     };
     const onUp = () => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      // Save blend radius for this keyframe
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
       if (profileState.xsecKeyframes[station]) {
         profileState.xsecBlendRadii[station] = blendRadius;
       }
       onEdit();
     };
-    document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
   }
   leftEl.addEventListener('pointerdown', e => onRangeDrag('left', e));
   rightEl.addEventListener('pointerdown', e => onRangeDrag('right', e));

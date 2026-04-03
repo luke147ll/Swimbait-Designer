@@ -102,12 +102,12 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 .xsec-fill{fill:var(--ac);opacity:.06}
 .xsec-bar{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
 .xsec-range-wrap{width:100%}
-.xsec-range-track{position:relative;height:28px;background:var(--sf2);border:1px solid var(--bd);border-radius:3px;cursor:pointer}
+.xsec-range-track{position:relative;height:28px;background:var(--sf2);border:1px solid var(--bd);border-radius:3px;cursor:pointer;touch-action:none}
 .xsec-range-zone{position:absolute;top:2px;bottom:2px;background:var(--ac);opacity:.15;border-radius:2px;pointer-events:none}
-.xsec-range-thumb{position:absolute;top:2px;bottom:2px;width:12px;background:var(--ac);border-radius:2px;cursor:grab;z-index:2}
+.xsec-range-thumb{position:absolute;top:2px;bottom:2px;width:12px;background:var(--ac);border-radius:2px;cursor:grab;z-index:2;touch-action:none}
 .xsec-range-thumb:hover{background:var(--tx)}
 .xsec-range-left,.xsec-range-right{position:absolute;top:4px;font-size:10px;color:var(--ac);cursor:ew-resize;
-  user-select:none;z-index:3;line-height:20px}
+  user-select:none;z-index:3;line-height:20px;touch-action:none}
 .xsec-range-left:hover,.xsec-range-right:hover{color:var(--tx)}
 .xsec-btns{display:flex;gap:4px;align-items:center}
 .xsec-label{font-size:8px;color:var(--mu);min-width:70px}
@@ -188,7 +188,10 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
   /* Full-screen editors on phone get larger SVGs */
   .mob-view .pe-svg{height:calc(100dvh - 120px) !important}
 
-  /* XSec mobile: scrollable so range bar + buttons are reachable */
+  /* XSec mobile: scrollable, larger touch targets for range bar */
   #mobXSec .mob-editor-wrap{overflow-y:auto}
   #mobXSec .mob-editor-wrap .pe-svg{flex:none;height:45dvh !important;min-height:200px}
+  .xsec-range-track{height:40px}
+  .xsec-range-thumb{width:20px}
+  .xsec-range-left,.xsec-range-right{font-size:16px;line-height:32px;padding:0 4px}
 }
