@@ -572,6 +572,21 @@ async function initAuth() {
     showLoggedOutUI();
   }
 
+  // Restore stashed design from pre-login state
+  if (currentUser) {
+    const stashed = localStorage.getItem('sd_pending_design');
+    if (stashed) {
+      localStorage.removeItem('sd_pending_design');
+      try {
+        const state = JSON.parse(stashed);
+        loadDesignState(state);
+        // Pre-fill name and show save section ready to go
+        const nameInput = document.getElementById('designNameInput');
+        if (nameInput && !nameInput.value) nameInput.value = 'Untitled design';
+      } catch {}
+    }
+  }
+
   // Check for shared design URL: /d/{designId}
   const shareMatch = window.location.pathname.match(/^\/d\/([\w-]+)$/);
   if (shareMatch) {
@@ -625,7 +640,12 @@ function loadDesignState(state) {
 }
 
 async function saveDesign() {
-  if (!currentUser) { window.location = '/login'; return; }
+  if (!currentUser) {
+    // Stash current design so it survives the login round-trip
+    try { localStorage.setItem('sd_pending_design', getDesignState()); } catch {}
+    window.location = '/login';
+    return;
+  }
 
   const btn = document.getElementById('saveBtn');
   btn.textContent = 'Saving...';
@@ -747,5 +767,10 @@ window.saveDesign = saveDesign;
 window.toggleDesignerMenu = toggleDesignerMenu;
 window.logoutDesigner = logoutDesigner;
 window.forkDesign = forkDesign;
+window.stashAndLogin = function(e) {
+  e.preventDefault();
+  try { localStorage.setItem('sd_pending_design', getDesignState()); } catch {}
+  window.location = '/login';
+};
 
 init();

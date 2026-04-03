@@ -137,7 +137,10 @@ async function init() {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (!res.ok) { window.location = '/login'; return; }
     const user = await res.json();
-    if (user.emailVerified) { window.location = '/profile'; return; }
+    if (user.emailVerified) {
+      try { if (localStorage.getItem('sd_pending_design')) { window.location = '/'; return; } } catch {}
+      window.location = '/profile'; return;
+    }
     document.getElementById('emailDisplay').textContent = user.email || 'your email';
     inputs[0].focus();
   } catch {
@@ -165,7 +168,8 @@ async function verify() {
     const data = await res.json();
     if (res.ok) {
       showSuccess('Verified! Redirecting...');
-      setTimeout(() => { window.location = '/profile'; }, 800);
+      const dest = (() => { try { if (localStorage.getItem('sd_pending_design')) return '/'; } catch {} return '/profile'; })();
+      setTimeout(() => { window.location = dest; }, 800);
       return;
     }
     showError(data.error || 'Verification failed');
