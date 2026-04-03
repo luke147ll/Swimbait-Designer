@@ -81,10 +81,18 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const bar = document.createElement('div');
   bar.className = 'xsec-bar';
   bar.innerHTML = `
-    <input type="range" min="1" max="96" value="${station}" step="1" class="xsec-scrub">
+    <div class="xsec-range-wrap">
+      <div class="xsec-range-track">
+        <div class="xsec-range-zone" id="xsecZone"></div>
+        <div class="xsec-range-thumb" id="xsecThumb"></div>
+        <div class="xsec-range-left" id="xsecLeft">◀</div>
+        <div class="xsec-range-right" id="xsecRight">▶</div>
+      </div>
+    </div>
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel"></span>
-            <button class="xsec-btn" id="xsecReset">Reset</button>
+      <span class="xsec-label" id="xsecRangeLabel"></span>
+      <button class="xsec-btn" id="xsecReset">Reset</button>
     </div>
   `;
 
@@ -93,17 +101,22 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   wrap.appendChild(dotOverlay);
   container.appendChild(wrap);
 
-  const scrubEl = bar.querySelector('.xsec-scrub');
   const labelEl = bar.querySelector('#xsecLabel');
+  const rangeLabelEl = bar.querySelector('#xsecRangeLabel');
   const resetBtn = bar.querySelector('#xsecReset');
+  const trackEl = bar.querySelector('.xsec-range-track');
+  const zoneEl = bar.querySelector('#xsecZone');
+  const thumbEl = bar.querySelector('#xsecThumb');
+  const leftEl = bar.querySelector('#xsecLeft');
+  const rightEl = bar.querySelector('#xsecRight');
 
-  // Get sorted snap positions from profile control points
+  let blendRadius = 4; // adjustable blend radius (default matches engine)
+
   function getSnapPositions() {
     const pts = profileState.dorsal || [];
     return pts.map(p => Math.round(p.t * 96)).filter(v => v >= 1);
   }
 
-  // Snap a raw slider value to the nearest profile control point station
   function snapToNearest(raw) {
     const snaps = getSnapPositions();
     if (snaps.length === 0) return raw;
@@ -115,13 +128,64 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     return best;
   }
 
-  scrubEl.addEventListener('input', () => {
-    const snapped = snapToNearest(+scrubEl.value);
-    station = snapped;
-    scrubEl.value = snapped;
-    refresh();
+  function updateRangeBar() {
+    const pct = (station - 1) / 95 * 100;
+    const rangePct = blendRadius / 96 * 100;
+    thumbEl.style.left = `calc(${pct}% - 6px)`;
+    zoneEl.style.left = `${Math.max(0, pct - rangePct)}%`;
+    zoneEl.style.width = `${Math.min(100, rangePct * 2)}%`;
+    leftEl.style.left = `calc(${Math.max(0, pct - rangePct)}% - 8px)`;
+    rightEl.style.left = `calc(${Math.min(100, pct + rangePct)}% - 2px)`;
+    rangeLabelEl.textContent = `range: ${blendRadius}`;
+  }
+
+  // Main thumb drag — move station
+  function onThumbDrag(e) {
+    e.preventDefault(); e.stopPropagation();
+    const onMove = ev => {
+      const rect = trackEl.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      station = snapToNearest(Math.round(1 + pct * 95));
+      updateRangeBar(); refresh();
+      if (onStationChange) onStationChange(station);
+    };
+    const onUp = () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); };
+    document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
+  }
+  thumbEl.addEventListener('pointerdown', onThumbDrag);
+
+  // Left/right arrow drag — adjust blend radius
+  function onRangeDrag(side, e) {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startR = blendRadius;
+    const onMove = ev => {
+      const dx = ev.clientX - startX;
+      const rect = trackEl.getBoundingClientRect();
+      const dRings = Math.round(dx / rect.width * 96);
+      blendRadius = Math.max(1, Math.min(20, startR + (side === 'right' ? dRings : -dRings)));
+      updateRangeBar();
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      onEdit(); // rebuild with new blend radius
+    };
+    document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
+  }
+  leftEl.addEventListener('pointerdown', e => onRangeDrag('left', e));
+  rightEl.addEventListener('pointerdown', e => onRangeDrag('right', e));
+
+  // Click on track to jump station
+  trackEl.addEventListener('pointerdown', e => {
+    if (e.target === thumbEl || e.target === leftEl || e.target === rightEl) return;
+    const rect = trackEl.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    station = snapToNearest(Math.round(1 + pct * 95));
+    updateRangeBar(); refresh();
     if (onStationChange) onStationChange(station);
   });
+
+  updateRangeBar();
 
   // ── Coordinate transforms (normalized -1..1 → SVG) ──
   let viewSpan = 0.15; // half-range in world units (auto-updated)
@@ -427,5 +491,5 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   refresh();
   // Don't call onStationChange during init — scene may not be ready yet
-  return { refresh, setStation, getStation() { return station; } };
+  return { refresh, setStation, getStation() { return station; }, getBlendRadius() { return blendRadius; } };
 }

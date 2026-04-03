@@ -33,7 +33,7 @@ export function defaultXSecPoly(n) {
   return pts;
 }
 
-const BLEND_RADIUS = 4; // rings on each side affected by a keyframe edit
+let BLEND_RADIUS = 4; // default, can be overridden per-call
 
 function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
@@ -96,6 +96,7 @@ export function genBody(p, profiles) {
   const pos = [], idx = [];
   const vertsPerRing = HRS + 1;
 
+  BLEND_RADIUS = p.BR || 4; // blend radius from xsec editor
   const forkDepth = p.FD || 0;
   const forkAsym = p.FA || 0;
   const TAIL_ZONE = 0.85;

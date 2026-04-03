@@ -98,7 +98,15 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 .xsec-ref{fill:none;stroke:var(--mu);stroke-width:0.8;stroke-dasharray:3,3;opacity:.4}
 .xsec-shape{fill:none;stroke:var(--ac);stroke-width:1.5}
 .xsec-fill{fill:var(--ac);opacity:.06}
-.xsec-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px}
+.xsec-bar{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
+.xsec-range-wrap{width:100%}
+.xsec-range-track{position:relative;height:28px;background:var(--sf2);border:1px solid var(--bd);border-radius:3px;cursor:pointer}
+.xsec-range-zone{position:absolute;top:2px;bottom:2px;background:var(--ac);opacity:.15;border-radius:2px;pointer-events:none}
+.xsec-range-thumb{position:absolute;top:2px;bottom:2px;width:12px;background:var(--ac);border-radius:2px;cursor:grab;z-index:2}
+.xsec-range-thumb:hover{background:var(--tx)}
+.xsec-range-left,.xsec-range-right{position:absolute;top:4px;font-size:10px;color:var(--ac);cursor:ew-resize;
+  user-select:none;z-index:3;line-height:20px}
+.xsec-range-left:hover,.xsec-range-right:hover{color:var(--tx)}
 .xsec-btns{display:flex;gap:4px;align-items:center}
 .xsec-label{font-size:8px;color:var(--mu);min-width:70px}
 .xsec-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
