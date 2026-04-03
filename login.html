@@ -94,8 +94,8 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;min-he
       <div class="input-wrap"><input type="text" id="signupDisplay" autocomplete="name" placeholder="defaults to username"></div>
     </div>
     <div class="field">
-      <label>Email <span style="opacity:.4">(optional)</span></label>
-      <div class="input-wrap"><input type="email" id="signupEmail" autocomplete="email" placeholder="for account recovery"></div>
+      <label>Email</label>
+      <div class="input-wrap"><input type="email" id="signupEmail" autocomplete="email" placeholder="for verification &amp; recovery" required></div>
     </div>
     <div class="field">
       <label>Password</label>
@@ -237,13 +237,13 @@ async function submitSignup(e) {
       body: JSON.stringify({
         username: document.getElementById('signupUser').value.trim(),
         password,
-        email: document.getElementById('signupEmail').value.trim() || undefined,
+        email: document.getElementById('signupEmail').value.trim(),
         displayName: document.getElementById('signupDisplay').value.trim() || undefined,
       }),
     });
     const data = await res.json();
     if (res.ok) {
-      window.location = '/profile';
+      window.location = data.needsVerification ? '/verify' : '/profile';
       return;
     }
     errEl.textContent = data.error || 'Signup failed';

@@ -91,6 +91,11 @@ export async function handleSignup(request, env) {
   const body = await request.json();
   const { username, password, email, displayName } = body;
 
+  // Email is required
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return jsonResponse({ error: 'A valid email address is required' }, 400);
+  }
+
   const usernameErr = validateUsername(username);
   if (usernameErr) return jsonResponse({ error: usernameErr }, 400);
 
@@ -100,10 +105,8 @@ export async function handleSignup(request, env) {
   const existing = await env.USERS.get(`username:${username.toLowerCase()}`);
   if (existing) return jsonResponse({ error: 'Username is already taken' }, 409);
 
-  if (email) {
-    const emailExisting = await env.USERS.get(`email:${email.toLowerCase()}`);
-    if (emailExisting) return jsonResponse({ error: 'Email is already registered' }, 409);
-  }
+  const emailExisting = await env.USERS.get(`email:${email.toLowerCase()}`);
+  if (emailExisting) return jsonResponse({ error: 'Email is already registered' }, 409);
 
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
@@ -112,7 +115,8 @@ export async function handleSignup(request, env) {
   const user = {
     id: userId,
     username,
-    email: email || null,
+    email: email.toLowerCase(),
+    emailVerified: false,
     hashedPassword,
     displayName: displayName || username,
     location: '',
@@ -124,12 +128,41 @@ export async function handleSignup(request, env) {
 
   await env.USERS.put(`user:${userId}`, JSON.stringify(user));
   await env.USERS.put(`username:${username.toLowerCase()}`, JSON.stringify({ userId }));
-  if (email) {
-    await env.USERS.put(`email:${email.toLowerCase()}`, JSON.stringify({ userId }));
-  }
-
+  await env.USERS.put(`email:${email.toLowerCase()}`, JSON.stringify({ userId }));
   await env.DESIGNS.put(`userdesigns:${userId}`, JSON.stringify({ designIds: [] }));
 
+  // Generate 6-digit verification code
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+
+  await env.USERS.put(`verify:${email.toLowerCase()}`, JSON.stringify({
+    code,
+    userId,
+    attempts: 0,
+    createdAt: new Date().toISOString(),
+  }), { expirationTtl: 900 });
+
+  // Push to MailerLite SD Unverified group (triggers verification email automation)
+  try {
+    await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase(),
+        fields: {
+          verification_code: code,
+          name: displayName || username,
+        },
+        groups: ['183751433716237749'],
+      }),
+    });
+  } catch (err) {
+    console.error('MailerLite API error:', err);
+  }
+
+  // Create session (logged in but unverified)
   const token = generateToken();
   await env.USERS.put(`session:${token}`, JSON.stringify({
     userId,
@@ -137,7 +170,7 @@ export async function handleSignup(request, env) {
   }), { expirationTtl: 2592000 });
 
   const { hashedPassword: _, ...safeUser } = user;
-  return jsonResponse(safeUser, 201, {
+  return jsonResponse({ ...safeUser, needsVerification: true }, 201, {
     'Set-Cookie': getSessionCookie(token),
   });
 }
@@ -241,6 +274,134 @@ export async function handleCheckUsername(request, env) {
 
   const existing = await env.USERS.get(`username:${username.toLowerCase()}`);
   return jsonResponse({ available: !existing });
+}
+
+// ─── Email verification ──────────────────────────────────────
+
+export async function handleVerify(request, env) {
+  const user = await getAuthenticatedUser(request, env);
+  if (!user) return jsonResponse({ error: 'Not authenticated' }, 401);
+
+  const body = await request.json();
+  const { code } = body;
+
+  if (!code || typeof code !== 'string') {
+    return jsonResponse({ error: 'Verification code is required' }, 400);
+  }
+
+  const email = user.email;
+  if (!email) return jsonResponse({ error: 'No email on account' }, 400);
+
+  const verifyData = await env.USERS.get(`verify:${email}`, 'json');
+  if (!verifyData) {
+    return jsonResponse({ error: 'Verification code expired. Request a new one.' }, 410);
+  }
+
+  if (verifyData.attempts >= 5) {
+    return jsonResponse({ error: 'Too many attempts. Request a new code.' }, 429);
+  }
+
+  if (verifyData.code !== code.trim()) {
+    verifyData.attempts += 1;
+    await env.USERS.put(`verify:${email}`, JSON.stringify(verifyData), {
+      expirationTtl: 900,
+    });
+    return jsonResponse({
+      error: 'Invalid code. Please try again.',
+      attemptsRemaining: 5 - verifyData.attempts,
+    }, 401);
+  }
+
+  // Code valid — mark verified
+  user.emailVerified = true;
+  await env.USERS.put(`user:${user.id}`, JSON.stringify(user));
+  await env.USERS.delete(`verify:${email}`);
+
+  // Move subscriber from SD Unverified to SD Verified in MailerLite
+  try {
+    // Add to SD Verified group
+    await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email,
+        groups: ['183751444707411764'],
+      }),
+    });
+
+    // Remove from SD Unverified group
+    const subRes = await fetch(
+      `https://connect.mailerlite.com/api/subscribers/${encodeURIComponent(email)}`,
+      { headers: { 'Authorization': `Bearer ${env.MAILERLITE_API_KEY}` } }
+    );
+    if (subRes.ok) {
+      const subData = await subRes.json();
+      await fetch(
+        `https://connect.mailerlite.com/api/subscribers/${subData.data.id}/groups/183751433716237749`,
+        { method: 'DELETE', headers: { 'Authorization': `Bearer ${env.MAILERLITE_API_KEY}` } }
+      );
+    }
+  } catch (err) {
+    console.error('MailerLite group move error:', err);
+  }
+
+  const { hashedPassword: _, ...safeUser } = user;
+  return jsonResponse({ ...safeUser, verified: true });
+}
+
+export async function handleResendCode(request, env) {
+  const user = await getAuthenticatedUser(request, env);
+  if (!user) return jsonResponse({ error: 'Not authenticated' }, 401);
+
+  if (user.emailVerified) {
+    return jsonResponse({ error: 'Email is already verified' }, 400);
+  }
+
+  const email = user.email;
+  if (!email) return jsonResponse({ error: 'No email on account' }, 400);
+
+  // Rate limit: 1 resend per 60 seconds
+  const existing = await env.USERS.get(`verify:${email}`, 'json');
+  if (existing) {
+    const elapsed = Date.now() - new Date(existing.createdAt).getTime();
+    if (elapsed < 60000) {
+      return jsonResponse({
+        error: 'Please wait before requesting a new code.',
+        retryAfter: Math.ceil((60000 - elapsed) / 1000),
+      }, 429);
+    }
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+
+  await env.USERS.put(`verify:${email}`, JSON.stringify({
+    code,
+    userId: user.id,
+    attempts: 0,
+    createdAt: new Date().toISOString(),
+  }), { expirationTtl: 900 });
+
+  try {
+    await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email,
+        fields: { verification_code: code },
+        groups: ['183751433716237749'],
+      }),
+    });
+  } catch (err) {
+    console.error('MailerLite resend error:', err);
+  }
+
+  return jsonResponse({ sent: true, message: 'New verification code sent.' });
 }
 
 export { getAuthenticatedUser, jsonResponse };

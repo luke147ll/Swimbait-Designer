@@ -1,6 +1,7 @@
 import {
   handleSignup, handleLogin, handleMe, handleLogout,
-  handlePasswordChange, handleCheckUsername, jsonResponse
+  handlePasswordChange, handleCheckUsername,
+  handleVerify, handleResendCode, jsonResponse
 } from './auth.js';
 
 import {
@@ -42,6 +43,10 @@ export default {
         response = await handlePasswordChange(request, env);
       } else if (path === '/api/auth/check-username' && method === 'GET') {
         response = await handleCheckUsername(request, env);
+      } else if (path === '/api/auth/verify' && method === 'POST') {
+        response = await handleVerify(request, env);
+      } else if (path === '/api/auth/resend-code' && method === 'POST') {
+        response = await handleResendCode(request, env);
 
       // Design routes
       } else if (path === '/api/designs' && method === 'GET') {

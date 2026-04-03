@@ -188,7 +188,9 @@ async function checkAuth() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (!res.ok) { window.location = '/login'; return null; }
-    return await res.json();
+    const user = await res.json();
+    if (!user.emailVerified) { window.location = '/verify'; return null; }
+    return user;
   } catch { window.location = '/login'; return null; }
 }
 
