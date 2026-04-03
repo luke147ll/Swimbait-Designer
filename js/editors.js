@@ -69,10 +69,12 @@ function createViewport(VW, VH) {
       };
     },
 
-    applyZoom(delta, pivotX, pivotY, svgRect) {
+    applyZoom(delta, pivotX, pivotY, svgRect, svgEl) {
       const factor = delta > 0 ? 1.12 : 1 / 1.12;
-      const pivot = this.pixToVB(pivotX, pivotY, svgRect);
-
+      const ctm = svgEl && svgEl.getScreenCTM();
+      const pivot = ctm
+        ? { x: (pivotX + svgRect.left - ctm.e) / ctm.a, y: (pivotY + svgRect.top - ctm.f) / ctm.d }
+        : this.pixToVB(pivotX, pivotY, svgRect);
       const newW = Math.max(this.VW * 0.05, Math.min(this.VW * 4, this.vw * factor));
       const newH = Math.max(this.VH * 0.05, Math.min(this.VH * 4, this.vh * factor));
       const ratioX = (pivot.x - this.vx) / this.vw;
@@ -84,15 +86,19 @@ function createViewport(VW, VH) {
       this.zoom = this.VW / this.vw;
     },
 
-    applyPinch(ratio, pivotX, pivotY, svgRect) {
-      const factor = 1 / ratio; // pinch out (ratio>1) = zoom in (shrink viewBox)
-      const pivot = this.pixToVB(pivotX, pivotY, svgRect);
+    applyPinch(ratio, pivotX, pivotY, svgRect, svgEl) {
+      const factor = 1 / ratio;
+      // Use getScreenCTM for accurate pivot (handles preserveAspectRatio)
+      const ctm = svgEl.getScreenCTM();
+      const pivot = ctm
+        ? { x: (pivotX + svgRect.left - ctm.e) / ctm.a, y: (pivotY + svgRect.top - ctm.f) / ctm.d }
+        : this.pixToVB(pivotX, pivotY, svgRect);
       const newW = Math.max(this.VW * 0.05, Math.min(this.VW * 4, this.vw * factor));
       const newH = Math.max(this.VH * 0.05, Math.min(this.VH * 4, this.vh * factor));
-      const ratioX = (pivot.x - this.vx) / this.vw;
-      const ratioY = (pivot.y - this.vy) / this.vh;
-      this.vx = pivot.x - ratioX * newW;
-      this.vy = pivot.y - ratioY * newH;
+      const rx = (pivot.x - this.vx) / this.vw;
+      const ry = (pivot.y - this.vy) / this.vh;
+      this.vx = pivot.x - rx * newW;
+      this.vy = pivot.y - ry * newH;
       this.vw = newW;
       this.vh = newH;
       this.zoom = this.VW / this.vw;
@@ -464,7 +470,7 @@ export function createSideEditor(container, state, onEdit) {
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const rect = svg.getBoundingClientRect();
-      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect);
+      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect, svg);
       pinchDist = dist;
       redraw();
     } else if (e.touches.length === 1) {
@@ -490,7 +496,7 @@ export function createSideEditor(container, state, onEdit) {
     e.preventDefault();
     e.stopPropagation();
     const r = svg.getBoundingClientRect();
-    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r);
+    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r, svg);
     redraw();
   }, { passive: false });
 
@@ -790,7 +796,7 @@ export function createWidthEditor(container, state, onEdit) {
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const rect = svg.getBoundingClientRect();
-      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect);
+      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect, svg);
       pinchDist = dist;
       redraw();
     } else if (e.touches.length === 1) {
@@ -815,7 +821,7 @@ export function createWidthEditor(container, state, onEdit) {
     e.preventDefault();
     e.stopPropagation();
     const r = svg.getBoundingClientRect();
-    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r);
+    vp.applyZoom(e.deltaY, e.clientX - r.left, e.clientY - r.top, r, svg);
     redraw();
   }, { passive: false });
 
