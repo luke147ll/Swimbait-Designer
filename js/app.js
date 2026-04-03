@@ -373,10 +373,10 @@ function init() {
   ren.toneMappingExposure = 1.2;
   vp.appendChild(ren.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-  const d1 = new THREE.DirectionalLight(0xfff0dd, 0.85); d1.position.set(4, 10, 6); scene.add(d1);
-  const d2 = new THREE.DirectionalLight(0x99aacc, 0.3); d2.position.set(-5, 3, -4); scene.add(d2);
-  const d3 = new THREE.DirectionalLight(0xffffff, 0.15); d3.position.set(0, -4, 2); scene.add(d3);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const d1 = new THREE.DirectionalLight(0xfff0dd, 0.9); d1.position.set(4, 10, 6); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0x99aacc, 0.4); d2.position.set(-5, 3, -4); scene.add(d2);
+  const d3 = new THREE.DirectionalLight(0xffffff, 0.25); d3.position.set(0, -4, 2); scene.add(d3);
 
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
 
