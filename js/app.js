@@ -408,6 +408,7 @@ function init() {
   let touchStartOd = od;
 
   vp.addEventListener('touchstart', e => {
+    if (e.target.closest('.view-btns')) return; // let button taps through
     e.preventDefault();
     if (e.touches.length === 1) {
       drag = true;
