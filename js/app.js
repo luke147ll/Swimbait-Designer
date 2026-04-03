@@ -14,7 +14,7 @@ import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
-let tailType = 'paddle', baitColor = 0x7a8e9a;
+let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
 
@@ -74,11 +74,16 @@ function rebuildScene() {
   bodyMesh = new THREE.Mesh(geo, mat);
   scene.add(bodyMesh);
 
-  const eyes = buildEyes(p, L, profileState);
-  eyeGrpL = eyes.eyeGrpL;
-  eyeGrpR = eyes.eyeGrpR;
-  scene.add(eyeGrpL);
-  scene.add(eyeGrpR);
+  if (showEyes) {
+    const eyes = buildEyes(p, L, profileState);
+    eyeGrpL = eyes.eyeGrpL;
+    eyeGrpR = eyes.eyeGrpR;
+    scene.add(eyeGrpL);
+    scene.add(eyeGrpR);
+  } else {
+    eyeGrpL = null;
+    eyeGrpR = null;
+  }
 
   hsM = buildHookSlot(p, L);
   if (hsM) scene.add(hsM);
@@ -767,6 +772,13 @@ window.snapView = snapView;
 window.switchTab = switchTab;
 window.toggleEditors = toggleEditors;
 window.saveDesign = saveDesign;
+window.toggleEyes = function(btn) {
+  showEyes = !showEyes;
+  btn.textContent = showEyes ? 'On' : 'Off';
+  btn.classList.toggle('on', showEyes);
+  document.getElementById('eyeSliders').style.display = showEyes ? 'block' : 'none';
+  rebuildScene();
+};
 window.toggleDesignerMenu = toggleDesignerMenu;
 window.logoutDesigner = logoutDesigner;
 window.forkDesign = forkDesign;
