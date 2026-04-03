@@ -143,7 +143,8 @@ export async function handleSignup(request, env) {
 
   // Push to MailerLite SD Unverified group (triggers verification email automation)
   try {
-    await fetch('https://connect.mailerlite.com/api/subscribers', {
+    console.log('[MailerLite] Sending subscriber:', email.toLowerCase(), 'code:', code, 'apiKey present:', !!env.MAILERLITE_API_KEY);
+    const mlRes = await fetch('https://connect.mailerlite.com/api/subscribers', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -158,8 +159,10 @@ export async function handleSignup(request, env) {
         groups: ['183751433716237749'],
       }),
     });
+    const mlBody = await mlRes.text();
+    console.log('[MailerLite] Response status:', mlRes.status, 'body:', mlBody);
   } catch (err) {
-    console.error('MailerLite API error:', err);
+    console.error('[MailerLite] Fetch error:', err.message, err.stack);
   }
 
   // Create session (logged in but unverified)
