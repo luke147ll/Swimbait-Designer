@@ -11,7 +11,18 @@
 <div id="app">
 <div class="pnl-resize" id="pnlResize"></div>
 <div class="pnl" id="pnlControls">
-  <div class="ph"><div class="sub">Spline-based profile engine v0.4</div><h1>Swimbait Designer</h1></div>
+  <div class="ph">
+    <div class="sub">Spline-based profile engine v0.4</div>
+    <h1>Swimbait Designer</h1>
+    <div class="auth-bar" id="authBar">
+      <a href="/login" class="auth-link" id="authSignin">Sign in to save</a>
+      <div class="auth-user" id="authUser" style="display:none">
+        <span id="authUsername"></span>
+        <button class="auth-btn" id="saveBtn" onclick="saveDesign()">Save</button>
+        <a href="/profile" class="auth-btn">Profile</a>
+      </div>
+    </div>
+  </div>
 
   <div class="sec">
     <div class="st ed-toggle-row" onclick="toggleEditors()">
@@ -88,6 +99,10 @@
   </div>
 
   <div class="es">
+    <div class="c" id="designNameWrap" style="display:none">
+      <div class="cr"><label>Design name</label></div>
+      <input type="text" id="designNameInput" class="design-name-input" placeholder="Untitled design" value="">
+    </div>
     <button class="eb" disabled style="opacity:.4;cursor:default">Export master STL</button>
     <div class="esu">Coming soon</div>
   </div>

@@ -17,6 +17,23 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;overfl
 .ph{padding:18px 22px 14px;border-bottom:1px solid var(--bd)}
 .ph h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:21px}
 .ph .sub{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;margin-top:3px}
+/* ── Auth bar in header ── */
+.auth-bar{margin-top:8px;display:flex;align-items:center;gap:8px}
+.auth-link{font-size:9px;color:var(--mu);text-decoration:none;text-transform:uppercase;letter-spacing:1px}
+.auth-link:hover{color:var(--ac)}
+.auth-user{display:flex;align-items:center;gap:6px}
+.auth-user span{font-size:9px;color:var(--mu)}
+.auth-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;
+  border-radius:2px;text-decoration:none;transition:all .15s}
+.auth-btn:hover{border-color:var(--ac);color:var(--tx)}
+#saveBtn{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+#saveBtn:hover{opacity:.85}
+#saveBtn:disabled{opacity:.5;cursor:default}
+.design-name-input{width:100%;padding:6px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:3px;
+  color:var(--tx);font-family:'DM Mono',monospace;font-size:10px;outline:none}
+.design-name-input:focus{border-color:var(--ac)}
+
 .sec{padding:12px 22px;border-bottom:1px solid var(--bd)}
 .st{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--ac);margin-bottom:10px}
 .c{margin-bottom:10px}

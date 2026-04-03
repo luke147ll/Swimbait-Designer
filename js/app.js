@@ -490,6 +490,10 @@ function init() {
     showStationRing(defaultStation);
   }
 
+  // Check auth and load design from URL if present
+  checkAuth();
+  loadDesignFromUrl();
+
   (function animate() { requestAnimationFrame(animate); ren.render(scene, cam); })();
 
   function onResize() {
@@ -500,6 +504,137 @@ function init() {
     }
   }
   window.addEventListener('resize', onResize);
+}
+
+// ── Auth + save/load ──
+let currentUser = null;
+let currentDesignId = null;
+
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (res.ok) {
+      currentUser = await res.json();
+      document.getElementById('authSignin').style.display = 'none';
+      document.getElementById('authUser').style.display = 'flex';
+      document.getElementById('authUsername').textContent = currentUser.username;
+      document.getElementById('designNameWrap').style.display = 'block';
+    }
+  } catch {}
+}
+
+function getDesignState() {
+  const p = getParams();
+  return JSON.stringify({
+    sliders: p,
+    dorsal: profileState.dorsal,
+    ventral: profileState.ventral,
+    width: profileState.width,
+    dDelta: profileState.dDelta,
+    vDelta: profileState.vDelta,
+    wDelta: profileState.wDelta,
+    xsecKeyframes: profileState.xsecKeyframes,
+    xsecBlendRadii: profileState.xsecBlendRadii,
+    tailType,
+    baitColor,
+  });
+}
+
+function loadDesignState(state) {
+  // Restore sliders
+  if (state.sliders) {
+    for (const [key, val] of Object.entries(state.sliders)) {
+      const el = document.getElementById('s' + key);
+      if (el) el.value = val;
+    }
+  }
+  // Restore tail type
+  if (state.tailType) {
+    tailType = state.tailType;
+    document.querySelectorAll('.tb').forEach(e => e.classList.toggle('on', e.dataset.t === tailType));
+  }
+  // Restore color
+  if (state.baitColor) {
+    baitColor = state.baitColor;
+  }
+  // Restore manual deltas
+  if (state.dDelta) profileState.dDelta = state.dDelta;
+  if (state.vDelta) profileState.vDelta = state.vDelta;
+  if (state.wDelta) profileState.wDelta = state.wDelta;
+  // Restore xsec keyframes
+  if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
+  if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
+
+  update();
+}
+
+async function saveDesign() {
+  if (!currentUser) { window.location = '/login'; return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    // Capture thumbnail
+    ren.render(scene, cam);
+    const thumbnail = ren.domElement.toDataURL('image/jpeg', 0.7);
+
+    const p = getParams();
+    const nameInput = document.getElementById('designNameInput');
+    const name = nameInput.value.trim() || 'Untitled design';
+
+    const body = {
+      name,
+      species: 'custom',
+      tailType,
+      length: p.OL,
+      stateJSON: getDesignState(),
+      thumbnail,
+    };
+
+    const url = currentDesignId ? `/api/designs/${currentDesignId}` : '/api/designs';
+    const method = currentDesignId ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      currentDesignId = data.id;
+      btn.textContent = 'Saved!';
+      setTimeout(() => { btn.textContent = 'Save'; }, 1500);
+    } else {
+      btn.textContent = 'Error';
+      setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+    }
+  } catch {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+  }
+  btn.disabled = false;
+}
+
+async function loadDesignFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const designId = params.get('design');
+  if (!designId) return;
+
+  try {
+    const res = await fetch(`/api/designs/${designId}`, { credentials: 'include' });
+    if (res.ok) {
+      const design = await res.json();
+      const state = JSON.parse(design.stateJSON);
+      loadDesignState(state);
+      currentDesignId = design.id;
+      const nameInput = document.getElementById('designNameInput');
+      if (nameInput) nameInput.value = design.name;
+    }
+  } catch {}
 }
 
 // Expose to inline HTML handlers
@@ -513,5 +648,6 @@ window.dumpAll = dumpAll;
 window.snapView = snapView;
 window.switchTab = switchTab;
 window.toggleEditors = toggleEditors;
+window.saveDesign = saveDesign;
 
 init();
