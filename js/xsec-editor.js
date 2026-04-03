@@ -427,5 +427,5 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   refresh();
   // Don't call onStationChange during init — scene may not be ready yet
-  return { refresh, setStation };
+  return { refresh, setStation, getStation() { return station; } };
 }

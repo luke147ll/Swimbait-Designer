@@ -481,6 +481,12 @@ function init() {
   updateCamera();
   update();
 
+  // Show the cross-section reference line at the default station on startup
+  if (xsecEditor) {
+    const defaultStation = xsecEditor.getStation ? xsecEditor.getStation() : 33;
+    showStationRing(defaultStation);
+  }
+
   (function animate() { requestAnimationFrame(animate); ren.render(scene, cam); })();
 
   function onResize() {
