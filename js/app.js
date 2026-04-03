@@ -516,9 +516,8 @@ async function checkAuth() {
     if (res.ok) {
       currentUser = await res.json();
       document.getElementById('authSignin').style.display = 'none';
-      document.getElementById('authUser').style.display = 'flex';
-      document.getElementById('authUsername').textContent = currentUser.username;
-      document.getElementById('designNameWrap').style.display = 'block';
+      document.getElementById('authUser').style.display = 'block';
+      document.getElementById('authUsername').textContent = 'Signed in as ' + currentUser.username;
     }
   } catch {}
 }
