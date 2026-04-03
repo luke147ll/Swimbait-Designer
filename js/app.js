@@ -175,7 +175,7 @@ function showStationRing(stationIdx) {
   if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(tNorm);
   if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(tNorm);
   if (stationRing) scene.remove(stationRing);
-  if (stationIdx < 1 || stationIdx > NS || window.innerWidth <= 480) { stationRing = null; return; }
+  if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
 
   const p = getParams();
   const L = p.OL, hL = L / 2;
@@ -188,16 +188,19 @@ function showStationRing(stationIdx) {
   const vH = Math.max(cy - vY, 0.003);
   const n = profileState.nCache[stationIdx];
 
-  // Build a line loop following the cross-section
+  // Build a line loop slightly outside the body surface so it doesn't z-fight
+  const bump = 1.03;
   const pts = [];
   for (let j = 0; j <= RS; j++) {
     const angle = (j / RS) * Math.PI * 2;
-    const se = superEllipse(angle, dH, vH, hW, Math.max(n, 1.8));
+    const se = superEllipse(angle, dH * bump, vH * bump, hW * bump, Math.max(n, 1.8));
     pts.push(new THREE.Vector3(x, se.y + cy, se.z));
   }
 
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  stationRing = new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color: 0xc4a04a, linewidth: 2 }));
+  const mat = new THREE.LineBasicMaterial({ color: 0xc4a04a, depthTest: false, transparent: true, opacity: 0.8 });
+  stationRing = new THREE.LineLoop(geo, mat);
+  stationRing.renderOrder = 999;
   scene.add(stationRing);
 }
 
