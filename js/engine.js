@@ -100,26 +100,77 @@ export function genBody(p, profiles) {
   const hL = L / 2;
   const pos = [], idx = [];
 
-  const forkDepth = p.FD || 0;      // 0 to 1
-  const forkAsym = p.FA || 0;       // -1 to 1
-  const TAIL_ZONE = 0.85;           // where fork X-offset begins
+  const forkDepth = p.FD || 0;
+  const forkAsym = p.FA || 0;
+  const TAIL_ZONE = 0.85;
+
+  const HEMI_RINGS = 6;       // latitude rings in the nose hemisphere
+  const HEMI_ATTACH = 3;      // body ring index where hemisphere attaches
+  const vertsPerRing = HRS + 1;
 
   // ═══════════════════════════════════════════════════════════
-  // RIGHT HALF-SHELL: vertices at angles 0 to PI (Z >= 0)
-  // Each ring has HRS+1 vertices (19 points from dorsal to ventral)
+  // NOSE HEMISPHERE (right half): pill-shaped cap from pole to attach ring
   // ═══════════════════════════════════════════════════════════
 
-  for (let i = 0; i <= NS; i++) {
+  // Sample the attachment ring's cross-section
+  const aDY = profiles.dorsalCache[HEMI_ATTACH] * L;
+  const aVY = profiles.ventralCache[HEMI_ATTACH] * L;
+  const aHW = Math.max(profiles.widthCache[HEMI_ATTACH] * L, 0.004);
+  const aN = Math.max(profiles.nCache[HEMI_ATTACH] || 2, 1.8);
+  const aCY = (aDY + aVY) / 2;
+  const aDH = Math.max(aDY - aCY, 0.003);
+  const aVH = Math.max(aCY - aVY, 0.003);
+  const xAttach = -hL + (HEMI_ATTACH / NS) * L;
+  const hemiDepth = (aDH + aVH) * 0.5; // how far forward the hemisphere extends
+
+  // Pole vertex (frontmost point)
+  pos.push(xAttach - hemiDepth, aCY, 0);
+  // That's vertex 0 — shared by both halves
+
+  // Hemisphere latitude rings (1 to HEMI_RINGS), shrinking from pole to equator
+  for (let hr = 1; hr <= HEMI_RINGS; hr++) {
+    const phi = (hr / HEMI_RINGS) * Math.PI * 0.5; // 0 at pole, PI/2 at equator
+    const cosPhi = Math.cos(phi);
+    const sinPhi = Math.sin(phi);
+    const scale = sinPhi; // 0 at pole, 1 at equator
+    const xRing = xAttach - hemiDepth * cosPhi; // sweeps from pole back to attach
+
+    for (let j = 0; j <= HRS; j++) {
+      const se = superEllipse((j / HRS) * Math.PI, aDH * scale, aVH * scale, aHW * scale, aN);
+      pos.push(xRing, se.y + aCY, Math.abs(se.z));
+    }
+  }
+
+  // Hemisphere faces: pole fan + latitude strips
+  // Pole fan: pole vertex (0) to first latitude ring
+  const firstHemiRing = 1; // vertex index start of first latitude ring
+  for (let j = 0; j < HRS; j++) {
+    idx.push(0, firstHemiRing + j, firstHemiRing + j + 1);
+  }
+  // Latitude strips between hemisphere rings
+  for (let hr = 0; hr < HEMI_RINGS - 1; hr++) {
+    for (let j = 0; j < HRS; j++) {
+      const a = 1 + hr * vertsPerRing + j;
+      const b = a + vertsPerRing;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // RIGHT HALF-SHELL BODY: from attach ring onward
+  // The hemisphere's last ring IS the body's first real ring,
+  // but they may not match exactly. We start body rings at
+  // HEMI_ATTACH and connect to the hemisphere's equator ring.
+  // ═══════════════════════════════════════════════════════════
+
+  const bodyVertStart = pos.length / 3; // where body rings begin
+  const hemiEquatorStart = 1 + (HEMI_RINGS - 1) * vertsPerRing; // last hemi ring
+
+  for (let i = HEMI_ATTACH; i <= NS; i++) {
     const t = i / NS;
     let x = -hL + t * L;
 
-    if (i === 0) {
-      // Nose: all vertices converge to a point
-      const dY = profiles.dorsalCache[0] * L;
-      const vY = profiles.ventralCache[0] * L;
-      const tipY = (dY + vY) / 2;
-      for (let j = 0; j <= HRS; j++) pos.push(x, tipY, 0);
-    } else {
+    {
       const dorsalY = profiles.dorsalCache[i] * L;
       const ventralY = profiles.ventralCache[i] * L;
       let halfW = Math.max(profiles.widthCache[i] * L, 0.004);
@@ -153,49 +204,67 @@ export function genBody(p, profiles) {
     }
   }
 
-  // Right half-shell quad strips
-  const ringsR = NS + 1;
-  const vertsPerRing = HRS + 1;
-  for (let i = 0; i < NS; i++) {
+  // Right half-shell: connect hemisphere equator → first body ring
+  for (let j = 0; j < HRS; j++) {
+    const a = hemiEquatorStart + j; // last hemisphere ring
+    const b = bodyVertStart + j;    // first body ring (i=HEMI_ATTACH)
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+
+  // Right half-shell: body ring quad strips
+  const bodyRingCount = NS - HEMI_ATTACH + 1;
+  for (let bi = 0; bi < bodyRingCount - 1; bi++) {
     for (let j = 0; j < HRS; j++) {
-      const a = i * vertsPerRing + j;
+      const a = bodyVertStart + bi * vertsPerRing + j;
       const b = a + vertsPerRing;
       idx.push(a, b, a + 1, b, b + 1, a + 1);
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LEFT HALF-SHELL: mirror of right across Z=0
-  // Dorsal (j=0) and ventral (j=HRS) vertices are SHARED
-  // All other vertices are new with Z negated
+  // LEFT HALF-SHELL: mirror all right-side vertices across Z=0
+  // Vertices on the midline (Z ≈ 0) are shared, others are new
   // ═══════════════════════════════════════════════════════════
 
   const rightVertCount = pos.length / 3;
-  const leftMap = new Int32Array(ringsR * vertsPerRing); // maps left (i,j) to vertex index
+  const leftIdx = new Int32Array(rightVertCount); // maps right vert index → left vert index
 
-  for (let i = 0; i < ringsR; i++) {
-    for (let j = 0; j <= HRS; j++) {
-      const rightIdx = i * vertsPerRing + j;
-      if (j === 0 || j === HRS) {
-        // Shared midline vertex — reuse right side index
-        leftMap[i * vertsPerRing + j] = rightIdx;
-      } else {
-        // Mirrored vertex — new vertex with negated Z
-        const vi = rightIdx * 3;
-        pos.push(pos[vi], pos[vi + 1], -pos[vi + 2]); // same X, same Y, negate Z
-        leftMap[i * vertsPerRing + j] = (pos.length / 3) - 1;
-      }
+  for (let vi = 0; vi < rightVertCount; vi++) {
+    const z = pos[vi * 3 + 2];
+    if (Math.abs(z) < 0.0005) {
+      // On the midline — share the vertex
+      leftIdx[vi] = vi;
+    } else {
+      // Mirror: new vertex with negated Z
+      pos.push(pos[vi * 3], pos[vi * 3 + 1], -z);
+      leftIdx[vi] = (pos.length / 3) - 1;
     }
   }
 
-  // Left half-shell quad strips (reversed winding for outward normals)
-  for (let i = 0; i < NS; i++) {
+  // Left hemisphere pole fan (reversed winding)
+  for (let j = 0; j < HRS; j++) {
+    idx.push(leftIdx[0], leftIdx[firstHemiRing + j + 1], leftIdx[firstHemiRing + j]);
+  }
+  // Left hemisphere latitude strips
+  for (let hr = 0; hr < HEMI_RINGS - 1; hr++) {
     for (let j = 0; j < HRS; j++) {
-      const a = leftMap[i * vertsPerRing + j];
-      const b = leftMap[(i + 1) * vertsPerRing + j];
-      const a1 = leftMap[i * vertsPerRing + j + 1];
-      const b1 = leftMap[(i + 1) * vertsPerRing + j + 1];
-      idx.push(b, a, a1, b1, b, a1); // reversed winding
+      const a = 1 + hr * vertsPerRing + j;
+      const b = a + vertsPerRing;
+      idx.push(leftIdx[b], leftIdx[a], leftIdx[a + 1], leftIdx[b + 1], leftIdx[b], leftIdx[a + 1]);
+    }
+  }
+  // Left: hemisphere equator → first body ring
+  for (let j = 0; j < HRS; j++) {
+    const a = hemiEquatorStart + j;
+    const b = bodyVertStart + j;
+    idx.push(leftIdx[b], leftIdx[a], leftIdx[a + 1], leftIdx[b + 1], leftIdx[b], leftIdx[a + 1]);
+  }
+  // Left body ring strips
+  for (let bi = 0; bi < bodyRingCount - 1; bi++) {
+    for (let j = 0; j < HRS; j++) {
+      const a = bodyVertStart + bi * vertsPerRing + j;
+      const b = a + vertsPerRing;
+      idx.push(leftIdx[b], leftIdx[a], leftIdx[a + 1], leftIdx[b + 1], leftIdx[b], leftIdx[a + 1]);
     }
   }
 
@@ -205,15 +274,14 @@ export function genBody(p, profiles) {
   // ═══════════════════════════════════════════════════════════
 
   if (forkDepth < 0.01) {
-    const lastRingStart = NS * vertsPerRing;
+    const lastBodyRing = bodyVertStart + (bodyRingCount - 1) * vertsPerRing;
+    // Right cap
     for (let j = 0; j < HRS - 1; j++) {
-      idx.push(lastRingStart, lastRingStart + j + 1, lastRingStart + j + 2);
+      idx.push(lastBodyRing, lastBodyRing + j + 1, lastBodyRing + j + 2);
     }
+    // Left cap
     for (let j = 0; j < HRS - 1; j++) {
-      const a = leftMap[NS * vertsPerRing];
-      const b = leftMap[NS * vertsPerRing + j + 1];
-      const c = leftMap[NS * vertsPerRing + j + 2];
-      idx.push(a, c, b);
+      idx.push(leftIdx[lastBodyRing], leftIdx[lastBodyRing + j + 2], leftIdx[lastBodyRing + j + 1]);
     }
   }
 
