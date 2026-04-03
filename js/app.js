@@ -175,7 +175,7 @@ function showStationRing(stationIdx) {
   if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(tNorm);
   if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(tNorm);
   if (stationRing) scene.remove(stationRing);
-  if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
+  if (stationIdx < 1 || stationIdx > NS || window.innerWidth <= 480) { stationRing = null; return; }
 
   const p = getParams();
   const L = p.OL, hL = L / 2;
