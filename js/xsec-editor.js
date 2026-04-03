@@ -48,6 +48,16 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       this.vx = mx - rx * nw; this.vy = my - ry * nh;
       this.vw = nw; this.vh = nh;
     },
+    applyPinch(ratio, px, py, rect) {
+      const f = 1 / ratio;
+      const nw = Math.max(VW * 0.1, Math.min(VW * 4, this.vw * f));
+      const nh = Math.max(VH * 0.1, Math.min(VH * 4, this.vh * f));
+      const mx = this.vx + (px / rect.width) * this.vw;
+      const my = this.vy + (py / rect.height) * this.vh;
+      const rx = (mx - this.vx) / this.vw, ry = (my - this.vy) / this.vh;
+      this.vx = mx - rx * nw; this.vy = my - ry * nh;
+      this.vw = nw; this.vh = nh;
+    },
     applyPan(dx, dy, rect) {
       this.vx -= (dx / rect.width) * this.vw;
       this.vy -= (dy / rect.height) * this.vh;
@@ -567,7 +577,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const rect = svg.getBoundingClientRect();
-      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect);
       pinchDist = dist;
       svg.setAttribute('viewBox', vp.viewBox());
       drawGrid(); draw(); drawPoints();

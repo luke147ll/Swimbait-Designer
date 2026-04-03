@@ -84,6 +84,20 @@ function createViewport(VW, VH) {
       this.zoom = this.VW / this.vw;
     },
 
+    applyPinch(ratio, pivotX, pivotY, svgRect) {
+      const factor = 1 / ratio; // pinch out (ratio>1) = zoom in (shrink viewBox)
+      const pivot = this.pixToVB(pivotX, pivotY, svgRect);
+      const newW = Math.max(this.VW * 0.05, Math.min(this.VW * 4, this.vw * factor));
+      const newH = Math.max(this.VH * 0.05, Math.min(this.VH * 4, this.vh * factor));
+      const ratioX = (pivot.x - this.vx) / this.vw;
+      const ratioY = (pivot.y - this.vy) / this.vh;
+      this.vx = pivot.x - ratioX * newW;
+      this.vy = pivot.y - ratioY * newH;
+      this.vw = newW;
+      this.vh = newH;
+      this.zoom = this.VW / this.vw;
+    },
+
     applyPan(dx, dy, svgRect) {
       this.vx -= (dx / svgRect.width) * this.vw;
       this.vy -= (dy / svgRect.height) * this.vh;
@@ -450,7 +464,7 @@ export function createSideEditor(container, state, onEdit) {
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const rect = svg.getBoundingClientRect();
-      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect);
       pinchDist = dist;
       redraw();
     } else if (e.touches.length === 1) {
@@ -776,7 +790,7 @@ export function createWidthEditor(container, state, onEdit) {
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const rect = svg.getBoundingClientRect();
-      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      vp.applyPinch(dist / pinchDist, cx - rect.left, cy2 - rect.top, rect);
       pinchDist = dist;
       redraw();
     } else if (e.touches.length === 1) {
