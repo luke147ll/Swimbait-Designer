@@ -95,7 +95,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   svg.append(gridG, ghostBefore, ghostAfter, fillPoly, refPoly, centerH, centerV, shapePoly, label);
   let showBefore = true, showAfter = true;
 
-  // ── Controls bar ──
+  // ── Top controls: range slider + station label ──
   const bar = document.createElement('div');
   bar.className = 'xsec-bar';
   bar.innerHTML = `
@@ -110,9 +110,23 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel"></span>
       <span class="xsec-label" id="xsecRangeLabel"></span>
-      <button class="xsec-btn xsec-toggle on" id="xsecBefore">◀ Prev</button>
-      <button class="xsec-btn xsec-toggle on" id="xsecAfter">Next ▶</button>
       <button class="xsec-btn" id="xsecReset">Reset</button>
+    </div>
+  `;
+
+  // ── Bottom controls: prev/next station + ghost toggles ──
+  const bottomBar = document.createElement('div');
+  bottomBar.className = 'xsec-bar';
+  bottomBar.innerHTML = `
+    <div class="xsec-btns" style="justify-content:space-between;width:100%">
+      <div style="display:flex;gap:4px">
+        <button class="xsec-btn" id="xsecStepPrev">◀ Prev</button>
+        <button class="xsec-btn" id="xsecStepNext">Next ▶</button>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="xsec-btn xsec-toggle on" id="xsecBefore">Ghost ◀</button>
+        <button class="xsec-btn xsec-toggle on" id="xsecAfter">Ghost ▶</button>
+      </div>
     </div>
   `;
 
@@ -120,6 +134,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   wrap.appendChild(svg);
   wrap.appendChild(dotOverlay);
   container.appendChild(wrap);
+  container.appendChild(bottomBar);
 
   const labelEl = bar.querySelector('#xsecLabel');
   const rangeLabelEl = bar.querySelector('#xsecRangeLabel');
@@ -129,6 +144,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const thumbEl = bar.querySelector('#xsecThumb');
   const leftEl = bar.querySelector('#xsecLeft');
   const rightEl = bar.querySelector('#xsecRight');
+  const stepPrevBtn = bottomBar.querySelector('#xsecStepPrev');
+  const stepNextBtn = bottomBar.querySelector('#xsecStepNext');
 
   let blendRadius = 4;
 
@@ -141,9 +158,28 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
   }
 
+  // Step prev/next station buttons
+  function stepStation(dir) {
+    const snaps = getSnapPositions();
+    if (dir < 0) {
+      const prev = snaps.filter(s => s < station).pop();
+      if (prev != null) station = prev;
+      else station = Math.max(1, station - 1);
+    } else {
+      const next = snaps.find(s => s > station);
+      if (next != null) station = next;
+      else station = Math.min(96, station + 1);
+    }
+    loadBlendRadius();
+    updateRangeBar(); refresh();
+    if (onStationChange) onStationChange(station);
+  }
+  stepPrevBtn.addEventListener('click', () => stepStation(-1));
+  stepNextBtn.addEventListener('click', () => stepStation(1));
+
   // Ghost toggle buttons
-  const beforeBtn = bar.querySelector('#xsecBefore');
-  const afterBtn = bar.querySelector('#xsecAfter');
+  const beforeBtn = bottomBar.querySelector('#xsecBefore');
+  const afterBtn = bottomBar.querySelector('#xsecAfter');
   beforeBtn.addEventListener('click', () => {
     showBefore = !showBefore;
     beforeBtn.classList.toggle('on', showBefore);
