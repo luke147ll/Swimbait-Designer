@@ -33,7 +33,7 @@ export function defaultXSecPoly(n) {
   return pts;
 }
 
-const BLEND_RADIUS = 8;
+const BLEND_RADIUS = 4; // rings on each side affected by a keyframe edit
 
 function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
