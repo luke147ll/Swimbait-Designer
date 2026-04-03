@@ -91,6 +91,7 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 .pe-html-dot.ventral{border-color:var(--ac2)}
 .pe-html-dot.width{border-color:var(--ac)}
 .pe-html-dot.eye{background:#eedd44;border-color:var(--bg)}
+.pe-xsec-tick{background:var(--ac2);opacity:.5;border-radius:1px}
 .pe-outline-fill{fill:var(--ac);opacity:.08}
 .pe-outline-stroke{stroke:var(--ac);stroke-width:1.5;fill:none}
 

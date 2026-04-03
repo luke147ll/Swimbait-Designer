@@ -208,6 +208,24 @@ export function createSideEditor(container, state, onEdit) {
     }
     addPts(state.dorsal, 'dorsal');
     addPts(state.ventral, 'ventral');
+
+    // Xsec keyframe markers — small ticks on the centerline for each edited station
+    if (state.xsecKeyframes) {
+      const KF_H = DOT_PX * 1.2;
+      for (const key of Object.keys(state.xsecKeyframes)) {
+        const kfT = +key / 96;
+        const scr = dataToScreen(kfT, 0);
+        const dorsalScr = dataToScreen(kfT, sampleProfile(state.dorsal, kfT));
+        const ventralScr = dataToScreen(kfT, sampleProfile(state.ventral, kfT));
+        // Vertical tick line spanning the body at this station
+        const tick = document.createElement('div');
+        tick.className = 'pe-xsec-tick';
+        tick.style.cssText = `position:absolute;left:${scr.x - 1}px;top:${dorsalScr.y}px;width:2px;height:${ventralScr.y - dorsalScr.y}px;pointer-events:none`;
+        tick.title = `Xsec keyframe at t=${kfT.toFixed(2)}`;
+        dotOverlay.appendChild(tick);
+      }
+    }
+
     // Eye marker — positioned at actual eye height (30% down from dorsal toward ventral)
     if (eyeT > 0) {
       const dorsalV = sampleProfile(state.dorsal, eyeT);

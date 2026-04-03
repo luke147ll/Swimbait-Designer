@@ -114,7 +114,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   function getSnapPositions() {
     const pts = profileState.dorsal || [];
-    return pts.map(p => Math.round(p.t * 96)).filter(v => v >= 1);
+    const profileSnaps = pts.map(p => Math.round(p.t * 96)).filter(v => v >= 1);
+    // Also include existing keyframe stations so they're always findable
+    const kfSnaps = Object.keys(profileState.xsecKeyframes || {}).map(Number);
+    const all = [...new Set([...profileSnaps, ...kfSnaps])].sort((a, b) => a - b);
+    return all;
   }
 
   function snapToNearest(raw) {
@@ -137,6 +141,16 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     leftEl.style.left = `calc(${Math.max(0, pct - rangePct)}% - 8px)`;
     rightEl.style.left = `calc(${Math.min(100, pct + rangePct)}% - 2px)`;
     rangeLabelEl.textContent = `range: ${blendRadius}`;
+
+    // Show keyframe markers on the track
+    trackEl.querySelectorAll('.xsec-kf-mark').forEach(e => e.remove());
+    for (const key of Object.keys(profileState.xsecKeyframes || {})) {
+      const kPct = (+key - 1) / 95 * 100;
+      const mark = document.createElement('div');
+      mark.className = 'xsec-kf-mark';
+      mark.style.cssText = `position:absolute;left:${kPct}%;top:0;bottom:0;width:3px;background:var(--ac2);opacity:.7;pointer-events:none;border-radius:1px`;
+      trackEl.appendChild(mark);
+    }
   }
 
   // Main thumb drag — move station
