@@ -74,8 +74,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const fillPoly = svgEl('polygon', { class: 'xsec-fill' });
   const centerH = svgEl('line', { class: 'pe-center' });
   const centerV = svgEl('line', { class: 'pe-center' });
+  const ghostBefore = svgEl('polygon', { class: 'xsec-ghost' });
+  const ghostAfter = svgEl('polygon', { class: 'xsec-ghost xsec-ghost-after' });
   const label = svgEl('text', { x: 6, y: 14, class: 'pe-zoom' });
-  svg.append(gridG, fillPoly, refPoly, centerH, centerV, shapePoly, label);
+  svg.append(gridG, ghostBefore, ghostAfter, fillPoly, refPoly, centerH, centerV, shapePoly, label);
+  let showBefore = true, showAfter = true;
 
   // ── Controls bar ──
   const bar = document.createElement('div');
@@ -92,6 +95,8 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     <div class="xsec-btns">
       <span class="xsec-label" id="xsecLabel"></span>
       <span class="xsec-label" id="xsecRangeLabel"></span>
+      <button class="xsec-btn xsec-toggle on" id="xsecBefore">◀ Prev</button>
+      <button class="xsec-btn xsec-toggle on" id="xsecAfter">Next ▶</button>
       <button class="xsec-btn" id="xsecReset">Reset</button>
     </div>
   `;
@@ -110,7 +115,21 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   const leftEl = bar.querySelector('#xsecLeft');
   const rightEl = bar.querySelector('#xsecRight');
 
-  let blendRadius = 4; // adjustable blend radius (default matches engine)
+  let blendRadius = 4;
+
+  // Ghost toggle buttons
+  const beforeBtn = bar.querySelector('#xsecBefore');
+  const afterBtn = bar.querySelector('#xsecAfter');
+  beforeBtn.addEventListener('click', () => {
+    showBefore = !showBefore;
+    beforeBtn.classList.toggle('on', showBefore);
+    draw();
+  });
+  afterBtn.addEventListener('click', () => {
+    showAfter = !showAfter;
+    afterBtn.classList.toggle('on', showAfter);
+    draw();
+  });
 
   function getSnapPositions() {
     const pts = profileState.dorsal || [];
@@ -212,6 +231,19 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     return profileState.xsecKeyframes[station] || null;
   }
 
+  function getShapeAt(s) {
+    return profileState.xsecKeyframes[s] || null;
+  }
+
+  function getDimsAt(s) {
+    if (!profileState.dorsalCache || s < 0 || s > 96) return { dH: 1, vH: 1, hW: 1 };
+    const dY = profileState.dorsalCache[s] || 0;
+    const vY = profileState.ventralCache[s] || 0;
+    const hW = profileState.widthCache[s] || 0;
+    const cy = (dY + vY) / 2;
+    return { dH: Math.max(dY - cy, 0.003), vH: Math.max(cy - vY, 0.003), hW: Math.max(hW, 0.002) };
+  }
+
   function getDefaultPoly() {
     const n = (profileState.nCache && profileState.nCache[station]) ? profileState.nCache[station] : 2.2;
     return defaultXSecPoly(n);
@@ -268,12 +300,31 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const dims = getStationDims();
     isEditing = !!shape;
 
-    // Update coordinate range to fit actual proportions
     const span = fitRange();
-    // Redefine toSX/toSY based on actual range
-    const rng = span;
 
-    // Reference ellipse (always shown, dashed) — shows actual proportioned shape
+    // Ghost: previous station cross-section
+    if (showBefore && station > 1) {
+      const prevStation = Math.max(0, station - blendRadius);
+      const prevShape = getShapeAt(prevStation) || defaultXSecPoly(profileState.nCache[prevStation] || 2.2);
+      const prevDims = getDimsAt(prevStation);
+      ghostBefore.setAttribute('points', polyToSvgPoints(prevShape, prevDims));
+      ghostBefore.setAttribute('visibility', 'visible');
+    } else {
+      ghostBefore.setAttribute('visibility', 'hidden');
+    }
+
+    // Ghost: next station cross-section
+    if (showAfter && station < 96) {
+      const nextStation = Math.min(96, station + blendRadius);
+      const nextShape = getShapeAt(nextStation) || defaultXSecPoly(profileState.nCache[nextStation] || 2.2);
+      const nextDims = getDimsAt(nextStation);
+      ghostAfter.setAttribute('points', polyToSvgPoints(nextShape, nextDims));
+      ghostAfter.setAttribute('visibility', 'visible');
+    } else {
+      ghostAfter.setAttribute('visibility', 'hidden');
+    }
+
+    // Reference ellipse
     refPoly.setAttribute('points', polyToSvgPoints(defPoly, dims));
 
     // Active shape

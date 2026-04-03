@@ -114,6 +114,9 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
   font-size:8px;padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
 .xsec-btn:hover:not(:disabled){border-color:var(--ac);color:var(--tx)}
 .xsec-btn:disabled{opacity:.3;cursor:default}
+.xsec-toggle.on{background:var(--ac);color:var(--bg)}
+.xsec-ghost{fill:none;stroke:var(--mu);stroke-width:0.6;stroke-dasharray:4,3;opacity:.35}
+.xsec-ghost-after{stroke:var(--ac2);opacity:.3}
 
 /* ── Tablet (481px — 1024px) ───────────────────────────────────────── */
 @media(max-width:1024px){
