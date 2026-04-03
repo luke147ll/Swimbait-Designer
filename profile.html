@@ -68,8 +68,6 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;min-he
 .card-thumb{width:100%;aspect-ratio:16/10;background:var(--sf2);display:flex;align-items:center;justify-content:center;
   color:var(--mu);font-size:9px;text-transform:uppercase;letter-spacing:1px;overflow:hidden;cursor:pointer}
 .card-thumb img{width:100%;height:100%;object-fit:cover}
-.card-badge{position:absolute;top:8px;right:8px;font-size:7px;padding:2px 6px;border-radius:2px;
-  text-transform:uppercase;letter-spacing:1px;background:var(--ac2);color:var(--bg)}
 .card-body{padding:10px 12px}
 .card-name{font-size:11px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .card-name:hover{color:var(--ac)}
@@ -145,14 +143,12 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;min-he
 <div class="stats-row" id="statsRow" style="display:none">
   <div class="stat-item"><strong id="statDesigns">0</strong> designs</div>
   <div class="stat-item"><strong id="statExports">0</strong> exports</div>
-  <div class="stat-item"><strong id="statShared">0</strong> shared</div>
   <div class="stat-item"><strong id="statPlan">free</strong> plan</div>
 </div>
 
 <div class="toolbar" id="toolbar" style="display:none">
   <div class="filter-tabs">
     <button class="ftab on" data-filter="all" onclick="setFilter(this)">My designs</button>
-    <button class="ftab" data-filter="shared" onclick="setFilter(this)">Shared</button>
     <button class="ftab" data-filter="exported" onclick="setFilter(this)">Exported</button>
   </div>
   <input type="text" class="search-box" id="searchBox" placeholder="Search designs..." oninput="applyFilters()">
@@ -231,13 +227,11 @@ function renderDesigns() {
   // Stats
   document.getElementById('statDesigns').textContent = allDesigns.length;
   document.getElementById('statExports').textContent = allDesigns.reduce((s, d) => s + (d.exportCount || 0), 0);
-  document.getElementById('statShared').textContent = allDesigns.filter(d => d.public).length;
 
   // Filter
   const search = document.getElementById('searchBox').value.toLowerCase().trim();
   let filtered = allDesigns;
-  if (activeFilter === 'shared') filtered = filtered.filter(d => d.public);
-  else if (activeFilter === 'exported') filtered = filtered.filter(d => d.exportCount > 0);
+  if (activeFilter === 'exported') filtered = filtered.filter(d => d.exportCount > 0);
   if (search) filtered = filtered.filter(d => d.name.toLowerCase().includes(search));
 
   // Sort
@@ -253,9 +247,7 @@ function renderDesigns() {
     const thumb = d.thumbnailKey
       ? `<img src="/api/thumbnails/${d.id}" alt="" onerror="this.parentElement.innerHTML='No preview'">`
       : 'No preview';
-    const badge = d.public ? '<div class="card-badge">Shared</div>' : '';
     return `<div class="design-card" data-id="${d.id}">
-      ${badge}
       <div class="card-thumb" onclick="openDesign('${d.id}')">${thumb}</div>
       <div class="card-body">
         <div class="card-name" onclick="openDesign('${d.id}')">${esc(d.name)}</div>
@@ -266,7 +258,6 @@ function renderDesigns() {
         </div>
         <div class="card-actions">
           <button class="card-btn" onclick="openDesign('${d.id}')">Open</button>
-          <button class="card-btn" onclick="toggleShare('${d.id}',this)">${d.public ? 'Unshare' : 'Share'}</button>
           <button class="card-btn" onclick="duplicateDesign('${d.id}')">Copy</button>
           <button class="card-btn danger" onclick="showDeleteDialog('${d.id}','${esc(d.name)}')">Del</button>
         </div>
@@ -310,26 +301,6 @@ function toggleSort() {
 
 // ── Actions ──
 function openDesign(id) { window.location = `/?design=${id}`; }
-
-async function toggleShare(id, btn) {
-  const res = await fetch(`/api/designs/${id}/share`, { method: 'POST', credentials: 'include' });
-  if (!res.ok) return;
-  const data = await res.json();
-  // Update local data
-  const d = allDesigns.find(d => d.id === id);
-  if (d) d.public = data.public;
-  renderDesigns();
-  if (data.public && data.shareUrl) {
-    showToast(`Shared! <a onclick="copyLink('${data.shareUrl}')">Copy link</a>`);
-    try { await navigator.clipboard.writeText(data.shareUrl); } catch {}
-  } else {
-    showToast('Design is now private');
-  }
-}
-
-function copyLink(url) {
-  navigator.clipboard.writeText(url).then(() => showToast('Link copied!'));
-}
 
 async function duplicateDesign(id) {
   const res = await fetch(`/api/designs/${id}`, { credentials: 'include' });
