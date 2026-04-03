@@ -62,6 +62,18 @@ export default {
       } else if (path.match(/^\/api\/designs\/[\w-]+\/share$/) && method === 'POST') {
         response = await handleToggleShare(request, env, path.split('/')[3]);
 
+      // Thumbnail serving from R2
+      } else if (path.match(/^\/api\/thumbnails\/[\w-]+$/) && method === 'GET') {
+        const designId = path.split('/').pop();
+        const obj = await env.THUMBNAILS.get(`thumbs/${designId}.jpg`);
+        if (obj) {
+          response = new Response(obj.body, {
+            headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+          });
+        } else {
+          response = new Response(null, { status: 404 });
+        }
+
       // Public design view (no auth required)
       } else if (path.match(/^\/api\/public\/[\w-]+$/) && method === 'GET') {
         response = await handlePublicDesign(request, env, path.split('/').pop());
