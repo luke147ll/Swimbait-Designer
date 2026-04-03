@@ -35,7 +35,7 @@ export function defaultXSecPoly(n) {
 
 let BLEND_RADIUS = 4; // default, can be overridden per-call
 
-function getXSecAtRing(i, profiles) {
+export function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
   const keys = Object.keys(kf).map(Number).sort((a, b) => a - b);
   if (keys.length === 0) return null;

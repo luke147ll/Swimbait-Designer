@@ -4,7 +4,7 @@
  * A station scrubber selects which ring to view/edit. Keyframe stations get
  * editable polygons; others show the default super-ellipse as a preview.
  */
-import { superEllipse, defaultXSecPoly, RS } from './engine.js';
+import { superEllipse, defaultXSecPoly, RS, getXSecAtRing } from './engine.js';
 import { STATION_LABELS as LABELS } from './splines.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -302,10 +302,10 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
     const span = fitRange();
 
-    // Ghost: previous station cross-section
+    // Ghost: previous station cross-section (uses engine's blend logic)
     if (showBefore && station > 1) {
-      const prevStation = Math.max(0, station - blendRadius);
-      const prevShape = getShapeAt(prevStation) || defaultXSecPoly(profileState.nCache[prevStation] || 2.2);
+      const prevStation = Math.max(1, station - blendRadius);
+      const prevShape = getXSecAtRing(prevStation, profileState) || defaultXSecPoly(profileState.nCache[prevStation] || 2.2);
       const prevDims = getDimsAt(prevStation);
       ghostBefore.setAttribute('points', polyToSvgPoints(prevShape, prevDims));
       ghostBefore.setAttribute('visibility', 'visible');
@@ -316,7 +316,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     // Ghost: next station cross-section
     if (showAfter && station < 96) {
       const nextStation = Math.min(96, station + blendRadius);
-      const nextShape = getShapeAt(nextStation) || defaultXSecPoly(profileState.nCache[nextStation] || 2.2);
+      const nextShape = getXSecAtRing(nextStation, profileState) || defaultXSecPoly(profileState.nCache[nextStation] || 2.2);
       const nextDims = getDimsAt(nextStation);
       ghostAfter.setAttribute('points', polyToSvgPoints(nextShape, nextDims));
       ghostAfter.setAttribute('visibility', 'visible');
