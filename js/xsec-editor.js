@@ -314,7 +314,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   function refresh() {
     const dims = getStationDims();
     viewSpan = Math.max(dims.dH, dims.vH, dims.hW, 0.01) * 1.3;
-    scrubEl.value = station;
+    updateRangeBar();
     svg.setAttribute('viewBox', vp.viewBox());
     drawGrid(); draw(); drawPoints();
   }
