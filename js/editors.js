@@ -443,8 +443,9 @@ export function createSideEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom ──
+  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom, double-tap = add point ──
   let touchPan = null, pinchDist = 0;
+  let lastTap = 0, lastTapX = 0, lastTapY = 0, touchMoved = false;
   svg.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -454,6 +455,7 @@ export function createSideEditor(container, state, onEdit) {
       pinchDist = Math.sqrt(dx * dx + dy * dy);
     } else if (e.touches.length === 1) {
       e.preventDefault();
+      touchMoved = false;
       const r = svg.getBoundingClientRect();
       if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
         touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -462,6 +464,7 @@ export function createSideEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
+    touchMoved = true;
     if (e.touches.length === 2 && pinchDist > 0) {
       e.preventDefault();
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -487,6 +490,24 @@ export function createSideEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchend', e => {
+    if (e.touches.length === 0 && !touchMoved && !drag) {
+      const now = Date.now();
+      const cx = e.changedTouches[0].clientX, cy = e.changedTouches[0].clientY;
+      if (now - lastTap < 350 && Math.hypot(cx - lastTapX, cy - lastTapY) < 30) {
+        const r = svg.getBoundingClientRect();
+        const data = screenToData(cx - r.left, cy - r.top);
+        const t = Math.max(0.005, Math.min(0.995, data.t));
+        const dV = sampleProfile(state.dorsal, t);
+        const vV = sampleProfile(state.ventral, t);
+        const midV = (dV + vV) / 2;
+        const profile = data.v > midV ? state.dorsal : state.ventral;
+        insertProfilePoint(profile, t);
+        refresh(); onEdit();
+        lastTap = 0;
+      } else {
+        lastTap = now; lastTapX = cx; lastTapY = cy;
+      }
+    }
     endDrag(); touchPan = null;
     if (e.touches.length < 2) pinchDist = 0;
   });
@@ -769,8 +790,9 @@ export function createWidthEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom ──
+  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom, double-tap = add point ──
   let touchPan = null, pinchDist = 0;
+  let lastTap = 0, lastTapX = 0, lastTapY = 0, touchMoved = false;
   svg.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -780,6 +802,7 @@ export function createWidthEditor(container, state, onEdit) {
       pinchDist = Math.sqrt(dx * dx + dy * dy);
     } else if (e.touches.length === 1) {
       e.preventDefault();
+      touchMoved = false;
       const r = svg.getBoundingClientRect();
       if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
         touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -788,6 +811,7 @@ export function createWidthEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
+    touchMoved = true;
     if (e.touches.length === 2 && pinchDist > 0) {
       e.preventDefault();
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -813,6 +837,20 @@ export function createWidthEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchend', e => {
+    if (e.touches.length === 0 && !touchMoved && !drag) {
+      const now = Date.now();
+      const cx = e.changedTouches[0].clientX, cy = e.changedTouches[0].clientY;
+      if (now - lastTap < 350 && Math.hypot(cx - lastTapX, cy - lastTapY) < 30) {
+        const r = svg.getBoundingClientRect();
+        const data = screenToData(cx - r.left, cy - r.top);
+        const t = Math.max(0.005, Math.min(0.995, data.t));
+        insertProfilePoint(state.width, t);
+        refresh(); onEdit();
+        lastTap = 0;
+      } else {
+        lastTap = now; lastTapX = cx; lastTapY = cy;
+      }
+    }
     endDrag(); touchPan = null;
     if (e.touches.length < 2) pinchDist = 0;
   });
