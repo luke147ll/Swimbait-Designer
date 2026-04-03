@@ -40,12 +40,7 @@ export function getXSecAtRing(i, profiles) {
   const keys = Object.keys(kf).map(Number).sort((a, b) => a - b);
   if (keys.length === 0) return null;
 
-  let lo = -1, hi = -1;
-  for (const k of keys) {
-    if (k <= i) lo = k;
-    if (k >= i && hi < 0) hi = k;
-  }
-  if (lo < 0 && hi < 0) return null;
+  const radii = profiles.xsecBlendRadii || {};
 
   function lerpPoly(a, b, t) {
     const len = Math.min(a.length, b.length);
@@ -61,19 +56,40 @@ export function getXSecAtRing(i, profiles) {
     return defaultXSecPoly(n);
   }
 
-  if (lo >= 0 && hi >= 0 && lo !== hi && kf[lo] && kf[hi]) {
-    return lerpPoly(kf[lo], kf[hi], (i - lo) / (hi - lo));
+  // Smoothstep fade: 0 at keyframe, 1 at edge of blend radius
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+  // Collect contributions from all keyframes within their blend radius
+  const contributions = [];
+  for (const k of keys) {
+    if (!kf[k]) continue;
+    const dist = Math.abs(i - k);
+    const br = radii[k] || DEFAULT_BLEND_RADIUS;
+    if (dist > br) continue;
+    if (dist === 0) {
+      contributions.push({ poly: kf[k], weight: 1.0 });
+    } else {
+      const fade = 1 - smoothstep(dist / br);
+      contributions.push({ poly: kf[k], weight: fade });
+    }
   }
 
-  const nearest = (lo >= 0 && kf[lo]) ? lo : hi;
-  if (nearest < 0 || !kf[nearest]) return null;
-  const dist = Math.abs(i - nearest);
-  if (dist === 0) return kf[nearest];
-  // Use per-keyframe blend radius, fall back to default
-  const br = (profiles.xsecBlendRadii && profiles.xsecBlendRadii[nearest]) || DEFAULT_BLEND_RADIUS;
-  if (dist > br) return null;
-  const t = dist / br;
-  return lerpPoly(kf[nearest], getDefPoly(), t * t * (3 - 2 * t));
+  if (contributions.length === 0) return null;
+
+  // Start from default shape, blend each keyframe's edit on top
+  const def = getDefPoly();
+  const result = def.map(p => ({ y: p.y, z: p.z }));
+
+  for (const { poly, weight } of contributions) {
+    const len = Math.min(result.length, poly.length);
+    for (let j = 0; j < len; j++) {
+      // Blend: move from current result toward this keyframe's shape
+      result[j].y += (poly[j].y - def[j].y) * weight;
+      result[j].z += (poly[j].z - def[j].z) * weight;
+    }
+  }
+
+  return result;
 }
 
 function halfRingVertex(j, dorsalH, ventralH, halfW, n, xsec) {
