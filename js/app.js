@@ -490,9 +490,8 @@ function init() {
     showStationRing(defaultStation);
   }
 
-  // Check auth and load design from URL if present
-  checkAuth();
-  loadDesignFromUrl();
+  // Check auth, load saved/shared design from URL if present
+  initAuth();
 
   (function animate() { requestAnimationFrame(animate); ren.render(scene, cam); })();
 
@@ -509,17 +508,83 @@ function init() {
 // ── Auth + save/load ──
 let currentUser = null;
 let currentDesignId = null;
+let currentDesignName = '';
+let isReadOnly = false;
 
-async function checkAuth() {
+function showLoggedInUI(user) {
+  currentUser = user;
+  const mono = (user.displayName || user.username).slice(0, 2).toUpperCase();
+  const avatarEl = document.getElementById('phAvatar');
+  const monoEl = document.getElementById('phMonogram');
+  const signinEl = document.getElementById('authSignin');
+  const userEl = document.getElementById('authUser');
+  const usernameEl = document.getElementById('authUsername');
+
+  if (avatarEl) { avatarEl.style.display = 'flex'; }
+  if (monoEl) monoEl.textContent = mono;
+  if (signinEl) signinEl.style.display = 'none';
+  if (userEl) userEl.style.display = 'block';
+  if (usernameEl) usernameEl.textContent = 'Signed in as ' + user.username;
+}
+
+function showLoggedOutUI() {
+  const avatarEl = document.getElementById('phAvatar');
+  const signinEl = document.getElementById('authSignin');
+  const userEl = document.getElementById('authUser');
+  if (avatarEl) avatarEl.style.display = 'none';
+  if (signinEl) signinEl.style.display = 'block';
+  if (userEl) userEl.style.display = 'none';
+}
+
+function showReadOnlyMode(name) {
+  isReadOnly = true;
+  const banner = document.getElementById('readonlyBanner');
+  if (banner) banner.style.display = 'flex';
+  const signinEl = document.getElementById('authSignin');
+  if (signinEl) signinEl.style.display = 'none';
+  const userEl = document.getElementById('authUser');
+  if (userEl) userEl.style.display = 'none';
+}
+
+function toggleDesignerMenu() {
+  document.getElementById('phAvatarMenu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const menu = document.getElementById('phAvatarMenu');
+  if (menu && !e.target.closest('.ph-avatar')) menu.classList.remove('open');
+});
+
+async function logoutDesigner() {
+  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  window.location.reload();
+}
+
+async function initAuth() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (res.ok) {
-      currentUser = await res.json();
-      document.getElementById('authSignin').style.display = 'none';
-      document.getElementById('authUser').style.display = 'block';
-      document.getElementById('authUsername').textContent = 'Signed in as ' + currentUser.username;
+      const user = await res.json();
+      showLoggedInUI(user);
+    } else {
+      showLoggedOutUI();
     }
-  } catch {}
+  } catch {
+    showLoggedOutUI();
+  }
+
+  // Check for shared design URL: /d/{designId}
+  const shareMatch = window.location.pathname.match(/^\/d\/([\w-]+)$/);
+  if (shareMatch) {
+    await loadSharedDesign(shareMatch[1]);
+    return;
+  }
+
+  // Check for ?design={id} (own saved design)
+  const params = new URLSearchParams(window.location.search);
+  const designId = params.get('design');
+  if (designId) {
+    await loadDesignFromAPI(designId);
+  }
 }
 
 function getDesignState() {
@@ -540,30 +605,22 @@ function getDesignState() {
 }
 
 function loadDesignState(state) {
-  // Restore sliders
   if (state.sliders) {
     for (const [key, val] of Object.entries(state.sliders)) {
       const el = document.getElementById('s' + key);
       if (el) el.value = val;
     }
   }
-  // Restore tail type
   if (state.tailType) {
     tailType = state.tailType;
     document.querySelectorAll('.tb').forEach(e => e.classList.toggle('on', e.dataset.t === tailType));
   }
-  // Restore color
-  if (state.baitColor) {
-    baitColor = state.baitColor;
-  }
-  // Restore manual deltas
+  if (state.baitColor) baitColor = state.baitColor;
   if (state.dDelta) profileState.dDelta = state.dDelta;
   if (state.vDelta) profileState.vDelta = state.vDelta;
   if (state.wDelta) profileState.wDelta = state.wDelta;
-  // Restore xsec keyframes
   if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
   if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
-
   update();
 }
 
@@ -575,10 +632,8 @@ async function saveDesign() {
   btn.disabled = true;
 
   try {
-    // Capture thumbnail
     ren.render(scene, cam);
     const thumbnail = ren.domElement.toDataURL('image/jpeg', 0.7);
-
     const p = getParams();
     const nameInput = document.getElementById('designNameInput');
     const name = nameInput.value.trim() || 'Untitled design';
@@ -605,35 +660,76 @@ async function saveDesign() {
     if (res.ok) {
       const data = await res.json();
       currentDesignId = data.id;
+      currentDesignName = name;
       btn.textContent = 'Saved!';
-      setTimeout(() => { btn.textContent = 'Save'; }, 1500);
+      setTimeout(() => { btn.textContent = 'Save design'; }, 1500);
     } else {
       btn.textContent = 'Error';
-      setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+      setTimeout(() => { btn.textContent = 'Save design'; }, 2000);
     }
   } catch {
     btn.textContent = 'Error';
-    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+    setTimeout(() => { btn.textContent = 'Save design'; }, 2000);
   }
   btn.disabled = false;
 }
 
-async function loadDesignFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const designId = params.get('design');
-  if (!designId) return;
-
+async function loadDesignFromAPI(designId) {
   try {
     const res = await fetch(`/api/designs/${designId}`, { credentials: 'include' });
-    if (res.ok) {
-      const design = await res.json();
-      const state = JSON.parse(design.stateJSON);
-      loadDesignState(state);
-      currentDesignId = design.id;
-      const nameInput = document.getElementById('designNameInput');
-      if (nameInput) nameInput.value = design.name;
+    if (!res.ok) {
+      window.history.replaceState({}, '', '/');
+      return;
     }
+    const design = await res.json();
+    const state = JSON.parse(design.stateJSON);
+    loadDesignState(state);
+    currentDesignId = design.id;
+    currentDesignName = design.name;
+    const nameInput = document.getElementById('designNameInput');
+    if (nameInput) nameInput.value = design.name;
+  } catch {
+    window.history.replaceState({}, '', '/');
+  }
+}
+
+async function loadSharedDesign(designId) {
+  try {
+    const res = await fetch(`/api/public/${designId}`);
+    if (!res.ok) return;
+    const design = await res.json();
+    const state = JSON.parse(design.stateJSON);
+    loadDesignState(state);
+    showReadOnlyMode(design.name);
+    // Store state for forking
+    window._sharedDesignState = design;
   } catch {}
+}
+
+async function forkDesign() {
+  if (!currentUser) { window.location = '/login'; return; }
+  const shared = window._sharedDesignState;
+  if (!shared) return;
+
+  const body = {
+    name: (shared.name || 'Shared design') + ' (fork)',
+    species: shared.species || 'custom',
+    tailType: shared.tailType || 'paddle',
+    length: shared.length || 8,
+    stateJSON: shared.stateJSON,
+  };
+
+  const res = await fetch('/api/designs', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    window.location = `/?design=${data.id}`;
+  }
 }
 
 // Expose to inline HTML handlers
@@ -648,5 +744,8 @@ window.snapView = snapView;
 window.switchTab = switchTab;
 window.toggleEditors = toggleEditors;
 window.saveDesign = saveDesign;
+window.toggleDesignerMenu = toggleDesignerMenu;
+window.logoutDesigner = logoutDesigner;
+window.forkDesign = forkDesign;
 
 init();

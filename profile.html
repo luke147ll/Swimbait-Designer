@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profile — Swimbait Designer</title>
+<title>My Designs — Swimbait Designer</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0e0e0d;--sf:#181816;--sf2:#222220;--bd:#2e2e2a;--tx:#e8e4d9;--mu:#8a8778;--ac:#c4a04a;--ac2:#5a9a6b;--err:#c45a4a}
@@ -11,62 +11,110 @@
 body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;min-height:100vh}
 
 /* ── Nav ── */
-.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--bd);background:var(--sf)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--bd);background:var(--sf)}
 .nav-brand{font-family:'Instrument Serif',serif;font-size:18px;text-decoration:none;color:var(--tx)}
-.nav-right{display:flex;align-items:center;gap:12px}
-.nav-user{font-size:10px;color:var(--mu)}
-.nav-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;font-size:9px;padding:6px 12px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;border-radius:2px;text-decoration:none;transition:all .15s}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:9px;padding:6px 12px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;
+  border-radius:2px;text-decoration:none;transition:all .15s}
 .nav-btn:hover{border-color:var(--ac);color:var(--tx)}
 .nav-btn.primary{background:var(--ac);color:var(--bg);border-color:var(--ac)}
 .nav-btn.primary:hover{opacity:.85}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--sf2);border:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ac);cursor:pointer;position:relative}
+.nav-avatar:hover{border-color:var(--ac)}
+.avatar-menu{display:none;position:absolute;top:36px;right:0;background:var(--sf);border:1px solid var(--bd);
+  border-radius:4px;min-width:120px;z-index:50;overflow:hidden}
+.avatar-menu.open{display:block}
+.avatar-menu a,.avatar-menu button{display:block;width:100%;text-align:left;padding:8px 14px;font-size:9px;
+  color:var(--mu);text-decoration:none;border:none;background:none;font-family:'DM Mono',monospace;
+  text-transform:uppercase;letter-spacing:1px;cursor:pointer}
+.avatar-menu a:hover,.avatar-menu button:hover{background:var(--sf2);color:var(--tx)}
 
 /* ── Profile header ── */
-.profile-header{padding:32px 24px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:20px;max-width:1200px;margin:0 auto}
-.avatar{width:64px;height:64px;border-radius:50%;background:var(--sf2);border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ac);font-family:'Instrument Serif',serif}
-.profile-info h2{font-family:'Instrument Serif',serif;font-weight:400;font-size:22px}
-.profile-meta{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
-.profile-stats{display:flex;gap:16px;margin-top:6px}
-.stat{font-size:10px;color:var(--mu)}
-.stat strong{color:var(--tx)}
+.profile-header{padding:28px 24px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:20px;max-width:1100px;margin:0 auto}
+.profile-avatar{width:56px;height:56px;border-radius:50%;background:var(--sf2);border:2px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ac);font-family:'Instrument Serif',serif;flex-shrink:0}
+.profile-info h2{font-family:'Instrument Serif',serif;font-weight:400;font-size:20px}
+.profile-meta{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-top:3px}
+
+/* ── Stats row ── */
+.stats-row{display:flex;gap:24px;padding:16px 24px;border-bottom:1px solid var(--bd);max-width:1100px;margin:0 auto}
+.stat-item{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px}
+.stat-item strong{color:var(--tx);font-size:12px;margin-right:3px}
+
+/* ── Toolbar: tabs + search + sort ── */
+.toolbar{display:flex;align-items:center;gap:12px;padding:14px 24px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
+.filter-tabs{display:flex;gap:2px}
+.ftab{background:none;border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:5px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all .12s}
+.ftab:first-child{border-radius:3px 0 0 3px}.ftab:last-child{border-radius:0 3px 3px 0}
+.ftab:hover{border-color:var(--ac);color:var(--tx)}
+.ftab.on{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+.search-box{flex:1;min-width:120px;max-width:260px;padding:6px 10px;background:var(--sf2);border:1px solid var(--bd);
+  border-radius:3px;color:var(--tx);font-family:'DM Mono',monospace;font-size:10px;outline:none}
+.search-box:focus{border-color:var(--ac)}
+.search-box::placeholder{color:var(--mu);opacity:.5}
+.sort-btn{background:none;border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:5px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;border-radius:3px}
+.sort-btn:hover{border-color:var(--ac);color:var(--tx)}
 
 /* ── Design grid ── */
-.section{max-width:1200px;margin:0 auto;padding:24px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.section-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--ac)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:16px}
+.grid-wrap{max-width:1100px;margin:0 auto;padding:16px 24px 40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px}
 
-.design-card{background:var(--sf);border:1px solid var(--bd);border-radius:4px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.design-card{background:var(--sf);border:1px solid var(--bd);border-radius:4px;overflow:hidden;transition:border-color .15s;position:relative}
 .design-card:hover{border-color:var(--ac)}
-.card-thumb{width:100%;aspect-ratio:16/10;background:var(--sf2);display:flex;align-items:center;justify-content:center;color:var(--mu);font-size:9px;text-transform:uppercase;letter-spacing:1px;overflow:hidden}
+.card-thumb{width:100%;aspect-ratio:16/10;background:var(--sf2);display:flex;align-items:center;justify-content:center;
+  color:var(--mu);font-size:9px;text-transform:uppercase;letter-spacing:1px;overflow:hidden;cursor:pointer}
 .card-thumb img{width:100%;height:100%;object-fit:cover}
-.card-body{padding:12px}
-.card-name{font-size:11px;font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-meta{font-size:8px;color:var(--mu);display:flex;gap:8px}
+.card-badge{position:absolute;top:8px;right:8px;font-size:7px;padding:2px 6px;border-radius:2px;
+  text-transform:uppercase;letter-spacing:1px;background:var(--ac2);color:var(--bg)}
+.card-body{padding:10px 12px}
+.card-name{font-size:11px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.card-name:hover{color:var(--ac)}
+.card-meta{font-size:8px;color:var(--mu);display:flex;gap:6px;flex-wrap:wrap}
 .card-actions{display:flex;gap:4px;margin-top:8px}
-.card-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;font-size:8px;padding:4px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;border-radius:2px;transition:all .12s}
+.card-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:8px;padding:4px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;border-radius:2px;transition:all .12s}
 .card-btn:hover{border-color:var(--ac);color:var(--tx)}
 .card-btn.danger:hover{border-color:var(--err);color:var(--err)}
 
-.empty-state{text-align:center;padding:60px 20px;color:var(--mu)}
-.empty-state p{font-size:11px;margin-bottom:16px}
+/* New design card */
+.new-card{border-style:dashed;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px}
+.new-card:hover{border-color:var(--ac)}
+.new-card .plus{font-size:28px;color:var(--ac);margin-bottom:6px}
+.new-card .label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px}
 
+.empty-state{text-align:center;padding:50px 20px;color:var(--mu);font-size:10px}
 .loading{text-align:center;padding:40px;font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:2px}
+
+/* ── Toast notification ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--sf);
+  border:1px solid var(--ac);border-radius:4px;padding:10px 18px;font-size:10px;color:var(--tx);
+  z-index:200;transition:transform .3s ease;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);pointer-events:auto}
+.toast a{color:var(--ac);margin-left:6px;cursor:pointer;text-decoration:underline}
 
 /* ── Confirm dialog ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
 .overlay.active{display:flex}
 .dialog{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:24px;max-width:360px;width:90%;text-align:center}
-.dialog p{font-size:11px;margin-bottom:16px}
+.dialog p{font-size:11px;margin-bottom:16px;line-height:1.6}
 .dialog-btns{display:flex;gap:8px;justify-content:center}
-.dialog-btn{padding:8px 16px;border:1px solid var(--bd);background:var(--sf2);color:var(--mu);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;border-radius:2px}
+.dialog-btn{padding:8px 16px;border:1px solid var(--bd);background:var(--sf2);color:var(--mu);font-family:'DM Mono',monospace;
+  font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;border-radius:2px}
 .dialog-btn:hover{border-color:var(--ac);color:var(--tx)}
 .dialog-btn.danger{background:var(--err);color:var(--bg);border-color:var(--err)}
 .dialog-btn.danger:hover{opacity:.85}
 
-@media(max-width:480px){
+@media(max-width:600px){
   .profile-header{flex-direction:column;text-align:center;padding:20px 16px}
+  .stats-row{flex-wrap:wrap;gap:12px;padding:12px 16px}
+  .toolbar{padding:10px 16px}
+  .grid-wrap{padding:12px 16px 32px}
   .grid{grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));gap:10px}
-  .section{padding:16px}
+  .nav{padding:12px 16px}
 }
 </style>
 </head>
@@ -75,50 +123,67 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;min-he
 <nav class="nav">
   <a href="/" class="nav-brand">Swimbait Designer</a>
   <div class="nav-right">
-    <span class="nav-user" id="navUser"></span>
     <a href="/" class="nav-btn primary">New design</a>
-    <button class="nav-btn" onclick="logout()">Sign out</button>
+    <div class="nav-avatar" id="navAvatar" onclick="toggleAvatarMenu()">
+      <span id="navMonogram"></span>
+      <div class="avatar-menu" id="avatarMenu">
+        <a href="/profile">My designs</a>
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
   </div>
 </nav>
 
 <div class="profile-header" id="profileHeader" style="display:none">
-  <div class="avatar" id="avatar"></div>
+  <div class="profile-avatar" id="avatar"></div>
   <div>
     <h2 id="displayName"></h2>
     <div class="profile-meta"><span id="username"></span> &middot; <span id="plan"></span> &middot; joined <span id="joined"></span></div>
-    <div class="profile-stats">
-      <div class="stat"><strong id="designCount">0</strong> designs</div>
-    </div>
   </div>
 </div>
 
-<div class="section">
-  <div class="section-header">
-    <div class="section-title">Your designs</div>
+<div class="stats-row" id="statsRow" style="display:none">
+  <div class="stat-item"><strong id="statDesigns">0</strong> designs</div>
+  <div class="stat-item"><strong id="statExports">0</strong> exports</div>
+  <div class="stat-item"><strong id="statShared">0</strong> shared</div>
+  <div class="stat-item"><strong id="statPlan">free</strong> plan</div>
+</div>
+
+<div class="toolbar" id="toolbar" style="display:none">
+  <div class="filter-tabs">
+    <button class="ftab on" data-filter="all" onclick="setFilter(this)">My designs</button>
+    <button class="ftab" data-filter="shared" onclick="setFilter(this)">Shared</button>
+    <button class="ftab" data-filter="exported" onclick="setFilter(this)">Exported</button>
   </div>
+  <input type="text" class="search-box" id="searchBox" placeholder="Search designs..." oninput="applyFilters()">
+  <button class="sort-btn" id="sortBtn" onclick="toggleSort()">Recent</button>
+</div>
+
+<div class="grid-wrap">
   <div class="loading" id="loadingState">Loading designs...</div>
   <div class="grid" id="designGrid" style="display:none"></div>
-  <div class="empty-state" id="emptyState" style="display:none">
-    <p>No designs yet. Start creating!</p>
-    <a href="/" class="nav-btn primary">Open designer</a>
-  </div>
 </div>
 
 <div class="overlay" id="deleteOverlay">
   <div class="dialog">
-    <p>Delete this design? This cannot be undone.</p>
+    <p id="deleteMsg">Delete this design? This cannot be undone.</p>
     <div class="dialog-btns">
       <button class="dialog-btn" onclick="closeDeleteDialog()">Cancel</button>
-      <button class="dialog-btn danger" id="confirmDeleteBtn" onclick="confirmDelete()">Delete</button>
+      <button class="dialog-btn danger" onclick="confirmDelete()">Delete</button>
     </div>
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 let currentUser = null;
+let allDesigns = [];
+let activeFilter = 'all';
+let sortMode = 'recent'; // 'recent' | 'name'
 let pendingDeleteId = null;
 
-// ── Auth check ──
+// ── Auth ──
 async function checkAuth() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -132,108 +197,189 @@ async function logout() {
   window.location = '/login';
 }
 
-// ── Render profile ──
+function toggleAvatarMenu() {
+  document.getElementById('avatarMenu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-avatar')) document.getElementById('avatarMenu').classList.remove('open');
+});
+
+// ── Profile rendering ──
 function renderProfile(user) {
   currentUser = user;
-  document.getElementById('navUser').textContent = user.username;
-  document.getElementById('avatar').textContent = user.displayName.charAt(0).toUpperCase();
-  document.getElementById('displayName').textContent = user.displayName;
+  const mono = (user.displayName || user.username).slice(0, 2).toUpperCase();
+  document.getElementById('navMonogram').textContent = mono;
+  document.getElementById('avatar').textContent = mono;
+  document.getElementById('displayName').textContent = user.displayName || user.username;
   document.getElementById('username').textContent = '@' + user.username;
-  document.getElementById('plan').textContent = user.plan;
+  document.getElementById('plan').textContent = user.plan || 'free';
   document.getElementById('joined').textContent = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  document.getElementById('designCount').textContent = user.designCount || 0;
+  document.getElementById('statPlan').textContent = user.plan || 'free';
   document.getElementById('profileHeader').style.display = 'flex';
+  document.getElementById('statsRow').style.display = 'flex';
+  document.getElementById('toolbar').style.display = 'flex';
 }
 
-// ── Render designs ──
-function renderDesigns(designs) {
+// ── Design rendering ──
+function renderDesigns() {
   const grid = document.getElementById('designGrid');
-  const loading = document.getElementById('loadingState');
-  const empty = document.getElementById('emptyState');
-
-  loading.style.display = 'none';
-
-  if (!designs.length) {
-    empty.style.display = 'block';
-    return;
-  }
-
+  document.getElementById('loadingState').style.display = 'none';
   grid.style.display = 'grid';
-  grid.innerHTML = designs.map(d => `
-    <div class="design-card" onclick="openDesign('${d.id}')">
-      <div class="card-thumb">
-        ${d.thumbnailKey
-          ? `<img src="/api/thumbnails/${d.id}" alt="${d.name}" onerror="this.parentElement.textContent='No preview'">`
-          : 'No preview'}
-      </div>
+
+  // Stats
+  document.getElementById('statDesigns').textContent = allDesigns.length;
+  document.getElementById('statExports').textContent = allDesigns.reduce((s, d) => s + (d.exportCount || 0), 0);
+  document.getElementById('statShared').textContent = allDesigns.filter(d => d.public).length;
+
+  // Filter
+  const search = document.getElementById('searchBox').value.toLowerCase().trim();
+  let filtered = allDesigns;
+  if (activeFilter === 'shared') filtered = filtered.filter(d => d.public);
+  else if (activeFilter === 'exported') filtered = filtered.filter(d => d.exportCount > 0);
+  if (search) filtered = filtered.filter(d => d.name.toLowerCase().includes(search));
+
+  // Sort
+  if (sortMode === 'recent') filtered.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  else filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Render
+  let html = `<div class="design-card new-card" onclick="window.location='/'">
+    <div class="plus">+</div><div class="label">New design</div>
+  </div>`;
+
+  html += filtered.map(d => {
+    const thumb = d.thumbnailKey
+      ? `<img src="/api/thumbnails/${d.id}" alt="" onerror="this.parentElement.innerHTML='No preview'">`
+      : 'No preview';
+    const badge = d.public ? '<div class="card-badge">Shared</div>' : '';
+    return `<div class="design-card" data-id="${d.id}">
+      ${badge}
+      <div class="card-thumb" onclick="openDesign('${d.id}')">${thumb}</div>
       <div class="card-body">
-        <div class="card-name">${escHtml(d.name)}</div>
+        <div class="card-name" onclick="openDesign('${d.id}')">${esc(d.name)}</div>
         <div class="card-meta">
-          <span>${d.length}"</span>
-          <span>${d.tailType}</span>
+          <span>${d.length || '?'}"</span>
+          <span>${d.tailType || ''}</span>
           <span>${timeAgo(d.updatedAt)}</span>
         </div>
-        <div class="card-actions" onclick="event.stopPropagation()">
+        <div class="card-actions">
           <button class="card-btn" onclick="openDesign('${d.id}')">Open</button>
-          <button class="card-btn" onclick="toggleShare('${d.id}', this)">${d.public ? 'Unshare' : 'Share'}</button>
-          <button class="card-btn danger" onclick="showDeleteDialog('${d.id}')">Delete</button>
+          <button class="card-btn" onclick="toggleShare('${d.id}',this)">${d.public ? 'Unshare' : 'Share'}</button>
+          <button class="card-btn" onclick="duplicateDesign('${d.id}')">Copy</button>
+          <button class="card-btn danger" onclick="showDeleteDialog('${d.id}','${esc(d.name)}')">Del</button>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+
+  grid.innerHTML = html;
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function timeAgo(iso) {
-  const d = new Date(iso);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return mins + 'm ago';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + 'h ago';
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return days + 'd ago';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + 'd ago';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function openDesign(id) {
-  window.location = `/?design=${id}`;
+// ── Filters & sort ──
+function setFilter(btn) {
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  activeFilter = btn.dataset.filter;
+  renderDesigns();
 }
+
+function applyFilters() { renderDesigns(); }
+
+function toggleSort() {
+  sortMode = sortMode === 'recent' ? 'name' : 'recent';
+  document.getElementById('sortBtn').textContent = sortMode === 'recent' ? 'Recent' : 'A-Z';
+  renderDesigns();
+}
+
+// ── Actions ──
+function openDesign(id) { window.location = `/?design=${id}`; }
 
 async function toggleShare(id, btn) {
-  const res = await fetch(`/api/designs/${id}/share`, {
-    method: 'POST', credentials: 'include',
-  });
-  if (res.ok) {
-    const data = await res.json();
-    btn.textContent = data.public ? 'Unshare' : 'Share';
-    if (data.shareUrl) {
-      navigator.clipboard.writeText(data.shareUrl).catch(() => {});
-    }
+  const res = await fetch(`/api/designs/${id}/share`, { method: 'POST', credentials: 'include' });
+  if (!res.ok) return;
+  const data = await res.json();
+  // Update local data
+  const d = allDesigns.find(d => d.id === id);
+  if (d) d.public = data.public;
+  renderDesigns();
+  if (data.public && data.shareUrl) {
+    showToast(`Shared! <a onclick="copyLink('${data.shareUrl}')">Copy link</a>`);
+    try { await navigator.clipboard.writeText(data.shareUrl); } catch {}
+  } else {
+    showToast('Design is now private');
   }
 }
 
-function showDeleteDialog(id) {
-  pendingDeleteId = id;
-  document.getElementById('deleteOverlay').classList.add('active');
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('Link copied!'));
 }
 
+async function duplicateDesign(id) {
+  const res = await fetch(`/api/designs/${id}`, { credentials: 'include' });
+  if (!res.ok) return;
+  const design = await res.json();
+  const body = {
+    name: design.name + ' (copy)',
+    species: design.species,
+    tailType: design.tailType,
+    length: design.length,
+    stateJSON: design.stateJSON,
+  };
+  const createRes = await fetch('/api/designs', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (createRes.ok) {
+    const newDesign = await createRes.json();
+    window.location = `/?design=${newDesign.id}`;
+  }
+}
+
+function showDeleteDialog(id, name) {
+  pendingDeleteId = id;
+  document.getElementById('deleteMsg').textContent = `Delete "${name}"? This cannot be undone.`;
+  document.getElementById('deleteOverlay').classList.add('active');
+}
 function closeDeleteDialog() {
   pendingDeleteId = null;
   document.getElementById('deleteOverlay').classList.remove('active');
 }
-
 async function confirmDelete() {
   if (!pendingDeleteId) return;
-  const res = await fetch(`/api/designs/${pendingDeleteId}`, {
-    method: 'DELETE', credentials: 'include',
-  });
+  const id = pendingDeleteId;
   closeDeleteDialog();
-  if (res.ok) init(); // reload
+  const res = await fetch(`/api/designs/${id}`, { method: 'DELETE', credentials: 'include' });
+  if (res.ok) {
+    allDesigns = allDesigns.filter(d => d.id !== id);
+    renderDesigns();
+    showToast('Design deleted');
+  }
+}
+
+// ── Toast ──
+let toastTimer = null;
+function showToast(html) {
+  const el = document.getElementById('toast');
+  el.innerHTML = html;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 // ── Init ──
@@ -245,8 +391,9 @@ async function init() {
   const res = await fetch('/api/designs', { credentials: 'include' });
   if (res.ok) {
     const data = await res.json();
-    renderDesigns(data.designs);
+    allDesigns = data.designs || [];
   }
+  renderDesigns();
 }
 
 init();

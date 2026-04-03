@@ -11,7 +11,23 @@
 <div id="app">
 <div class="pnl-resize" id="pnlResize"></div>
 <div class="pnl" id="pnlControls">
-  <div class="ph"><div class="sub">Spline-based profile engine v0.4</div><h1>Swimbait Designer</h1></div>
+  <div class="ph">
+    <div class="ph-row">
+      <div><div class="sub">Spline-based profile engine v0.4</div><h1>Swimbait Designer</h1></div>
+      <div class="ph-avatar" id="phAvatar" style="display:none" onclick="toggleDesignerMenu()">
+        <span id="phMonogram"></span>
+        <div class="ph-avatar-menu" id="phAvatarMenu">
+          <a href="/profile">My designs</a>
+          <button onclick="logoutDesigner()">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Read-only banner for shared designs -->
+  <div class="readonly-banner" id="readonlyBanner" style="display:none">
+    <span>Viewing a shared design</span>
+    <button class="eb" style="padding:6px 12px;font-size:9px;margin-left:auto" onclick="forkDesign()">Fork to edit</button>
+  </div>
 
   <div class="sec">
     <div class="st ed-toggle-row" onclick="toggleEditors()">
