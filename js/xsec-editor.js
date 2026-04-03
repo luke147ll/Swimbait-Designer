@@ -332,22 +332,23 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
     const span = fitRange();
 
-    // Ghost: previous station cross-section (uses engine's blend logic)
-    if (showBefore && station > 1) {
-      const prevStation = Math.max(1, station - blendRadius);
-      const prevShape = getXSecAtRing(prevStation, profileState) || defaultXSecPoly(profileState.nCache[prevStation] || 2.2);
-      const prevDims = getDimsAt(prevStation);
+    // Ghost: nearest keyframe before current station
+    const kfKeys = Object.keys(profileState.xsecKeyframes).map(Number).sort((a, b) => a - b);
+    const prevKf = kfKeys.filter(k => k < station).pop();
+    if (showBefore && prevKf != null) {
+      const prevShape = getXSecAtRing(prevKf, profileState) || defaultXSecPoly(profileState.nCache[prevKf] || 2.2);
+      const prevDims = getDimsAt(prevKf);
       ghostBefore.setAttribute('points', polyToSvgPoints(prevShape, prevDims));
       ghostBefore.setAttribute('visibility', 'visible');
     } else {
       ghostBefore.setAttribute('visibility', 'hidden');
     }
 
-    // Ghost: next station cross-section
-    if (showAfter && station < 96) {
-      const nextStation = Math.min(96, station + blendRadius);
-      const nextShape = getXSecAtRing(nextStation, profileState) || defaultXSecPoly(profileState.nCache[nextStation] || 2.2);
-      const nextDims = getDimsAt(nextStation);
+    // Ghost: nearest keyframe after current station
+    const nextKf = kfKeys.find(k => k > station);
+    if (showAfter && nextKf != null) {
+      const nextShape = getXSecAtRing(nextKf, profileState) || defaultXSecPoly(profileState.nCache[nextKf] || 2.2);
+      const nextDims = getDimsAt(nextKf);
       ghostAfter.setAttribute('points', polyToSvgPoints(nextShape, nextDims));
       ghostAfter.setAttribute('visibility', 'visible');
     } else {
