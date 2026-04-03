@@ -6,14 +6,14 @@
 import * as THREE from 'https://esm.sh/three@0.162.0';
 import { genBody, superEllipse, NS, RS } from './engine.js';
 
-import { buildEyes, buildHookSlot, buildWeightPocket } from './anatomy.js';
+import { buildEyes, buildHookSlot } from './anatomy.js';
 import { loadPreset as applyPreset } from './presets.js';
 import { exportSTL as generateSTL } from './export-stl.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
 
-let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM, stationRing;
+let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let tailType = 'paddle', baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
@@ -39,11 +39,11 @@ function getParams() {
     DA: +document.getElementById('sDA').value,
     BF: +document.getElementById('sBF').value,
     BT: +document.getElementById('sBT').value,
-    CS: +document.getElementById('sCS').value,
+    CS: 2.2,
     SL: +document.getElementById('sSL').value,
     SD: +document.getElementById('sSD').value,
     SC: +document.getElementById('sSC').value,
-    TS: +document.getElementById('sTS').value,
+    TS: 0.80,
     TT: +document.getElementById('sTT').value,
     FD: +document.getElementById('sFD').value,
     FA: +document.getElementById('sFA').value,
@@ -53,7 +53,7 @@ function getParams() {
     ES: +document.getElementById('sES').value,
     EB: +document.getElementById('sEB').value,
     HS: +document.getElementById('sHS').value,
-    WP: +document.getElementById('sWP').value,
+    WP: 0,
     tail: tailType
   };
 }
@@ -62,7 +62,7 @@ function rebuildScene() {
   const p = getParams();
   const L = p.OL;
 
-  [bodyMesh, eyeGrpL, eyeGrpR, hsM, wpM].forEach(m => { if (m) scene.remove(m); });
+  [bodyMesh, eyeGrpL, eyeGrpR, hsM].forEach(m => { if (m) scene.remove(m); });
 
   const mat = new THREE.MeshPhysicalMaterial({
     color: baitColor, metalness: 0.05, roughness: 0.42,
@@ -82,8 +82,6 @@ function rebuildScene() {
 
   hsM = buildHookSlot(p, L);
   if (hsM) scene.add(hsM);
-  wpM = buildWeightPocket(p, L);
-  if (wpM) scene.add(wpM);
 
   let maxD = 0, maxW = 0;
   for (let i = 0; i <= 96; i++) {
@@ -129,11 +127,9 @@ function update() {
   document.getElementById('vDA').textContent = p.DA.toFixed(2);
   document.getElementById('vBF').textContent = p.BF.toFixed(2);
   document.getElementById('vBT').textContent = p.BT.toFixed(2);
-  document.getElementById('vCS').textContent = p.CS.toFixed(1);
   document.getElementById('vSL').textContent = Math.round(p.SL * 100) + '%';
   document.getElementById('vSD').textContent = p.SD.toFixed(2);
   document.getElementById('vSC').textContent = p.SC.toFixed(2);
-  document.getElementById('vTS').textContent = p.TS.toFixed(2);
   document.getElementById('vTT').textContent = p.TT.toFixed(2);
   document.getElementById('vFD').textContent = p.FD.toFixed(2);
   document.getElementById('vFA').textContent = p.FA.toFixed(2);
@@ -141,7 +137,6 @@ function update() {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
   document.getElementById('vHS').textContent = p.HS.toFixed(2);
-  document.getElementById('vWP').textContent = p.WP.toFixed(2);
   // Always regenerate base profiles from sliders, then apply manual deltas
   const base = buildProfilesFromSliders(p);
 
@@ -207,9 +202,15 @@ function showStationRing(stationIdx) {
 }
 
 
-// Called by editor drag — just rebuild caches from current profile data
+// Called by editor drag — recompute deltas so sliders don't erase manual edits
 function onProfileEdit() {
-  rebuildProfileCache(profileState, +document.getElementById('sCS').value, +document.getElementById('sHL').value);
+  const base = buildProfilesFromSliders(getParams());
+  for (let i = 0; i < base.dorsal.length; i++) {
+    profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
+    profileState.vDelta[i] = (profileState.ventral[i]?.v ?? base.ventral[i].v) - base.ventral[i].v;
+    profileState.wDelta[i] = (profileState.width[i]?.v ?? base.width[i].v) - base.width[i].v;
+  }
+  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
   rebuildScene();
 }
 
@@ -258,8 +259,8 @@ function dumpAll() {
   const sliders = `// ── Slider values ──
 const sliders = ${JSON.stringify({
     OL: p.OL, BD: p.BD, WR: p.WR, GP: p.GP, HL: p.HL, SB: p.SB, HW: p.HW,
-    DA: p.DA, BF: p.BF, BT: p.BT, CS: p.CS, SL: p.SL, SD: p.SD, SC: p.SC,
-    TS: p.TS, TT: p.TT, ES: p.ES, EB: p.EB, HS: p.HS, WP: p.WP
+    DA: p.DA, BF: p.BF, BT: p.BT, SL: p.SL, SD: p.SD, SC: p.SC,
+    TT: p.TT, ES: p.ES, EB: p.EB, HS: p.HS
   }, null, 2)};`;
 
   const out = `${sliders}

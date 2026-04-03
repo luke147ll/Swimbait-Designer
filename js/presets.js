@@ -16,8 +16,8 @@ export const PRESETS = {
 
 const SLIDER_MAP = {
   OL:'sOL',BD:'sBD',WR:'sWR',GP:'sGP',HL:'sHL',SB:'sSB',HW:'sHW',
-  DA:'sDA',BF:'sBF',BT:'sBT',CS:'sCS',SL:'sSL',SD:'sSD',SC:'sSC',
-  TS:'sTS',TT:'sTT',ES:'sES',EB:'sEB',HS:'sHS',WP:'sWP',
+  DA:'sDA',BF:'sBF',BT:'sBT',SL:'sSL',SD:'sSD',SC:'sSC',
+  TT:'sTT',ES:'sES',EB:'sEB',HS:'sHS',
 };
 
 /**

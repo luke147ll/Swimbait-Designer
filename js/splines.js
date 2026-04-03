@@ -71,6 +71,7 @@ export function createProfileState() {
     widthCache: new Float32Array(NS + 1),
     nCache: new Float32Array(NS + 1),
     xsecKeyframes: {},
+    xsecBlendRadii: {}, // per-keyframe blend radius: { stationIdx: radius }
   };
 }
 

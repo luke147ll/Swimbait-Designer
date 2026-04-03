@@ -117,6 +117,15 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   let blendRadius = 4;
 
+  // Load stored blend radius for the current station (or reset to default)
+  function loadBlendRadius() {
+    if (profileState.xsecBlendRadii[station] != null) {
+      blendRadius = profileState.xsecBlendRadii[station];
+    } else {
+      blendRadius = 4;
+    }
+  }
+
   // Ghost toggle buttons
   const beforeBtn = bar.querySelector('#xsecBefore');
   const afterBtn = bar.querySelector('#xsecAfter');
@@ -179,6 +188,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
       const rect = trackEl.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
       station = snapToNearest(Math.round(1 + pct * 95));
+      loadBlendRadius();
       updateRangeBar(); refresh();
       if (onStationChange) onStationChange(station);
     };
@@ -201,7 +211,11 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const onUp = () => {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
-      onEdit(); // rebuild with new blend radius
+      // Save blend radius for this keyframe
+      if (profileState.xsecKeyframes[station]) {
+        profileState.xsecBlendRadii[station] = blendRadius;
+      }
+      onEdit();
     };
     document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
   }
@@ -214,6 +228,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     const rect = trackEl.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     station = snapToNearest(Math.round(1 + pct * 95));
+    loadBlendRadius();
     updateRangeBar(); refresh();
     if (onStationChange) onStationChange(station);
   });
@@ -389,6 +404,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
 
   function setStation(i) {
     station = Math.max(1, Math.min(96, i));
+    loadBlendRadius();
     refresh();
     if (onStationChange) onStationChange(station);
   }
@@ -403,7 +419,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   // ── Point dragging ──
   let drag = null;
 
-  const HIT_RADIUS = 20; // screen pixels
+  const HIT_RADIUS = IS_TOUCH ? 12 : 20;
   function findNearest(mouseX, mouseY) {
     const shape = getShape() || getDefaultPoly();
     const dims = getStationDims();
@@ -422,14 +438,14 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
   }
 
   function startDrag(cx, cy) {
+    const idx = findNearest(cx, cy);
+    if (idx === null) return false;
     // Auto-create keyframe on first drag if none exists
     if (!profileState.xsecKeyframes[station]) {
       profileState.xsecKeyframes[station] = getDefaultPoly();
+      profileState.xsecBlendRadii[station] = blendRadius;
       isEditing = true;
     }
-    const idx = findNearest(cx, cy);
-    if (idx === null) return false;
-    const shape = getShape();
     drag = idx;
     return true;
   }
@@ -526,16 +542,29 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     drawGrid(); draw(); drawPoints();
   }, { passive: false });
 
-  // ── Touch ──
+  // ── Touch: hit point = drag, miss = pan viewBox ──
+  let touchPan = null;
   svg.addEventListener('touchstart', e => {
-    e.preventDefault();
-    if (e.touches.length === 1) startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      if (!startDrag(e.touches[0].clientX, e.touches[0].clientY)) {
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    }
   }, { passive: false });
   svg.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
     e.preventDefault();
-    if (e.touches.length === 1 && drag !== null) moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
+    if (drag !== null) {
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
+    } else if (touchPan) {
+      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      svg.setAttribute('viewBox', vp.viewBox());
+      drawGrid(); draw(); drawPoints();
+    }
   }, { passive: false });
-  svg.addEventListener('touchend', () => endDrag());
+  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
 
   // ── Double-click: toggle lock on nearest point, or reset view if zoomed ──
   svg.addEventListener('dblclick', e => {
@@ -551,6 +580,7 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     // Auto-create keyframe if needed
     if (!profileState.xsecKeyframes[station]) {
       profileState.xsecKeyframes[station] = getDefaultPoly();
+      profileState.xsecBlendRadii[station] = blendRadius;
     }
   });
 

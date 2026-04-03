@@ -33,7 +33,7 @@ export function defaultXSecPoly(n) {
   return pts;
 }
 
-let BLEND_RADIUS = 4; // default, can be overridden per-call
+const DEFAULT_BLEND_RADIUS = 4;
 
 export function getXSecAtRing(i, profiles) {
   const kf = profiles.xsecKeyframes;
@@ -69,8 +69,10 @@ export function getXSecAtRing(i, profiles) {
   if (nearest < 0 || !kf[nearest]) return null;
   const dist = Math.abs(i - nearest);
   if (dist === 0) return kf[nearest];
-  if (dist > BLEND_RADIUS) return null;
-  const t = dist / BLEND_RADIUS;
+  // Use per-keyframe blend radius, fall back to default
+  const br = (profiles.xsecBlendRadii && profiles.xsecBlendRadii[nearest]) || DEFAULT_BLEND_RADIUS;
+  if (dist > br) return null;
+  const t = dist / br;
   return lerpPoly(kf[nearest], getDefPoly(), t * t * (3 - 2 * t));
 }
 
@@ -96,7 +98,6 @@ export function genBody(p, profiles) {
   const pos = [], idx = [];
   const vertsPerRing = HRS + 1;
 
-  BLEND_RADIUS = p.BR || 4; // blend radius from xsec editor
   const forkDepth = p.FD || 0;
   const forkAsym = p.FA || 0;
   const TAIL_ZONE = 0.85;

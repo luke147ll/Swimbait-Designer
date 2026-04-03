@@ -156,9 +156,7 @@ export function createSideEditor(container, state, onEdit) {
   const ventralPath = svgEl('path', { class: 'pe-curve pe-ventral' });
   const centerLine = svgEl('line', { class: 'pe-center' });
   const stationLine = svgEl('line', { class: 'pe-station-line' });
-  const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
-  zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, dorsalPath, ventralPath);
   let stationT = -1;
 
   let drag = null, isDragging = false;
@@ -282,9 +280,6 @@ export function createSideEditor(container, state, onEdit) {
 
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
-    zoomLabel.textContent = vp.zoom.toFixed(1) + 'x';
-    zoomLabel.setAttribute('x', vp.vx + vp.vw - 4);
-    zoomLabel.setAttribute('y', vp.vy + vp.vh - 3);
     drawGrid();
     drawCurves();
     drawPoints();
@@ -322,7 +317,7 @@ export function createSideEditor(container, state, onEdit) {
   }
 
   // Find the closest point across dorsal + ventral in SCREEN PIXELS
-  const HIT_RADIUS = 20; // fixed pixels, constant regardless of zoom
+  const HIT_RADIUS = IS_TOUCH ? 12 : 20; // fixed pixels, constant regardless of zoom
   function findNearestPt(mouseX, mouseY) {
     let best = null;
     function check(profile, cls) {
@@ -428,57 +423,34 @@ export function createSideEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: 1 finger = drag point, 2 fingers = pan + pinch zoom ──
-  let touchPinchDist = 0, touchPanStart = null;
+  // ── Touch: hit point = drag, miss = pan viewBox ──
+  let touchPan = null;
   svg.addEventListener('touchstart', e => {
-    e.preventDefault();
     if (e.touches.length === 1) {
+      e.preventDefault();
       const r = svg.getBoundingClientRect();
-      startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
-    } else if (e.touches.length === 2) {
-      endDrag();
-      const dx = e.touches[1].clientX - e.touches[0].clientX;
-      const dy = e.touches[1].clientY - e.touches[0].clientY;
-      touchPinchDist = Math.sqrt(dx * dx + dy * dy);
-      touchPanStart = {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-      };
+      if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
     }
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
     e.preventDefault();
-    if (e.touches.length === 1 && drag) {
+    if (drag) {
       const r = svg.getBoundingClientRect();
       moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
-    } else if (e.touches.length === 2) {
-      const dx = e.touches[1].clientX - e.touches[0].clientX;
-      const dy = e.touches[1].clientY - e.touches[0].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      // Pinch zoom
-      if (touchPinchDist > 0) {
-        const rect = svg.getBoundingClientRect();
-        vp.applyZoom(touchPinchDist - dist, cx - rect.left, cy2 - rect.top, rect);
-        touchPinchDist = dist;
-      }
-      // Two-finger pan
-      if (touchPanStart) {
-        vp.applyPan(cx - touchPanStart.x, cy2 - touchPanStart.y, svg.getBoundingClientRect());
-        touchPanStart = { x: cx, y: cy2 };
-      }
+    } else if (touchPan) {
+      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       redraw();
     }
   }, { passive: false });
 
-  svg.addEventListener('touchend', e => {
-    if (e.touches.length === 0) { endDrag(); touchPanStart = null; }
-    if (e.touches.length < 2) { touchPinchDist = 0; touchPanStart = null; }
-  });
+  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
 
-  // ── Zoom ──
+  // ── Zoom (desktop scroll wheel only) ──
   svg.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
@@ -588,9 +560,7 @@ export function createWidthEditor(container, state, onEdit) {
   });
   const stationLine = svgEl('line', { class: 'pe-station-line' });
   let stationT = -1;
-  const zoomLabel = svgEl('text', { x: VW - 4, y: VH - 3, class: 'pe-zoom', 'text-anchor': 'end' });
-  zoomLabel.textContent = '1.0x';
-  svg.append(gridG, fillPath, centerLine, stationLine, upperPath, lowerPath, zoomLabel);
+  svg.append(gridG, fillPath, centerLine, stationLine, upperPath, lowerPath);
 
   let drag = null, isDragging = false;
   let panState = null;
@@ -655,9 +625,6 @@ export function createWidthEditor(container, state, onEdit) {
 
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
-    zoomLabel.textContent = vp.zoom.toFixed(1) + 'x';
-    zoomLabel.setAttribute('x', vp.vx + vp.vw - 4);
-    zoomLabel.setAttribute('y', vp.vy + vp.vh - 3);
     drawGrid();
     drawCurves();
     drawPoints();
@@ -696,7 +663,7 @@ export function createWidthEditor(container, state, onEdit) {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  const HIT_RADIUS = 20;
+  const HIT_RADIUS = IS_TOUCH ? 12 : 20;
   function findNearestPt(mouseX, mouseY) {
     let best = null;
     state.width.forEach((p, i) => {
@@ -761,53 +728,32 @@ export function createWidthEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: 1 finger = drag point, 2 fingers = pan + pinch zoom ──
-  let touchPinchDist = 0, touchPanStart = null;
+  // ── Touch: hit point = drag, miss = pan viewBox ──
+  let touchPan = null;
   svg.addEventListener('touchstart', e => {
-    e.preventDefault();
     if (e.touches.length === 1) {
+      e.preventDefault();
       const r = svg.getBoundingClientRect();
-      startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
-    } else if (e.touches.length === 2) {
-      endDrag();
-      const dx = e.touches[1].clientX - e.touches[0].clientX;
-      const dy = e.touches[1].clientY - e.touches[0].clientY;
-      touchPinchDist = Math.sqrt(dx * dx + dy * dy);
-      touchPanStart = {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-      };
+      if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
     }
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
     e.preventDefault();
-    if (e.touches.length === 1 && drag) {
+    if (drag) {
       const r = svg.getBoundingClientRect();
       moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
-    } else if (e.touches.length === 2) {
-      const dx = e.touches[1].clientX - e.touches[0].clientX;
-      const dy = e.touches[1].clientY - e.touches[0].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      if (touchPinchDist > 0) {
-        const rect = svg.getBoundingClientRect();
-        vp.applyZoom(touchPinchDist - dist, cx - rect.left, cy2 - rect.top, rect);
-        touchPinchDist = dist;
-      }
-      if (touchPanStart) {
-        vp.applyPan(cx - touchPanStart.x, cy2 - touchPanStart.y, svg.getBoundingClientRect());
-        touchPanStart = { x: cx, y: cy2 };
-      }
+    } else if (touchPan) {
+      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       redraw();
     }
   }, { passive: false });
 
-  svg.addEventListener('touchend', e => {
-    if (e.touches.length === 0) { endDrag(); touchPanStart = null; }
-    if (e.touches.length < 2) { touchPinchDist = 0; touchPanStart = null; }
-  });
+  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
 
   svg.addEventListener('wheel', e => {
     e.preventDefault();
