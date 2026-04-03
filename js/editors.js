@@ -423,10 +423,16 @@ export function createSideEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: hit point = drag, miss = pan viewBox ──
-  let touchPan = null;
+  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom ──
+  let touchPan = null, pinchDist = 0;
   svg.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      endDrag(); touchPan = null;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      pinchDist = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
       e.preventDefault();
       const r = svg.getBoundingClientRect();
       if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
@@ -436,21 +442,36 @@ export function createSideEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    e.preventDefault();
-    if (drag) {
-      const r = svg.getBoundingClientRect();
-      moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
-    } else if (touchPan) {
-      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
-      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.touches.length === 2 && pinchDist > 0) {
+      e.preventDefault();
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const rect = svg.getBoundingClientRect();
+      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      pinchDist = dist;
       redraw();
+    } else if (e.touches.length === 1) {
+      e.preventDefault();
+      if (drag) {
+        const r = svg.getBoundingClientRect();
+        moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
+      } else if (touchPan) {
+        vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        redraw();
+      }
     }
   }, { passive: false });
 
-  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
+  svg.addEventListener('touchend', e => {
+    endDrag(); touchPan = null;
+    if (e.touches.length < 2) pinchDist = 0;
+  });
 
-  // ── Zoom (desktop scroll wheel only) ──
+  // ── Zoom (desktop scroll wheel) ──
   svg.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
@@ -728,10 +749,16 @@ export function createWidthEditor(container, state, onEdit) {
     endDrag();
   });
 
-  // ── Touch: hit point = drag, miss = pan viewBox ──
-  let touchPan = null;
+  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom ──
+  let touchPan = null, pinchDist = 0;
   svg.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      endDrag(); touchPan = null;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      pinchDist = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
       e.preventDefault();
       const r = svg.getBoundingClientRect();
       if (!startDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top)) {
@@ -741,19 +768,34 @@ export function createWidthEditor(container, state, onEdit) {
   }, { passive: false });
 
   svg.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    e.preventDefault();
-    if (drag) {
-      const r = svg.getBoundingClientRect();
-      moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
-    } else if (touchPan) {
-      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
-      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.touches.length === 2 && pinchDist > 0) {
+      e.preventDefault();
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const rect = svg.getBoundingClientRect();
+      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      pinchDist = dist;
       redraw();
+    } else if (e.touches.length === 1) {
+      e.preventDefault();
+      if (drag) {
+        const r = svg.getBoundingClientRect();
+        moveDrag(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top, false);
+      } else if (touchPan) {
+        vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        redraw();
+      }
     }
   }, { passive: false });
 
-  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
+  svg.addEventListener('touchend', e => {
+    endDrag(); touchPan = null;
+    if (e.touches.length < 2) pinchDist = 0;
+  });
 
   svg.addEventListener('wheel', e => {
     e.preventDefault();

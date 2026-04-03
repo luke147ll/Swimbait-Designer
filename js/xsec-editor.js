@@ -542,10 +542,16 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     drawGrid(); draw(); drawPoints();
   }, { passive: false });
 
-  // ── Touch: hit point = drag, miss = pan viewBox ──
-  let touchPan = null;
+  // ── Touch: hit point = drag, miss = pan, 2-finger = pinch zoom ──
+  let touchPan = null, pinchDist = 0;
   svg.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      endDrag(); touchPan = null;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      pinchDist = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
       e.preventDefault();
       if (!startDrag(e.touches[0].clientX, e.touches[0].clientY)) {
         touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -553,18 +559,34 @@ export function createXSecEditor(container, profileState, onEdit, onStationChang
     }
   }, { passive: false });
   svg.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    e.preventDefault();
-    if (drag !== null) {
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
-    } else if (touchPan) {
-      vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
-      touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.touches.length === 2 && pinchDist > 0) {
+      e.preventDefault();
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy2 = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const rect = svg.getBoundingClientRect();
+      vp.applyZoom((pinchDist - dist) * 0.5, cx - rect.left, cy2 - rect.top, rect);
+      pinchDist = dist;
       svg.setAttribute('viewBox', vp.viewBox());
       drawGrid(); draw(); drawPoints();
+    } else if (e.touches.length === 1) {
+      e.preventDefault();
+      if (drag !== null) {
+        moveDrag(e.touches[0].clientX, e.touches[0].clientY, false);
+      } else if (touchPan) {
+        vp.applyPan(e.touches[0].clientX - touchPan.x, e.touches[0].clientY - touchPan.y, svg.getBoundingClientRect());
+        touchPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        svg.setAttribute('viewBox', vp.viewBox());
+        drawGrid(); draw(); drawPoints();
+      }
     }
   }, { passive: false });
-  svg.addEventListener('touchend', () => { endDrag(); touchPan = null; });
+  svg.addEventListener('touchend', e => {
+    endDrag(); touchPan = null;
+    if (e.touches.length < 2) pinchDist = 0;
+  });
 
   // ── Double-click: toggle lock on nearest point, or reset view if zoomed ──
   svg.addEventListener('dblclick', e => {
