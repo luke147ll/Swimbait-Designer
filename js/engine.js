@@ -126,13 +126,18 @@ export function genBody(p, profiles) {
     const t = i / NS;
     let x = -hL + t * L;
 
-    const dorsalY = profiles.dorsalCache[i] * L;
-    const ventralY = profiles.ventralCache[i] * L;
-    const halfW = Math.max(profiles.widthCache[i] * L, 0.004);
+    // Taper first and last rings toward zero for clean point caps
+    let taper = 1;
+    if (i <= 1) taper = i === 0 ? 0.01 : 0.3;
+    if (i >= NS - 1) taper = i === NS ? 0.01 : 0.3;
+
+    const dorsalY = profiles.dorsalCache[i] * L * taper;
+    const ventralY = profiles.ventralCache[i] * L * taper;
+    const halfW = Math.max(profiles.widthCache[i] * L * taper, 0.001);
     const n = profiles.nCache[i];
     const cy = (dorsalY + ventralY) / 2;
-    const dorsalH = Math.max(dorsalY - cy, 0.003);
-    const ventralH = Math.max(cy - ventralY, 0.003);
+    const dorsalH = Math.max(dorsalY - cy, 0.001);
+    const ventralH = Math.max(cy - ventralY, 0.001);
     const xsec = getXSecAtRing(i, profiles);
 
     for (let j = 0; j < RS; j++) {
