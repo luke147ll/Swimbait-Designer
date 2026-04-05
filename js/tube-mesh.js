@@ -57,18 +57,21 @@ export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40
     const ringIndex96 = Math.round(t * 96);
     const xsec = getXSec ? getXSec(ringIndex96) : null;
 
+    // halfH = height from center to dorsal (== center to ventral)
+    // The asymmetry is in zCenter, not in the radii.
+    const halfH = (dorsal + ventral) / 2;
+
     for (let j = 0; j < RS; j++) {
       let vy, vz;
 
       if (xsec && xsec.length === RS + 1) {
-        // Use cross-section polygon — normalized coords scaled by dorsal/ventral/width
+        // Cross-section polygon — pt.y/z are normalized [-1,1], scale by halfH/halfW
         const pt = xsec[j];
-        vy = (pt.y >= 0 ? pt.y * dorsal : pt.y * ventral) + zCenter;
+        vy = pt.y * halfH + zCenter;
         vz = pt.z * halfW;
       } else {
         // Default elliptical cross-section
         const angle = (j / RS) * Math.PI * 2;
-        const halfH = (dorsal + ventral) / 2;
         vy = Math.sin(angle) * halfH + zCenter;
         vz = Math.cos(angle) * halfW;
       }
