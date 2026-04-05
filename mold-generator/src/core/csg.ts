@@ -114,21 +114,9 @@ export function createSampleBait(): ManifoldSolid {
 
 function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   // ALWAYS explode to non-indexed first — this breaks shared vertices
-  // that create non-manifold edges (e.g. designer's midline vertices
-  // shared between left and right half-shells)
   let work = geo.index ? geo.toNonIndexed() : geo.clone();
 
-  // Nudge vertices off Z=0 — the designer mesh has its midline exactly
-  // at Z=0 which creates co-planar faces with the mold box parting plane.
-  // Shifting by 0.01mm is invisible but prevents CSG artifacts.
   const pos = work.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const z = pos.getZ(i);
-    if (Math.abs(z) < 0.02) {
-      pos.setZ(i, z >= 0 ? 0.02 : -0.02);
-    }
-  }
-  pos.needsUpdate = true;
 
   // Remove NaN vertices
   for (let i = 0; i < pos.count; i++) {
@@ -137,23 +125,56 @@ function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeomet
     }
   }
 
-  // Remove degenerate triangles (work is non-indexed, 3 verts per tri)
+  // Build triangle list, removing degenerates
   const triCount = pos.count / 3;
-  const cleanPositions: number[] = [];
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-  const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+  const r = (v: number) => Math.round(v * 100); // round to 0.01mm for signature
 
-  for (let tri = 0; tri < triCount; tri++) {
-    const i = tri * 3;
+  interface Tri { ax: number; ay: number; az: number; bx: number; by: number; bz: number; cx: number; cy: number; cz: number; key: string; }
+  const tris: Tri[] = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+
+  for (let t = 0; t < triCount; t++) {
+    const i = t * 3;
     a.set(pos.getX(i), pos.getY(i), pos.getZ(i));
     b.set(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1));
     c.set(pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2));
-    ab.subVectors(b, a);
-    ac.subVectors(c, a);
-    if (ab.cross(ac).lengthSq() > 1e-10) {
-      cleanPositions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-    }
+
+    // Skip degenerate triangles
+    e1.subVectors(b, a); e2.subVectors(c, a);
+    if (e1.cross(e2).lengthSq() < 1e-10) continue;
+
+    // Skip midline seam faces (all 3 vertices near Z=0)
+    if (Math.abs(a.z) < 0.15 && Math.abs(b.z) < 0.15 && Math.abs(c.z) < 0.15) continue;
+
+    // Build sorted vertex key for duplicate detection
+    const verts = [
+      `${r(a.x)},${r(a.y)},${r(a.z)}`,
+      `${r(b.x)},${r(b.y)},${r(b.z)}`,
+      `${r(c.x)},${r(c.y)},${r(c.z)}`,
+    ].sort();
+    const key = verts.join('|');
+
+    tris.push({ ax: a.x, ay: a.y, az: a.z, bx: b.x, by: b.y, bz: b.z, cx: c.x, cy: c.y, cz: c.z, key });
   }
+
+  // Remove duplicate faces (same 3 vertex positions = internal from mirror)
+  const keyCount = new Map<string, number>();
+  for (const tri of tris) {
+    keyCount.set(tri.key, (keyCount.get(tri.key) || 0) + 1);
+  }
+
+  const cleanPositions: number[] = [];
+  let removed = 0;
+  for (const tri of tris) {
+    if (keyCount.get(tri.key)! > 1) {
+      removed++;
+      continue; // skip all copies of duplicate faces
+    }
+    cleanPositions.push(tri.ax, tri.ay, tri.az, tri.bx, tri.by, tri.bz, tri.cx, tri.cy, tri.cz);
+  }
+
+  console.log(`[CSG cleanup] Removed ${removed} internal/duplicate + midline faces from ${triCount} total, kept ${cleanPositions.length / 9}`);
 
   const clean = new THREE.BufferGeometry();
   clean.setAttribute('position', new THREE.Float32BufferAttribute(cleanPositions, 3));
