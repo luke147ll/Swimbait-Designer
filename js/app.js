@@ -786,25 +786,40 @@ async function sendToMoldGenerator() {
   const geo = bodyMesh.geometry;
   const p = getParams();
 
-  // Pack geometry into binary: header + positions + index + normals
-  const positions = new Float32Array(geo.attributes.position.array);
-  const index = geo.index ? new Uint32Array(geo.index.array) : new Uint32Array(0);
-  const normals = geo.attributes.normal ? new Float32Array(geo.attributes.normal.array) : new Float32Array(0);
-  const nameBytes = new TextEncoder().encode(`sbd_${p.OL}in_bait`);
+  // Export as binary STL — this produces clean non-indexed triangle soup
+  // that Manifold can import without topology issues
+  const nonIndexed = geo.index ? geo.toNonIndexed() : geo.clone();
+  nonIndexed.computeVertexNormals();
+  const positions = nonIndexed.attributes.position;
+  const normals = nonIndexed.attributes.normal;
+  const triCount = positions.count / 3;
 
-  const headerSize = 16 + nameBytes.length;
-  const totalSize = headerSize + positions.byteLength + index.byteLength + normals.byteLength;
-  const buffer = new ArrayBuffer(totalSize);
+  const stlSize = 80 + 4 + triCount * 50;
+  const buffer = new ArrayBuffer(stlSize);
   const dv = new DataView(buffer);
-  let off = 0;
-  dv.setUint32(off, positions.length, true); off += 4;
-  dv.setUint32(off, index.length, true); off += 4;
-  dv.setUint32(off, normals.length, true); off += 4;
-  dv.setUint32(off, nameBytes.length, true); off += 4;
-  new Uint8Array(buffer, off, nameBytes.length).set(nameBytes); off += nameBytes.length;
-  new Uint8Array(buffer, off, positions.byteLength).set(new Uint8Array(positions.buffer)); off += positions.byteLength;
-  new Uint8Array(buffer, off, index.byteLength).set(new Uint8Array(index.buffer)); off += index.byteLength;
-  new Uint8Array(buffer, off, normals.byteLength).set(new Uint8Array(normals.buffer));
+
+  // STL header
+  const header = `SBD Designer Export - ${p.OL}in bait`;
+  for (let i = 0; i < 80; i++) dv.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
+  dv.setUint32(80, triCount, true);
+
+  let off = 84;
+  for (let t = 0; t < triCount; t++) {
+    const i = t * 3;
+    // Face normal (average of vertex normals)
+    const nx = (normals.getX(i) + normals.getX(i+1) + normals.getX(i+2)) / 3;
+    const ny = (normals.getY(i) + normals.getY(i+1) + normals.getY(i+2)) / 3;
+    const nz = (normals.getZ(i) + normals.getZ(i+1) + normals.getZ(i+2)) / 3;
+    dv.setFloat32(off, nx, true); off += 4;
+    dv.setFloat32(off, ny, true); off += 4;
+    dv.setFloat32(off, nz, true); off += 4;
+    for (let v = 0; v < 3; v++) {
+      dv.setFloat32(off, positions.getX(i+v), true); off += 4;
+      dv.setFloat32(off, positions.getY(i+v), true); off += 4;
+      dv.setFloat32(off, positions.getZ(i+v), true); off += 4;
+    }
+    dv.setUint16(off, 0, true); off += 2;
+  }
 
   // POST to Worker API
   try {
