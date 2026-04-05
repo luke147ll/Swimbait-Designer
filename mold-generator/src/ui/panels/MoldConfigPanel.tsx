@@ -40,11 +40,6 @@ export function MoldConfigPanel() {
         onChange={v => update({ partingFaceDepth: v })} />
       <Slider label="Cavity Clearance" value={config.cavityClearance} min={0.05} max={0.40} step={0.05} unit="mm"
         onChange={v => update({ cavityClearance: v })} />
-      <Slider label="Draft Angle" value={config.draftAngle} min={1} max={5} step={0.5} unit="°"
-        onChange={v => update({ draftAngle: v })} />
-      <Slider label="Corner Radius" value={config.cornerRadius} min={0} max={10} step={0.5} unit="mm"
-        onChange={v => update({ cornerRadius: v })} />
-
       {clampMode === 'external_clamp' && (
         <div style={{ fontSize: 11, color: T.textMuted, fontStyle: 'italic', marginBottom: 8 }}>
           Clamp flange disabled — external clamp mode
