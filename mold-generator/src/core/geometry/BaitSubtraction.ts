@@ -36,16 +36,13 @@ export class BaitSubtraction {
 
     const meshToUse = texturedBaitMesh ?? baitMesh;
 
-    // Scale bait 1.002x in Z to push midline off Z=0.
-    // The designer mesh has triangles lying flat on Z=0 (cap faces
-    // connecting the two half-shells). A tiny Z scale breaks the
-    // co-planar condition without visible distortion.
+    // Shift bait 0.1mm in +Z to move ALL vertices off Z=0.
+    // The designer mesh has vertices and triangles exactly at Z=0
+    // (midline between left/right half-shells). Scaling doesn't
+    // work (0 * anything = 0). A translate moves everything uniformly.
+    // 0.1mm offset is invisible on the physical mold.
     const prepared = meshToUse.clone();
-    const pos = prepared.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      pos.setZ(i, pos.getZ(i) * 1.002);
-    }
-    pos.needsUpdate = true;
+    prepared.translate(0, 0, 0.1);
 
     const offsetBait = moldConfig.cavityClearance > 0
       ? offsetMesh(prepared, moldConfig.cavityClearance)
@@ -79,9 +76,9 @@ export class BaitSubtraction {
     // Get Manifold solid
     let baitM: ManifoldSolid;
     if (baitManifold && !texturedBaitMesh) {
-      // Scale the native Manifold solid too
-      console.log('[BaitSubtraction] Using native Manifold solid (Z-scaled)');
-      baitM = baitManifold.scale([1, 1, 1.002]);
+      // Translate the native Manifold solid too
+      console.log('[BaitSubtraction] Using native Manifold solid (Z-shifted)');
+      baitM = baitManifold.translate([0, 0, 0.1]);
     } else {
       console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
       baitM = threeToManifold(offsetBait);
