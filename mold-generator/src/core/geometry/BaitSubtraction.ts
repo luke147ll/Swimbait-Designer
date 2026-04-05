@@ -1,8 +1,29 @@
 import * as THREE from 'three';
-import { threeToManifold, mBox, mSubtract, mTranslate, type ManifoldSolid } from '../csg';
+import { threeToManifold, mBox, mSubtract, mTranslate, mDispose, type ManifoldSolid } from '../csg';
 import type { MoldConfig } from '../types';
 
 const MIN_WALL = 3;
+
+/** Keep only the largest connected component, discard floating shells */
+function keepLargest(solid: ManifoldSolid): ManifoldSolid {
+  const parts = solid.decompose();
+  if (parts.length <= 1) return solid;
+
+  let largest = parts[0];
+  let largestVol = Math.abs(largest.volume());
+  for (let i = 1; i < parts.length; i++) {
+    const vol = Math.abs(parts[i].volume());
+    if (vol > largestVol) {
+      mDispose(largest);
+      largest = parts[i];
+      largestVol = vol;
+    } else {
+      mDispose(parts[i]);
+    }
+  }
+  console.log(`[BaitSubtraction] Kept largest component (${largestVol.toFixed(0)} mm³), discarded ${parts.length - 1} floating shells`);
+  return largest;
+}
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
   const geo = geometry.clone();
@@ -86,10 +107,16 @@ export class BaitSubtraction {
     const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2);
 
     console.log('[BaitSubtraction] Subtracting bait from halfA...');
-    const halfA = mSubtract(boxAM, baitM);
+    let halfA = mSubtract(boxAM, baitM);
 
     console.log('[BaitSubtraction] Subtracting bait from halfB...');
-    const halfB = mSubtract(boxBM, baitM);
+    let halfB = mSubtract(boxBM, baitM);
+
+    // Keep only the largest connected component from each half.
+    // The subtraction may leave disconnected shells (internal cap faces
+    // from the bait mesh become floating geometry inside the cavity).
+    halfA = keepLargest(halfA);
+    halfB = keepLargest(halfB);
 
     const elapsed = (performance.now() - startTime).toFixed(1);
     console.log(`[BaitSubtraction] Done in ${elapsed}ms`);
