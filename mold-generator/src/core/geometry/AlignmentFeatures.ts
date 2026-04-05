@@ -11,8 +11,8 @@ function autoPlacePositions(config: AlignmentConfig, bb: THREE.Box3, mc: MoldCon
   const cy = (bb.max.y + bb.min.y) / 2;
   const baitLenX = bb.max.x - bb.min.x;
   const baitHtY = bb.max.y - bb.min.y;
-  const pinInset = 12;
-  const wallCenter = baitHtY / 2 + mc.wallMarginX * 0.5;
+  const pinInset = 20;
+  const wallCenter = baitHtY / 2 + mc.wallMarginX * 0.25;
   const boxXHalf = baitLenX / 2 + mc.wallMarginY;
 
   if (config.pinCount === 4) {
