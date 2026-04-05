@@ -14,11 +14,13 @@ import { loadPreset as applyPreset } from './presets.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
-import { buildTubeMesh, verifyWinding } from './tube-mesh.js';
+import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
+let currentResolution = 'high';
+let hiResTimer = null;
 
 const profileState = createProfileState();
 let sideEditor = null, widthEditor = null, xsecEditor = null;
@@ -59,7 +61,6 @@ function getParams() {
     HS: +document.getElementById('sHS').value,
     WP: 0,
     tail: tailType,
-    stationCount: +document.getElementById('sST').value,
   };
 }
 
@@ -101,14 +102,13 @@ function makeSplineSamplers() {
  * Build the tube mesh from spline profiles and update the viewport.
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
-function rebuildTubePreview() {
-  const p = getParams();
-  const tubeNS = p.stationCount || 40;
-  const tubeRS = RS; // 36 — matches cross-section editor polygon length
+function rebuildTubePreview(resolution) {
+  const res = RESOLUTION_PRESETS[resolution || currentResolution] || RESOLUTION_PRESETS.high;
+  const tubeNS = res.NS;
+  const tubeRS = res.RS;
 
-  // Cross-section callback: always returns a polygon (RS+1 points).
+  // Cross-section callback: always returns a polygon.
   // Uses keyframe blend when available, otherwise the default super-ellipse.
-  // This avoids shape discontinuity at blend boundaries.
   const getXSec = (ringIndex96) => {
     const kf = getXSecAtRing(ringIndex96, profileState);
     if (kf) return kf;
@@ -153,7 +153,7 @@ function rebuildTubePreview() {
 
 // ── Scene rebuild ──
 
-function rebuildScene() {
+function rebuildScene(resolution) {
   const p = getParams();
   const L = p.OL;
 
@@ -161,7 +161,7 @@ function rebuildScene() {
   [eyeGrpL, eyeGrpR, hsM].forEach(m => { if (m) scene.remove(m); });
 
   // Rebuild tube mesh body
-  rebuildTubePreview();
+  rebuildTubePreview(resolution);
 
   // Eyes
   if (showEyes) {
@@ -189,9 +189,9 @@ function rebuildScene() {
   }
   const approxVol = L * maxD * maxW * 0.35;
   const wOz = (approxVol * 1.1 * 0.035274).toFixed(1);
-  const stCount = p.stationCount || 20;
+  const res = RESOLUTION_PRESETS[currentResolution] || RESOLUTION_PRESETS.high;
   document.getElementById('stats').innerHTML =
-    `${L.toFixed(1)}" length<br>${maxD.toFixed(2)}" depth<br>${maxW.toFixed(2)}" width<br>~${wOz} oz<br>${stCount} stations`;
+    `${L.toFixed(1)}" length<br>${maxD.toFixed(2)}" depth<br>${maxW.toFixed(2)}" width<br>~${wOz} oz<br>${currentResolution} (${res.NS}×${res.RS})`;
 
   // Refresh editors
   if (sideEditor) {
@@ -214,7 +214,7 @@ function rebuildScene() {
 
 // ── Update (slider change) ──
 
-function update() {
+function update(resolution) {
   const p = getParams();
   const L = p.OL;
 
@@ -239,7 +239,6 @@ function update() {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
   document.getElementById('vHS').textContent = p.HS.toFixed(2);
-  document.getElementById('vST').textContent = p.stationCount;
 
   // Regenerate profiles from sliders + manual deltas
   const base = buildProfilesFromSliders(p);
@@ -258,15 +257,28 @@ function update() {
   }));
 
   rebuildProfileCache(profileState, p.CS, p.HL);
-  rebuildScene();
+  rebuildScene(resolution);
+  if (resolution === 'draft') rebuildDraftThenUpgrade();
+}
+
+/** Rebuild at draft resolution immediately, then upgrade to user's chosen resolution after 1s idle. */
+function rebuildDraftThenUpgrade() {
+  clearTimeout(hiResTimer);
+  // Use draft resolution for responsive editing
+  rebuildTubePreview('draft');
+  // Schedule hi-res rebuild after editing stops
+  hiResTimer = setTimeout(() => {
+    rebuildTubePreview(currentResolution);
+  }, 1000);
 }
 
 function onSliderInput() {
-  update();
+  update('draft');
 }
 
 function onXSecEdit() {
-  rebuildScene();
+  rebuildScene('draft');
+  rebuildDraftThenUpgrade();
 }
 
 function showStationRing(stationIdx) {
@@ -310,7 +322,8 @@ function onProfileEdit() {
     profileState.wDelta[i] = (profileState.width[i]?.v ?? base.width[i].v) - base.width[i].v;
   }
   rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-  rebuildScene();
+  rebuildScene('draft');
+  rebuildDraftThenUpgrade();
 }
 
 // ── UI handlers ──
@@ -787,6 +800,10 @@ async function sendToMoldGenerator() {
 
 window.onSliderInput = onSliderInput;
 window.setColor = setColor;
+window.setResolution = function(val) {
+  currentResolution = val;
+  rebuildScene();
+};
 window.loadPreset = loadPreset;
 window.snapView = snapView;
 window.switchTab = switchTab;

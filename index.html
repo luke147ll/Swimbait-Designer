@@ -93,8 +93,15 @@
   </div>
 
   <div class="sec">
-    <div class="st">Shape quality</div>
-    <div class="c"><div class="cr"><label>Stations</label><span class="v" id="vST">40</span></div><input type="range" id="sST" min="20" max="60" step="2" value="40" oninput="onSliderInput()"></div>
+    <div class="st">Mesh resolution</div>
+    <div class="c">
+      <select onchange="setResolution(this.value)" style="width:100%;padding:6px;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px">
+        <option value="draft">Draft (30×24)</option>
+        <option value="standard">Standard (60×48)</option>
+        <option value="high" selected>High (80×64)</option>
+        <option value="ultra">Ultra (96×96)</option>
+      </select>
+    </div>
   </div>
 
   <div class="sec">

@@ -124,19 +124,19 @@ export function createSampleBait(): ManifoldSolid {
   let body = M.sphere(1, 48).scale([9, 32.5, 7]);
 
   // Head: blunter, slightly higher than body center
-  let head = M.sphere(1, 32).scale([8, 6.4, 7.2]);
+  let head = M.sphere(1, 48).scale([8, 6.4, 7.2]);
   head = head.translate([0, 26, 0.5]);
 
   // Tail taper: narrowing cone
-  let tailTaper = M.cylinder(20, 7, 2.5, 32, true).scale([1, 1, 0.65]);
+  let tailTaper = M.cylinder(20, 7, 2.5, 48, true).scale([1, 1, 0.65]);
   tailTaper = tailTaper.rotate([90, 0, 0]).translate([0, -30, -0.5]);
 
   // Caudal peduncle: narrow connector
-  let peduncle = M.cylinder(6, 2.5, 2.5, 16, true).scale([1, 1, 0.6]);
+  let peduncle = M.cylinder(6, 2.5, 2.5, 48, true).scale([1, 1, 0.6]);
   peduncle = peduncle.rotate([90, 0, 0]).translate([0, -40, -0.5]);
 
   // Paddle tail: wide flat kicker
-  let paddle = M.sphere(1, 24).scale([7.2, 3.6, 1.8]);
+  let paddle = M.sphere(1, 48).scale([7.2, 3.6, 1.8]);
   paddle = paddle.translate([0, -46, -1]);
 
   // Union all parts

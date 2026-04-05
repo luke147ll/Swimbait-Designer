@@ -27,12 +27,20 @@
  * @param {Function} getVentral - getVentral(t) → ventral depth in mm (positive) at t∈[0,1]
  * @param {Function} getWidth   - getWidth(t) → half-width in mm at t∈[0,1]
  * @param {number} lengthMM     - overall length in mm
- * @param {number} NS           - stations along the body (default 40)
- * @param {number} RS           - segments per ring (default 36)
+ * @param {number} NS           - stations along the body (default 80)
+ * @param {number} RS           - segments per ring (default 64)
  * @param {Function|null} getXSec - getXSec(ringIndex96) → [{y,z},...] normalized polygon (RS+1 pts) or null
  * @returns {{ vertProperties: Float32Array, triVerts: Uint32Array, vertCount: number, triCount: number }}
  */
-export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40, RS = 36, getXSec = null) {
+
+export const RESOLUTION_PRESETS = {
+  draft:    { NS: 30, RS: 24 },
+  standard: { NS: 60, RS: 48 },
+  high:     { NS: 80, RS: 64 },
+  ultra:    { NS: 96, RS: 96 },
+};
+
+export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 80, RS = 64, getXSec = null) {
   const vertCount = (NS + 1) * RS + 2;
   const triCount = NS * RS * 2 + RS * 2;
   const vertProperties = new Float32Array(vertCount * 3);
@@ -64,9 +72,17 @@ export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40
     for (let j = 0; j < RS; j++) {
       let vy, vz;
 
-      if (xsec && xsec.length === RS + 1) {
-        // Cross-section polygon — pt.y/z are normalized [-1,1], scale by halfH/halfW
-        const pt = xsec[j];
+      if (xsec && xsec.length >= 4) {
+        // Cross-section polygon — resample if RS doesn't match polygon length
+        const polyLen = xsec.length - 1; // polygon has polyLen+1 points (last = first)
+        const rawIdx = (j / RS) * polyLen;
+        const idx0 = Math.floor(rawIdx);
+        const frac = rawIdx - idx0;
+        const idx1 = (idx0 + 1) % xsec.length;
+        const pt = {
+          y: xsec[idx0].y + (xsec[idx1].y - xsec[idx0].y) * frac,
+          z: xsec[idx0].z + (xsec[idx1].z - xsec[idx0].z) * frac,
+        };
         vy = pt.y * halfH + zCenter;
         vz = pt.z * halfW;
       } else {

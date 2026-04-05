@@ -182,7 +182,7 @@ export async function buildBaitFromStations(stations: StationData[]): Promise<Ma
     const zOffset = (station.dorsalHeight - station.ventralDepth) / 2;
 
     // Create ellipsoid: sphere scaled to station dimensions
-    let section = mSphere(1, 20);
+    let section = mSphere(1, 48);
     section = section.scale([halfWidth, yRadius, halfHeight]);
     section = section.translate([0, station.positionY, zOffset]);
 
