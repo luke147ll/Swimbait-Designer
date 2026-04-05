@@ -126,6 +126,10 @@ export async function buildBaitSolid(primitives: BaitPrimitive[]): Promise<Manif
   }
 
   if (!bait) throw new Error('No visible primitives');
+
+  // Rotate 90° CCW around Z so the length axis (Y in primitives) aligns with X (mold convention)
+  bait = bait.rotate([0, 0, 90]);
+
   return bait;
 }
 
