@@ -1,93 +1,60 @@
 /**
- * BaitBridge — handles handoff from Swimbait Designer to Mold Generator.
+ * BaitBridge — handles handoff from Swimbait Designer to Mold Generator
+ * via the Worker API KV transfer endpoint.
  *
- * Uses IndexedDB for cross-subdomain transfer (swimbaitdesigner.com → mold.swimbaitdesigner.com).
- * Both subdomains share the same IndexedDB since they share the registrable domain.
- *
- * Pipeline: read IDB → reconstruct BufferGeometry → scale inches→mm → center → store in moldStore
+ * Flow: designer POSTs geometry → KV with token → mold generator GETs with token
  */
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
 import { initCSG, threeToManifold } from './csg';
 
 const INCHES_TO_MM = 25.4;
-const DB_NAME = 'sbd';
-const STORE_NAME = 'transfers';
-const KEY = 'current_bait';
+const API_BASE = 'https://swimbaitdesigner.com';
 
-interface BaitTransfer {
-  positions: ArrayBuffer;
-  index: ArrayBuffer | null;
-  normals: ArrayBuffer | null;
-  meta: {
-    name: string;
-    vertCount: number;
-    units: string;
-    timestamp: number;
-  };
-}
-
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+/**
+ * Check URL for ?transfer= param.
+ */
+export function getTransferToken(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('transfer');
 }
 
 /**
- * Check if a bait transfer is waiting in IndexedDB.
+ * Fetch geometry from the Worker API using the transfer token,
+ * reconstruct BufferGeometry, scale, center, store in moldStore.
  */
-export async function isBaitInIDB(): Promise<boolean> {
+export async function transferBaitFromAPI(token: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const data = await new Promise<BaitTransfer | undefined>((resolve) => {
-      const req = tx.objectStore(STORE_NAME).get(KEY);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(undefined);
-    });
-    db.close();
-    return !!data;
-  } catch {
-    return false;
-  }
-}
+    console.log('[BaitBridge] Fetching transfer:', token);
 
-/**
- * Transfer the bait geometry from IndexedDB to the mold generator.
- */
-export async function transferBaitFromIDB(): Promise<{ success: boolean; error?: string }> {
-  try {
-    const db = await openDB();
-
-    // Read from IDB
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const data = await new Promise<BaitTransfer | undefined>((resolve, reject) => {
-      const req = tx.objectStore(STORE_NAME).get(KEY);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-
-    if (!data) {
-      db.close();
-      return { success: false, error: 'No bait found. Design a bait first and click "Generate Mold".' };
+    const res = await fetch(`${API_BASE}/api/mold-transfer?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      if (res.status === 404) return { success: false, error: 'Transfer expired or already used. Go back to the designer and click "Generate Mold" again.' };
+      return { success: false, error: `API error: ${res.status}` };
     }
+
+    const buffer = await res.arrayBuffer();
+
+    // Unpack binary: [posLen:u32][idxLen:u32][normLen:u32][nameLen:u32][name bytes][positions f32][index u32][normals f32]
+    const dv = new DataView(buffer);
+    let off = 0;
+    const posLen = dv.getUint32(off, true); off += 4;
+    const idxLen = dv.getUint32(off, true); off += 4;
+    const normLen = dv.getUint32(off, true); off += 4;
+    const nameLen = dv.getUint32(off, true); off += 4;
+    const name = new TextDecoder().decode(new Uint8Array(buffer, off, nameLen)); off += nameLen;
+
+    const positions = new Float32Array(buffer.slice(off, off + posLen * 4)); off += posLen * 4;
+    const index = idxLen > 0 ? new Uint32Array(buffer.slice(off, off + idxLen * 4)) : null; off += idxLen * 4;
+    const normals = normLen > 0 ? new Float32Array(buffer.slice(off, off + normLen * 4)) : null;
+
+    console.log(`[BaitBridge] Unpacked: ${name}, ${posLen / 3} verts, ${idxLen / 3} tris`);
 
     // Reconstruct BufferGeometry
     const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(data.positions);
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    if (data.index) {
-      geo.setIndex(new THREE.BufferAttribute(new Uint32Array(data.index), 1));
-    }
-    if (data.normals) {
-      geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(data.normals), 3));
-    }
-
-    console.log(`[BaitBridge] Loaded from IDB: ${data.meta.name}, ${data.meta.vertCount} verts, ${data.meta.units}`);
+    if (index) geo.setIndex(new THREE.BufferAttribute(index, 1));
+    if (normals) geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
 
     // Scale inches → mm
     geo.scale(INCHES_TO_MM, INCHES_TO_MM, INCHES_TO_MM);
@@ -102,14 +69,13 @@ export async function transferBaitFromIDB(): Promise<{ success: boolean; error?:
     geo.computeVertexNormals();
     geo.computeBoundingBox();
 
-    // Log dimensions
     const size = new THREE.Vector3();
     geo.boundingBox!.getSize(size);
     console.log(`[BaitBridge] Bait: ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`);
 
     // Store in moldStore
     const store = useMoldStore.getState();
-    store.setBaitMesh(geo, data.meta.name);
+    store.setBaitMesh(geo, name);
 
     // Attempt Manifold conversion
     try {
@@ -122,13 +88,11 @@ export async function transferBaitFromIDB(): Promise<{ success: boolean; error?:
       store.setBaitManifold(null);
     }
 
-    // Delete the IDB entry after successful load
-    const delTx = db.transaction(STORE_NAME, 'readwrite');
-    delTx.objectStore(STORE_NAME).delete(KEY);
-    await new Promise<void>((resolve) => { delTx.oncomplete = () => resolve(); });
-    db.close();
+    // Clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('transfer');
+    window.history.replaceState({}, '', url.pathname);
 
-    console.log('[BaitBridge] Transfer complete, IDB entry deleted');
     return { success: true };
   } catch (e) {
     return { success: false, error: `Transfer failed: ${e}` };

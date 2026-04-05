@@ -786,41 +786,41 @@ async function sendToMoldGenerator() {
   const geo = bodyMesh.geometry;
   const p = getParams();
 
-  // Store geometry in IndexedDB (accessible across subdomains of swimbaitdesigner.com)
-  try {
-    const db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open('sbd', 1);
-      req.onupgradeneeded = () => req.result.createObjectStore('transfers');
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-    const tx = db.transaction('transfers', 'readwrite');
-    const store = tx.objectStore('transfers');
-    store.put({
-      positions: geo.attributes.position.array.buffer.slice(0),
-      index: geo.index ? geo.index.array.buffer.slice(0) : null,
-      normals: geo.attributes.normal ? geo.attributes.normal.array.buffer.slice(0) : null,
-      meta: {
-        name: `sbd_${p.OL}in_bait`,
-        vertCount: geo.attributes.position.count,
-        units: 'inches',
-        timestamp: Date.now(),
-      }
-    }, 'current_bait');
-    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = reject; });
-    db.close();
-    console.log('[SBD] Bait saved to IndexedDB for mold generator');
-  } catch (e) {
-    console.error('[SBD] IndexedDB write failed:', e);
-    alert('Failed to prepare bait for mold generator');
-    return;
-  }
+  // Pack geometry into binary: header + positions + index + normals
+  const positions = new Float32Array(geo.attributes.position.array);
+  const index = geo.index ? new Uint32Array(geo.index.array) : new Uint32Array(0);
+  const normals = geo.attributes.normal ? new Float32Array(geo.attributes.normal.array) : new Float32Array(0);
+  const nameBytes = new TextEncoder().encode(`sbd_${p.OL}in_bait`);
 
-  // Navigate to mold generator
-  const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5173'
-    : 'https://sbd-mold-generator.luke-landi.workers.dev';
-  window.open(moldUrl, '_blank');
+  const headerSize = 16 + nameBytes.length;
+  const totalSize = headerSize + positions.byteLength + index.byteLength + normals.byteLength;
+  const buffer = new ArrayBuffer(totalSize);
+  const dv = new DataView(buffer);
+  let off = 0;
+  dv.setUint32(off, positions.length, true); off += 4;
+  dv.setUint32(off, index.length, true); off += 4;
+  dv.setUint32(off, normals.length, true); off += 4;
+  dv.setUint32(off, nameBytes.length, true); off += 4;
+  new Uint8Array(buffer, off, nameBytes.length).set(nameBytes); off += nameBytes.length;
+  new Uint8Array(buffer, off, positions.byteLength).set(new Uint8Array(positions.buffer)); off += positions.byteLength;
+  new Uint8Array(buffer, off, index.byteLength).set(new Uint8Array(index.buffer)); off += index.byteLength;
+  new Uint8Array(buffer, off, normals.byteLength).set(new Uint8Array(normals.buffer));
+
+  // POST to Worker API
+  try {
+    const res = await fetch('/api/mold-transfer', { method: 'POST', body: buffer });
+    if (!res.ok) throw new Error('Upload failed: ' + res.status);
+    const data = await res.json();
+    console.log('[SBD] Bait uploaded, token:', data.token);
+
+    const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? `http://localhost:5173?transfer=${data.token}`
+      : `https://mold.swimbaitdesigner.com?transfer=${data.token}`;
+    window.open(moldUrl, '_blank');
+  } catch (e) {
+    console.error('[SBD] Transfer failed:', e);
+    alert('Failed to transfer bait. Try exporting STL and importing manually.');
+  }
 }
 window.sendToMoldGenerator = sendToMoldGenerator;
 window.toggleEyes = function(btn) {

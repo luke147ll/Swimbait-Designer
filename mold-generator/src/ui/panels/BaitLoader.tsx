@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
 import { createSampleBait, manifoldToThree, initCSG } from '../../core/csg';
-import { isBaitInIDB, transferBaitFromIDB } from '../../core/BaitBridge';
+import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
 
 export function BaitLoader() {
   const setBaitMesh = useMoldStore(s => s.setBaitMesh);
@@ -10,28 +10,20 @@ export function BaitLoader() {
   const baitFileName = useMoldStore(s => s.baitFileName);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [idbReady, setIdbReady] = useState(false);
 
-  // Check IndexedDB on mount for a pending bait transfer
+  // Auto-load from transfer token on mount
   useEffect(() => {
-    isBaitInIDB().then(ready => {
-      setIdbReady(ready);
-      // Auto-load if bait is waiting and nothing is loaded yet
-      if (ready && !useMoldStore.getState().baitMesh) {
-        handleTransfer();
-      }
-    });
-  }, []);
-
-  const handleTransfer = useCallback(async () => {
-    setStatus('Loading from designer...');
-    const result = await transferBaitFromIDB();
-    if (result.success) {
-      setStatus('Bait loaded from designer');
-      setIdbReady(false);
-      setTimeout(() => setStatus(null), 3000);
-    } else {
-      setStatus(result.error || 'Transfer failed');
+    const token = getTransferToken();
+    if (token) {
+      setStatus('Loading from designer...');
+      transferBaitFromAPI(token).then(result => {
+        if (result.success) {
+          setStatus('Bait loaded from designer');
+          setTimeout(() => setStatus(null), 3000);
+        } else {
+          setStatus(result.error || 'Transfer failed');
+        }
+      });
     }
   }, []);
 
@@ -81,28 +73,20 @@ export function BaitLoader() {
         </div>
       )}
 
-      {/* Transfer from designer via IndexedDB */}
-      {idbReady && (
-        <button style={{ ...btnBase, background: T.gold, color: T.bgDeep }} onClick={handleTransfer}>
-          ▶ Load from Designer
-        </button>
-      )}
-
-      {/* Sample bait */}
-      <button style={{ ...btnBase, background: idbReady ? T.bgSurface : T.gold, color: idbReady ? T.textMuted : T.bgDeep, border: idbReady ? `1px solid ${T.border}` : 'none' }} onClick={handleSample}>
+      <button style={{ ...btnBase, background: T.gold, color: T.bgDeep }} onClick={handleSample}>
         Load Sample Bait
       </button>
 
-      {/* Upload STL */}
       <button style={{ ...btnBase, background: T.bgSurface, color: T.textMuted, border: `1px solid ${T.border}` }}
         onClick={() => fileRef.current?.click()}>
         Import STL
       </button>
       <input ref={fileRef} type="file" accept=".stl" style={{ display: 'none' }} onChange={handleFile} />
 
-      {/* Status */}
       {status && (
-        <div style={{ fontSize: 11, color: status.includes('failed') || status.includes('error') ? T.redBright : T.greenBright, marginTop: 4 }}>
+        <div style={{ fontSize: 11, marginTop: 4,
+          color: status.includes('failed') || status.includes('error') || status.includes('expired')
+            ? T.redBright : status.includes('Loading') ? T.gold : T.greenBright }}>
           {status}
         </div>
       )}

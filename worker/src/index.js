@@ -16,8 +16,13 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // Allow both main site and mold subdomain
+    const origin = request.headers.get('Origin') || '';
+    const allowedOrigins = ['https://swimbaitdesigner.com', 'https://mold.swimbaitdesigner.com'];
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
     const corsHeaders = {
-      'Access-Control-Allow-Origin': 'https://swimbaitdesigner.com',
+      'Access-Control-Allow-Origin': corsOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Allow-Credentials': 'true',
@@ -77,6 +82,30 @@ export default {
       // Public design view (no auth required)
       } else if (path.match(/^\/api\/public\/[\w-]+$/) && method === 'GET') {
         response = await handlePublicDesign(request, env, path.split('/').pop());
+
+      // Mold transfer — store geometry temporarily for cross-subdomain handoff
+      } else if (path === '/api/mold-transfer' && method === 'POST') {
+        const body = await request.arrayBuffer();
+        const token = crypto.randomUUID().slice(0, 12);
+        await env.USERS.put(`mold-transfer:${token}`, body, { expirationTtl: 900 }); // 15 min TTL
+        response = jsonResponse({ token });
+
+      } else if (path === '/api/mold-transfer' && method === 'GET') {
+        const token = url.searchParams.get('token');
+        if (!token) {
+          response = jsonResponse({ error: 'Missing token' }, 400);
+        } else {
+          const data = await env.USERS.get(`mold-transfer:${token}`, 'arrayBuffer');
+          if (!data) {
+            response = jsonResponse({ error: 'Transfer expired or not found' }, 404);
+          } else {
+            // Delete after read (one-time use)
+            await env.USERS.delete(`mold-transfer:${token}`);
+            response = new Response(data, {
+              headers: { 'Content-Type': 'application/octet-stream' },
+            });
+          }
+        }
 
       } else {
         response = jsonResponse({ error: 'Not found' }, 404);
