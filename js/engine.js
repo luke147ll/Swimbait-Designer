@@ -173,12 +173,11 @@ export function genBody(p, profiles) {
 
   for (let vi = 0; vi < rightVertCount; vi++) {
     const z = pos[vi * 3 + 2];
-    if (Math.abs(z) < 0.0005) {
-      leftIdx[vi] = vi;
-    } else {
-      pos.push(pos[vi * 3], pos[vi * 3 + 1], -z);
-      leftIdx[vi] = (pos.length / 3) - 1;
-    }
+    // ALWAYS create separate vertices for left half — no sharing.
+    // Shared midline vertices create non-manifold edges (4 faces per edge)
+    // which Manifold CSG rejects. Separate vertices = 2 faces per edge.
+    pos.push(pos[vi * 3], pos[vi * 3 + 1], -z);
+    leftIdx[vi] = (pos.length / 3) - 1;
   }
 
   // Left half-shell quad strips (reversed winding)

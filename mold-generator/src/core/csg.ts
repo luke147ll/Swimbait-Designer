@@ -244,51 +244,7 @@ export function threeToManifold(geometry: THREE.BufferGeometry): ManifoldSolid {
     }
   }
 
-  // Last resort: rebuild as a lofted solid by sampling cross-sections
-  // along the X axis and hulling sliced point clouds
-  console.log('[CSG] All mesh imports failed. Rebuilding as lofted hull slices...');
-  try {
-    const allPoints = new wasm.Vector_vec3();
-
-    // Sample cross-sections along X
-    // Find X extent
-    let minX = Infinity, maxX = -Infinity;
-    for (let i = 0; i < numVerts; i++) {
-      const x = vertProperties[i * 3];
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-    }
-
-    const sliceCount = 48;
-    const sliceWidth = (maxX - minX) / sliceCount;
-
-    for (let s = 0; s <= sliceCount; s++) {
-      const sliceX = minX + s * (maxX - minX) / sliceCount;
-      const sliceMin = sliceX - sliceWidth * 0.6;
-      const sliceMax = sliceX + sliceWidth * 0.6;
-
-      // Collect vertices in this slice
-      for (let i = 0; i < numVerts; i++) {
-        const x = vertProperties[i * 3];
-        if (x >= sliceMin && x <= sliceMax) {
-          // Project to the slice plane
-          allPoints.push_back({
-            x: sliceX,
-            y: vertProperties[i * 3 + 1],
-            z: vertProperties[i * 3 + 2]
-          });
-        }
-      }
-    }
-
-    console.log(`[CSG] Collected ${allPoints.size()} slice points from ${sliceCount} slices`);
-    const hull = wasm.Manifold.hull(allPoints);
-    allPoints.delete();
-    console.log(`[CSG] Lofted hull: ${hull.numVert()} verts, ${hull.numTri()} tris`);
-    return hull;
-  } catch (hullErr) {
-    throw new Error(`Could not create Manifold from mesh (lofted hull also failed: ${hullErr}).`);
-  }
+  throw new Error('Could not create Manifold from mesh. The mesh has non-manifold edges (edges shared by more than 2 faces). This typically means shared vertices between mirrored half-shells.');
 }
 
 export function manifoldToThree(manifold: ManifoldSolid): THREE.BufferGeometry {
