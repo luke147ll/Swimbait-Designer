@@ -1,11 +1,11 @@
 /**
  * @file app.js
- * Entry point — scene, camera, lights, orbit, spline-driven Manifold ellipsoid pipeline.
+ * Entry point — scene, camera, lights, orbit, spline-driven tube mesh pipeline.
  *
  * The spline editors (side profile, width profile, cross-section) drive the shape.
- * Instead of building a triangle mesh (old genBody), we sample the splines at N stations
- * and render a Three.js ellipsoid at each station for the viewport preview.
- * The mold generator receives the station data and builds a real Manifold solid.
+ * A single watertight tube mesh is built from spline samples and displayed via Three.js.
+ * The raw mesh data (vertProperties + triVerts) transfers to the mold generator where
+ * it's fed directly to Manifold's constructor — guaranteed manifold, no boolean unions.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
 import { superEllipse, NS, RS } from './engine.js';
@@ -14,8 +14,9 @@ import { loadPreset as applyPreset } from './presets.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
+import { buildTubeMesh, verifyWinding } from './tube-mesh.js';
 
-let scene, cam, ren, bodyGroup, eyeGrpL, eyeGrpR, hsM, stationRing;
+let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 
@@ -62,98 +63,82 @@ function getParams() {
   };
 }
 
-// ── Spline → Station sampling ──
-
-/**
- * Sample spline profiles at N stations along the body.
- * Returns station descriptors that drive the ellipsoid preview and mold transfer.
- */
-function sampleSplines(stationCount) {
-  const p = getParams();
-  const OL = p.OL; // inches
-  const stations = [];
-
-  for (let i = 0; i <= stationCount; i++) {
-    const t = i / stationCount;
-    const ringIndex = Math.round(t * NS); // map to cached array (0-96)
-
-    const dorsalVal = profileState.dorsalCache[ringIndex];  // fraction of OL
-    const ventralVal = profileState.ventralCache[ringIndex]; // negative fraction
-    const widthVal = profileState.widthCache[ringIndex];     // fraction of OL
-
-    const dorsalHeight = dorsalVal * OL;           // inches
-    const ventralDepth = Math.abs(ventralVal) * OL; // inches (make positive)
-    const halfWidth = widthVal * OL;                // inches
-
-    stations.push({
-      t,
-      positionY: (-OL / 2 + t * OL) * 25.4,       // mm, centered at origin
-      dorsalHeight: dorsalHeight * 25.4,             // mm
-      ventralDepth: ventralDepth * 25.4,             // mm
-      halfWidth: halfWidth * 25.4,                   // mm
-    });
-  }
-
-  return stations;
-}
-
-// ── Ellipsoid preview (replaces old genBody triangle mesh) ──
+// ── Spline → Tube mesh ──
 
 const bodyMat = new THREE.MeshPhysicalMaterial({
   color: baitColor, metalness: 0.05, roughness: 0.42,
   clearcoat: 0.6, clearcoatRoughness: 0.2, side: THREE.DoubleSide,
 });
 
-/**
- * Build the 3D preview from station ellipsoids.
- * Each station → a Three.js sphere scaled by (halfWidth, yOverlap, halfHeight).
- */
-function rebuildEllipsoidPreview() {
-  if (!bodyGroup) return;
+// Current tube mesh data for mold transfer (raw arrays, mm units)
+let currentMeshData = null;
 
-  // Clear old ellipsoids
-  while (bodyGroup.children.length) {
-    const child = bodyGroup.children[0];
-    if (child.geometry) child.geometry.dispose();
-    bodyGroup.remove(child);
+/**
+ * Spline sample functions — read cached profiles, return mm values.
+ * These closures capture the current profileState and OL at call time.
+ */
+function makeSplineSamplers() {
+  const p = getParams();
+  const OL = p.OL;
+
+  function getDorsal(t) {
+    const i = Math.round(t * NS);
+    return profileState.dorsalCache[Math.min(i, NS)] * OL * 25.4;
+  }
+  function getVentral(t) {
+    const i = Math.round(t * NS);
+    return Math.abs(profileState.ventralCache[Math.min(i, NS)]) * OL * 25.4;
+  }
+  function getWidth(t) {
+    const i = Math.round(t * NS);
+    return profileState.widthCache[Math.min(i, NS)] * OL * 25.4;
+  }
+
+  return { getDorsal, getVentral, getWidth, lengthMM: OL * 25.4 };
+}
+
+/**
+ * Build the tube mesh from spline profiles and update the viewport.
+ * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
+ */
+function rebuildTubePreview() {
+  const p = getParams();
+  const tubeNS = p.stationCount || 40;
+  const tubeRS = 32;
+
+  const { getDorsal, getVentral, getWidth, lengthMM } = makeSplineSamplers();
+  const { vertProperties, triVerts, vertCount, triCount } = buildTubeMesh(
+    getDorsal, getVentral, getWidth, lengthMM, tubeNS, tubeRS
+  );
+
+  // Verify winding before display
+  verifyWinding(vertProperties, triVerts);
+
+  // Store raw mesh data for mold transfer
+  currentMeshData = { vertProperties, triVerts, vertCount, triCount };
+
+  // Convert to Three.js BufferGeometry (mm units, scaled to viewport inches)
+  const positions = new Float32Array(vertCount * 3);
+  const scale = 1 / 25.4; // mm → inches for viewport
+  for (let i = 0; i < vertCount * 3; i++) {
+    positions[i] = vertProperties[i] * scale;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(new THREE.BufferAttribute(triVerts, 1));
+  geo.computeVertexNormals();
+
+  // Dispose old mesh, create new one
+  if (bodyMesh) {
+    if (bodyMesh.geometry) bodyMesh.geometry.dispose();
+    scene.remove(bodyMesh);
   }
 
   bodyMat.color.set(baitColor);
-
-  const p = getParams();
-  const stationCount = p.stationCount || 20;
-  const stations = sampleSplines(stationCount);
-
-  // Calculate Y spacing for ellipsoid overlap
-  const totalLength = Math.abs(stations[stations.length - 1].positionY - stations[0].positionY);
-  const spacing = stations.length > 1 ? totalLength / (stations.length - 1) : 1;
-  const yRadius = spacing * 0.75; // 50% overlap
-
-  for (const station of stations) {
-    const totalHeight = station.dorsalHeight + station.ventralDepth;
-    const halfHeight = totalHeight / 2;
-    const halfWidth = station.halfWidth;
-
-    // Skip degenerate stations
-    if (halfHeight < 0.3 || halfWidth < 0.3) continue;
-
-    // Vertical center offset for dorsal/ventral asymmetry
-    const zOffset = (station.dorsalHeight - station.ventralDepth) / 2;
-
-    const geo = new THREE.SphereGeometry(1, 20, 10);
-    geo.scale(halfWidth, yRadius, halfHeight);
-
-    const mesh = new THREE.Mesh(geo, bodyMat);
-    mesh.position.set(0, station.positionY, zOffset);
-    bodyGroup.add(mesh);
-  }
-
-  // Scale group from mm to viewport inches
-  bodyGroup.scale.setScalar(1 / 25.4);
-
-  // Expose stations for mold transfer
-  window.baitStations = stations;
-  window.bodyMesh = bodyGroup.children[0] || null;
+  bodyMesh = new THREE.Mesh(geo, bodyMat);
+  scene.add(bodyMesh);
+  window.bodyMesh = bodyMesh;
 }
 
 // ── Scene rebuild ──
@@ -165,8 +150,8 @@ function rebuildScene() {
   // Remove old accessories
   [eyeGrpL, eyeGrpR, hsM].forEach(m => { if (m) scene.remove(m); });
 
-  // Rebuild ellipsoid body
-  rebuildEllipsoidPreview();
+  // Rebuild tube mesh body
+  rebuildTubePreview();
 
   // Eyes
   if (showEyes) {
@@ -426,10 +411,6 @@ function init() {
   const d3 = new THREE.DirectionalLight(0xffffff, 0.25); d3.position.set(0, -4, 2); scene.add(d3);
 
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
-
-  // Body ellipsoid group
-  bodyGroup = new THREE.Group();
-  scene.add(bodyGroup);
 
   // ── Orbit controls: mouse ──
   vp.addEventListener('pointerdown', e => {
@@ -763,22 +744,24 @@ async function forkDesign() {
 // ── Mold generator transfer — sends station data ──
 
 async function sendToMoldGenerator() {
-  const p = getParams();
-  const stations = sampleSplines(p.stationCount || 20);
+  if (!currentMeshData) {
+    alert('No mesh data — adjust sliders first.');
+    return;
+  }
 
   const payload = JSON.stringify({
-    type: 'stations',
+    type: 'manifold_mesh',
     name: currentDesignName || 'designed_bait',
-    OL: p.OL,
-    stationCount: stations.length,
-    stations,
+    numProp: 3,
+    vertProperties: Array.from(currentMeshData.vertProperties),
+    triVerts: Array.from(currentMeshData.triVerts),
   });
 
   try {
     const res = await fetch('/api/mold-transfer', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('Upload failed: ' + res.status);
     const data = await res.json();
-    console.log('[SBD] Stations uploaded, token:', data.token);
+    console.log('[SBD] Mesh uploaded, token:', data.token);
 
     const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `http://localhost:5173?transfer=${data.token}`
