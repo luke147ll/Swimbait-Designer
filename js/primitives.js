@@ -170,6 +170,9 @@ function rebuildPreview() {
     previewGroup.add(mesh);
   }
 
+  // Scale mm → viewport inches (primitives are in mm, viewport is ~inches)
+  previewGroup.scale.setScalar(1 / 25.4);
+
   // Expose for mold transfer
   window.baitPrimitives = primitives;
   window.bodyMesh = previewGroup.children[0] || null;
