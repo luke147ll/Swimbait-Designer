@@ -8,11 +8,9 @@ import type { MoldConfig } from '../types';
  *   Z = width (left to right, symmetric about Z=0)
  *   Parting plane at Z=0 — halfA is Z<0 (left), halfB is Z>0 (right)
  *
- * CSG fix: each box extends 0.05mm past Z=0 to avoid co-planar face artifacts.
- * The tiny overlap is invisible but gives the CSG evaluator clean geometry.
+ * Each box extends exactly to Z=0 — no overlap. Native Manifold handles
+ * co-planar subtraction cleanly with the tube mesh.
  */
-
-const PARTING_OVERLAP = 0.05;
 
 export class MoldBoxGenerator {
   generate(baitBounds: THREE.Box3, config: MoldConfig, halfSide: 'A' | 'B' = 'A'): THREE.BufferGeometry {
@@ -22,17 +20,14 @@ export class MoldBoxGenerator {
 
     const boxX = baitLenX + config.wallMarginY * 2;
     const boxY = baitHtY + config.wallMarginX * 2 + config.clampFlange * 2;
-    const boxZ = baitWidZ / 2 + config.wallMarginZ + config.partingFaceDepth + PARTING_OVERLAP;
+    const boxZ = baitWidZ / 2 + config.wallMarginZ + config.partingFaceDepth;
 
-    // Use plain BoxGeometry for reliable CSG
     const geo = new THREE.BoxGeometry(boxX, boxY, boxZ);
 
     if (halfSide === 'A') {
-      // Parting face extends to Z=+PARTING_OVERLAP, outer face at Z=-(boxZ - OVERLAP)
-      geo.translate(0, 0, -boxZ / 2 + PARTING_OVERLAP);
+      geo.translate(0, 0, -boxZ / 2);
     } else {
-      // Parting face extends to Z=-PARTING_OVERLAP, outer face at Z=+(boxZ - OVERLAP)
-      geo.translate(0, 0, boxZ / 2 - PARTING_OVERLAP);
+      geo.translate(0, 0, boxZ / 2);
     }
 
     geo.computeVertexNormals();
