@@ -113,47 +113,45 @@ export function createSampleBait(): ManifoldSolid {
 // ─── Mesh cleanup for Three.js → Manifold conversion ────────
 
 function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  let clean = geo.clone();
+  // ALWAYS explode to non-indexed first — this breaks shared vertices
+  // that create non-manifold edges (e.g. designer's midline vertices
+  // shared between left and right half-shells)
+  let work = geo.index ? geo.toNonIndexed() : geo.clone();
 
   // Remove NaN vertices
-  const pos = clean.attributes.position;
+  const pos = work.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     if (isNaN(pos.getX(i)) || isNaN(pos.getY(i)) || isNaN(pos.getZ(i))) {
       pos.setXYZ(i, 0, 0, 0);
     }
   }
 
-  // Ensure indexed via vertex merging
-  if (!clean.index) {
-    clean = mergeVerts(clean, 0.0001);
-  }
-
-  // Remove degenerate triangles
-  const positions = clean.attributes.position;
-  const idx = clean.index!;
-  const validIndices: number[] = [];
+  // Remove degenerate triangles (work is non-indexed, 3 verts per tri)
+  const triCount = pos.count / 3;
+  const cleanPositions: number[] = [];
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
   const ab = new THREE.Vector3(), ac = new THREE.Vector3();
 
-  for (let i = 0; i < idx.count; i += 3) {
-    const i0 = idx.getX(i), i1 = idx.getX(i + 1), i2 = idx.getX(i + 2);
-    if (i0 === i1 || i1 === i2 || i0 === i2) continue;
-
-    a.fromBufferAttribute(positions, i0);
-    b.fromBufferAttribute(positions, i1);
-    c.fromBufferAttribute(positions, i2);
+  for (let tri = 0; tri < triCount; tri++) {
+    const i = tri * 3;
+    a.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+    b.set(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1));
+    c.set(pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2));
     ab.subVectors(b, a);
     ac.subVectors(c, a);
     if (ab.cross(ac).lengthSq() > 1e-10) {
-      validIndices.push(i0, i1, i2);
+      cleanPositions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
     }
   }
 
-  clean.setIndex(validIndices);
-  clean = mergeVerts(clean, 0.001);
-  clean.computeVertexNormals();
-  clean.computeBoundingBox();
-  return clean;
+  const clean = new THREE.BufferGeometry();
+  clean.setAttribute('position', new THREE.Float32BufferAttribute(cleanPositions, 3));
+
+  // Re-index by merging coincident vertices
+  const merged = mergeVerts(clean, 0.001);
+  merged.computeVertexNormals();
+  merged.computeBoundingBox();
+  return merged;
 }
 
 // ─── Three.js ↔ Manifold conversion ────────────────────────
