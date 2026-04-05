@@ -162,7 +162,7 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 /* ── Phone (max-width: 480px) ──────────────────────────────────────── */
 @media(max-width:480px){
   body{overflow:hidden}
-  #app{display:grid;grid-template-columns:1fr;grid-template-rows:45dvh 1fr;height:calc(100dvh - 48px)}
+  #app{display:grid;grid-template-columns:1fr;grid-template-rows:60dvh 1fr;height:calc(100dvh - 36px)}
 
   /* 3D always on top. Bottom panel switches between controls / editors */
   .pnl{border:none;border-top:1px solid var(--bd);overflow-y:auto;display:flex;order:2}
@@ -181,20 +181,19 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 
   /* Tab bar */
   .tab-bar{
-    display:flex;position:fixed;bottom:0;left:0;right:0;height:48px;
+    display:flex;position:fixed;bottom:0;left:0;right:0;height:36px;
     background:var(--sf);border-top:1px solid var(--bd);z-index:100;
   }
   .tab{
     flex:1;border:none;background:none;color:var(--mu);
-    font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;
-    letter-spacing:1px;cursor:pointer;transition:color .15s;
+    font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;
+    letter-spacing:0.5px;cursor:pointer;transition:color .15s;padding:0;
   }
   .tab.on{color:var(--ac);border-top:2px solid var(--ac)}
 
-  /* Larger touch targets */
-  .sec{padding:14px 16px}
-  .c{margin-bottom:16px}
-  .c label{font-size:13px}
+  .sec{padding:8px 12px}
+  .c{margin-bottom:8px}
+  .c label{font-size:11px}
   .c .v{font-size:13px}
   input[type=range]{height:6px}
   input[type=range]::-webkit-slider-thumb{width:20px;height:20px;border-width:3px}
