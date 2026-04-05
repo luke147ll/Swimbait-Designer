@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
-import { createSampleBait, manifoldToThree, initCSG } from '../../core/csg';
 import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
 
 export function BaitLoader() {
@@ -26,14 +25,6 @@ export function BaitLoader() {
       });
     }
   }, []);
-
-  const handleSample = useCallback(async () => {
-    await initCSG();
-    const baitM = createSampleBait();
-    const baitGeo = manifoldToThree(baitM);
-    setBaitMesh(baitGeo, 'sample-bait.stl');
-    setBaitManifold(baitM);
-  }, [setBaitMesh, setBaitManifold]);
 
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
