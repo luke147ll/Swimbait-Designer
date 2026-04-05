@@ -1,208 +1,18 @@
 /**
  * @file app.js
  * Entry point — scene init, renderer, camera, lights, grid, orbit controls,
- * render loop, resize handler, profile state management, and UI wiring.
+ * render loop, resize handler, and UI wiring for the primitive-based editor.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
 import { initPrimitiveEditor, setPrimitiveColor, getPrimitives } from './primitives.js';
 
-let scene, cam, ren, bodyMesh;
-let tailType = 'paddle', baitColor = 0x7a8e9a;
+let scene, cam, ren;
+let baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
-let editorDragging = false;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
   cam.lookAt(0, -.15, 0);
-}
-
-function getParams() {
-  return {
-    OL: +document.getElementById('sOL').value,
-    BD: +document.getElementById('sBD').value,
-    WR: +document.getElementById('sWR').value,
-    GP: +document.getElementById('sGP').value,
-    HL: +document.getElementById('sHL').value,
-    SB: +document.getElementById('sSB').value,
-    HW: +document.getElementById('sHW').value,
-    DA: +document.getElementById('sDA').value,
-    BF: +document.getElementById('sBF').value,
-    BT: +document.getElementById('sBT').value,
-    CS: 2.2,
-    SL: +document.getElementById('sSL').value,
-    SD: +document.getElementById('sSD').value,
-    SC: +document.getElementById('sSC').value,
-    TS: 0.80,
-    TT: +document.getElementById('sTT').value,
-    FD: +document.getElementById('sFD').value,
-    FA: +document.getElementById('sFA').value,
-    BR: xsecEditor && xsecEditor.getBlendRadius ? xsecEditor.getBlendRadius() : 4,
-    EP: +document.getElementById('sEP').value,
-    EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
-    ES: +document.getElementById('sES').value,
-    EB: +document.getElementById('sEB').value,
-    HS: +document.getElementById('sHS').value,
-    WP: 0,
-    tail: tailType
-  };
-}
-
-function rebuildScene() {
-  // Primitives handle their own rendering via primitives.js
-
-  if (showEyes) {
-    const eyes = buildEyes(p, L, profileState);
-    eyeGrpL = eyes.eyeGrpL;
-    eyeGrpR = eyes.eyeGrpR;
-    scene.add(eyeGrpL);
-    scene.add(eyeGrpR);
-  } else {
-    eyeGrpL = null;
-    eyeGrpR = null;
-  }
-
-  hsM = buildHookSlot(p, L);
-  if (hsM) scene.add(hsM);
-
-  let maxD = 0, maxW = 0;
-  for (let i = 0; i <= 96; i++) {
-    const d = (profileState.dorsalCache[i] - profileState.ventralCache[i]) * L;
-    const w = profileState.widthCache[i] * L * 2;
-    if (d > maxD) maxD = d;
-    if (w > maxW) maxW = w;
-  }
-  const approxVol = L * maxD * maxW * 0.35;
-  const wOz = (approxVol * 1.1 * 0.035274).toFixed(1);
-  document.getElementById('stats').innerHTML =
-    `${L.toFixed(1)}" total length<br>${maxD.toFixed(2)}" max depth<br>${maxW.toFixed(2)}" max width<br>~${wOz} oz est.<br>${p.tail} tail`;
-
-  if (sideEditor) {
-    sideEditor.setEyePosition(p.EP || p.HL * 0.6);
-    sideEditor.refresh();
-  }
-  if (widthEditor) widthEditor.refresh();
-  if (xsecEditor) xsecEditor.refresh();
-
-  const badge = document.getElementById('profileMode');
-  if (badge) {
-    const hasDeltas = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
-                      profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
-                      profileState.wDelta.some(d => Math.abs(d) > 0.0001);
-    badge.textContent = hasDeltas ? 'EDITED' : 'BASE';
-    badge.className = 'ed-mode ' + (hasDeltas ? 'manual' : 'sliders');
-  }
-}
-
-function update() {
-  const p = getParams();
-  const L = p.OL;
-
-  // Display values
-  document.getElementById('vOL').textContent = L.toFixed(1) + '"';
-  document.getElementById('vBD').textContent = p.BD.toFixed(2);
-  document.getElementById('vWR').textContent = p.WR.toFixed(2);
-  document.getElementById('vGP').textContent = Math.round(p.GP * 100) + '%';
-  document.getElementById('vHL').textContent = Math.round(p.HL * 100) + '%';
-  document.getElementById('vSB').textContent = p.SB.toFixed(2);
-  document.getElementById('vHW').textContent = p.HW.toFixed(2);
-  document.getElementById('vDA').textContent = p.DA.toFixed(2);
-  document.getElementById('vBF').textContent = p.BF.toFixed(2);
-  document.getElementById('vBT').textContent = p.BT.toFixed(2);
-  document.getElementById('vSL').textContent = Math.round(p.SL * 100) + '%';
-  document.getElementById('vSD').textContent = p.SD.toFixed(2);
-  document.getElementById('vSC').textContent = p.SC.toFixed(2);
-  document.getElementById('vTT').textContent = p.TT.toFixed(2);
-  document.getElementById('vFD').textContent = p.FD.toFixed(2);
-  document.getElementById('vFA').textContent = p.FA.toFixed(2);
-  document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
-  document.getElementById('vES').textContent = p.ES.toFixed(2);
-  document.getElementById('vEB').textContent = p.EB.toFixed(2);
-  document.getElementById('vHS').textContent = p.HS.toFixed(2);
-  // Always regenerate base profiles from sliders, then apply manual deltas
-  const base = buildProfilesFromSliders(p);
-
-  // Ensure delta arrays match base length (pad with zeros if needed)
-  while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
-  while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
-  while (profileState.wDelta.length < base.width.length) profileState.wDelta.push(0);
-
-  // Final profiles = base + manual deltas
-  profileState.dorsal = base.dorsal.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.dDelta[i]
-  }));
-  profileState.ventral = base.ventral.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.vDelta[i]
-  }));
-  profileState.width = base.width.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.wDelta[i]
-  }));
-
-  rebuildProfileCache(profileState, p.CS, p.HL);
-  rebuildScene();
-}
-
-function onSliderInput() {
-  // Legacy — no longer used with primitive system
-}
-
-// Called when cross-section keyframe changes — just rebuild the mesh
-function onXSecEdit() {
-  rebuildScene();
-}
-
-// Show a ring on the 3D model + marker lines on 2D editors at the given station
-function showStationRing(stationIdx) {
-  const tNorm = stationIdx / NS;
-  if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(tNorm);
-  if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(tNorm);
-  if (stationRing) scene.remove(stationRing);
-  if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
-
-  const p = getParams();
-  const L = p.OL, hL = L / 2;
-  const x = -hL + tNorm * L;
-  const dY = profileState.dorsalCache[stationIdx] * L;
-  const vY = profileState.ventralCache[stationIdx] * L;
-  const hW = Math.max(profileState.widthCache[stationIdx] * L, 0.004);
-  const cy = (dY + vY) / 2;
-  const dH = Math.max(dY - cy, 0.003);
-  const vH = Math.max(cy - vY, 0.003);
-  const n = profileState.nCache[stationIdx];
-
-  // Build a line loop slightly outside the body surface so it doesn't z-fight
-  const bump = 1.03;
-  const pts = [];
-  for (let j = 0; j <= RS; j++) {
-    const angle = (j / RS) * Math.PI * 2;
-    const se = superEllipse(angle, dH * bump, vH * bump, hW * bump, Math.max(n, 1.8));
-    pts.push(new THREE.Vector3(x, se.y + cy, se.z));
-  }
-
-  const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  const mat = new THREE.LineBasicMaterial({ color: 0xc4a04a, depthTest: false, transparent: true, opacity: 0.8 });
-  stationRing = new THREE.LineLoop(geo, mat);
-  stationRing.renderOrder = 999;
-  scene.add(stationRing);
-}
-
-
-// Called by editor drag — recompute deltas so sliders don't erase manual edits
-function onProfileEdit() {
-  const base = buildProfilesFromSliders(getParams());
-  for (let i = 0; i < base.dorsal.length; i++) {
-    profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
-    profileState.vDelta[i] = (profileState.ventral[i]?.v ?? base.ventral[i].v) - base.ventral[i].v;
-    profileState.wDelta[i] = (profileState.width[i]?.v ?? base.width[i].v) - base.width[i].v;
-  }
-  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-  rebuildScene();
-}
-
-function setTailType(el) {
-  document.querySelectorAll(".tb").forEach(e => e.classList.remove("on"));
-  el.classList.add("on");
-  tailType = el.dataset.t;
-  update();
 }
 
 function setColor(el) {
@@ -212,78 +22,30 @@ function setColor(el) {
   setPrimitiveColor(baitColor);
 }
 
-function loadPreset(name) {
-  const newTail = applyPreset(name);
-  if (newTail === null) return;
-  tailType = newTail;
-  document.querySelectorAll('.tb').forEach(e => e.classList.toggle('on', e.dataset.t === newTail));
-  // Reset manual deltas — preset gives a clean baseline
-  profileState.dDelta = [];
-  profileState.vDelta = [];
-  profileState.wDelta = [];
-  update();
-}
-
-function exportSTL() {
-  generateSTL([bodyMesh].filter(Boolean));
-}
-
-function dumpAll() {
-  function fmtProfile(arr) {
-    return '[\n' + arr.map(p =>
-      `  { t: ${p.t.toFixed(4)}, v: ${p.v.toFixed(6)} }`
-    ).join(',\n') + '\n]';
-  }
-  function fmtFin(arr) {
-    return '[\n' + arr.map(p =>
-      `  { x: ${p.x.toFixed(4)}, y: ${p.y.toFixed(4)} }`
-    ).join(',\n') + '\n]';
-  }
-  const p = getParams();
-  const sliders = `// ── Slider values ──
-const sliders = ${JSON.stringify({
-    OL: p.OL, BD: p.BD, WR: p.WR, GP: p.GP, HL: p.HL, SB: p.SB, HW: p.HW,
-    DA: p.DA, BF: p.BF, BT: p.BT, SL: p.SL, SD: p.SD, SC: p.SC,
-    TT: p.TT, ES: p.ES, EB: p.EB, HS: p.HS
-  }, null, 2)};`;
-
-  const out = `${sliders}
-
-// ── Body profiles (copy into BASE_D/V/W in splines.js) ──
-const dorsal = ${fmtProfile(profileState.dorsal)};
-const ventral = ${fmtProfile(profileState.ventral)};
-const width = ${fmtProfile(profileState.width)};
-
-`;
-  console.log(out);
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(out).then(() => console.log('Copied to clipboard'));
-  }
+function snapView(view) {
+  if (view === 'side')  { ot = Math.PI / 2; op = Math.PI / 2; }
+  if (view === 'top')   { ot = 0; op = 0.01; }
+  if (view === 'front') { ot = Math.PI; op = Math.PI / 2; }
+  updateCamera();
 }
 
 function switchTab(btn) {
   const viewId = btn.dataset.view;
   const pnl = document.getElementById('pnlControls');
 
-  // Close all editor views
   document.querySelectorAll('.mob-view').forEach(el => el.classList.remove('active'));
 
   if (viewId === 'home') {
-    // Show controls panel
     if (pnl) pnl.style.display = 'flex';
   } else {
-    // Hide controls, show editor in the same bottom grid cell
     if (pnl) pnl.style.display = 'none';
-    if (window._initMobEditors) window._initMobEditors();
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
   }
 
-  // Update tab active state
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   btn.classList.add('on');
 
-  // Resize 3D viewport (always visible)
   setTimeout(() => {
     const vp = document.getElementById('vp');
     if (vp && vp.clientWidth > 0) {
@@ -316,30 +78,12 @@ function initPanelResize() {
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      // Refresh editors so their hit detection uses updated bounding rects
-      if (sideEditor) sideEditor.refresh();
-      if (widthEditor) widthEditor.refresh();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   });
-}
-
-function snapView(view) {
-  if (view === 'side')  { ot = Math.PI / 2; op = Math.PI / 2; }   // from +Z, level side profile
-  if (view === 'top')   { ot = 0; op = 0.01; }                     // straight down
-  if (view === 'front') { ot = Math.PI; op = Math.PI / 2; }        // from -X, head-on face
-  updateCamera();
-}
-
-function toggleEditors() {
-  const el = document.getElementById('editors');
-  const arrow = document.getElementById('edToggleArrow');
-  const visible = el.style.display !== 'none';
-  el.style.display = visible ? 'none' : 'block';
-  arrow.textContent = visible ? '▸' : '▾';
 }
 
 function init() {
@@ -362,7 +106,6 @@ function init() {
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
 
   // ── Orbit controls: mouse ──
-  // Only orbit when dragging started on the viewport canvas itself
   vp.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') return;
     if (e.target === ren.domElement || e.target === vp) {
@@ -379,7 +122,6 @@ function init() {
     px = e.clientX; py = e.clientY;
     updateCamera();
   });
-  // Stop orbit if pointer leaves the viewport
   vp.addEventListener('pointerleave', () => { drag = false; });
   vp.addEventListener('wheel', e => {
     e.preventDefault();
@@ -392,7 +134,7 @@ function init() {
   let touchStartOd = od;
 
   vp.addEventListener('touchstart', e => {
-    if (e.target.closest('.view-btns')) return; // let button taps through
+    if (e.target.closest('.view-btns')) return;
     e.preventDefault();
     if (e.touches.length === 1) {
       drag = true;
@@ -432,8 +174,6 @@ function init() {
   const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const hint = document.getElementById('rhHint');
   if (hint && isTouch) hint.textContent = 'Drag to orbit / pinch to zoom';
-  const edHint = document.getElementById('edHint');
-  if (edHint && isTouch) edHint.textContent = 'Tap point to drag / pinch to zoom';
 
   // ── Initialize primitive editor ──
   initPrimitiveEditor(scene);
@@ -471,7 +211,7 @@ function showLoggedInUI(user) {
   const userEl = document.getElementById('authUser');
   const usernameEl = document.getElementById('authUsername');
 
-  if (avatarEl) { avatarEl.style.display = 'flex'; }
+  if (avatarEl) avatarEl.style.display = 'flex';
   if (monoEl) monoEl.textContent = mono;
   if (signinEl) signinEl.style.display = 'none';
   if (userEl) userEl.style.display = 'block';
@@ -510,6 +250,28 @@ async function logoutDesigner() {
   window.location.reload();
 }
 
+// ── Design state (primitives-based) ──
+
+function getDesignState() {
+  return JSON.stringify({
+    primitives: getPrimitives(),
+    baitColor,
+  });
+}
+
+function loadDesignState(state) {
+  if (state.primitives) {
+    // Replace primitives and rebuild
+    window.loadPreset && window.loadPreset(null); // clear first
+    // Directly set primitives via the global
+    window.baitPrimitives = state.primitives;
+  }
+  if (state.baitColor) {
+    baitColor = state.baitColor;
+    setPrimitiveColor(baitColor);
+  }
+}
+
 async function initAuth() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -531,7 +293,6 @@ async function initAuth() {
       try {
         const state = JSON.parse(stashed);
         loadDesignState(state);
-        // Pre-fill name and show save section ready to go
         const nameInput = document.getElementById('designNameInput');
         if (nameInput && !nameInput.value) nameInput.value = 'Untitled design';
       } catch {}
@@ -553,46 +314,8 @@ async function initAuth() {
   }
 }
 
-function getDesignState() {
-  const p = getParams();
-  return JSON.stringify({
-    sliders: p,
-    dorsal: profileState.dorsal,
-    ventral: profileState.ventral,
-    width: profileState.width,
-    dDelta: profileState.dDelta,
-    vDelta: profileState.vDelta,
-    wDelta: profileState.wDelta,
-    xsecKeyframes: profileState.xsecKeyframes,
-    xsecBlendRadii: profileState.xsecBlendRadii,
-    tailType,
-    baitColor,
-  });
-}
-
-function loadDesignState(state) {
-  if (state.sliders) {
-    for (const [key, val] of Object.entries(state.sliders)) {
-      const el = document.getElementById('s' + key);
-      if (el) el.value = val;
-    }
-  }
-  if (state.tailType) {
-    tailType = state.tailType;
-    document.querySelectorAll('.tb').forEach(e => e.classList.toggle('on', e.dataset.t === tailType));
-  }
-  if (state.baitColor) baitColor = state.baitColor;
-  if (state.dDelta) profileState.dDelta = state.dDelta;
-  if (state.vDelta) profileState.vDelta = state.vDelta;
-  if (state.wDelta) profileState.wDelta = state.wDelta;
-  if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
-  if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
-  update();
-}
-
 async function saveDesign() {
   if (!currentUser) {
-    // Stash current design so it survives the login round-trip
     try { localStorage.setItem('sd_pending_design', getDesignState()); } catch {}
     window.location = '/login';
     return;
@@ -605,15 +328,14 @@ async function saveDesign() {
   try {
     ren.render(scene, cam);
     const thumbnail = ren.domElement.toDataURL('image/jpeg', 0.7);
-    const p = getParams();
     const nameInput = document.getElementById('designNameInput');
     const name = nameInput.value.trim() || 'Untitled design';
 
     const body = {
       name,
       species: 'custom',
-      tailType,
-      length: p.OL,
+      tailType: 'primitive',
+      length: 0,
       stateJSON: getDesignState(),
       thumbnail,
     };
@@ -672,7 +394,6 @@ async function loadSharedDesign(designId) {
     const state = JSON.parse(design.stateJSON);
     loadDesignState(state);
     showReadOnlyMode(design.name);
-    // Store state for forking
     window._sharedDesignState = design;
   } catch {}
 }
@@ -685,8 +406,8 @@ async function forkDesign() {
   const body = {
     name: (shared.name || 'Shared design') + ' (fork)',
     species: shared.species || 'custom',
-    tailType: shared.tailType || 'paddle',
-    length: shared.length || 8,
+    tailType: 'primitive',
+    length: 0,
     stateJSON: shared.stateJSON,
   };
 
@@ -703,33 +424,8 @@ async function forkDesign() {
   }
 }
 
-// Expose to inline HTML handlers
-window.onSliderInput = onSliderInput;
-window.update = update;
-window.loadPreset = loadPreset;
-window.setTailType = setTailType;
-window.setColor = setColor;
-window.exportSTL = exportSTL;
-window.dumpAll = dumpAll;
-window.snapView = snapView;
-window.switchTab = switchTab;
-window.toggleEditors = toggleEditors;
-window.saveDesign = saveDesign;
-
-// Expose for mold generator handoff
-window.bodyMesh = null;
-window.profileState = profileState;
-
 async function sendToMoldGenerator() {
-  // Use the default paddletail primitives for now
-  // (will be replaced with user-editable primitives in the designer UI)
-  const primitives = window.baitPrimitives || [
-    { id:'body', type:'sphere', label:'Body', position:{x:0,y:0,z:0}, rotation:{x:0,y:0,z:0}, scale:{x:9,y:32,z:7}, params:{radius:1,segments:32}, operation:'union', visible:true },
-    { id:'head', type:'sphere', label:'Head', position:{x:0,y:26,z:0.5}, rotation:{x:0,y:0,z:0}, scale:{x:8,y:6,z:7}, params:{radius:1,segments:32}, operation:'union', visible:true },
-    { id:'tail', type:'cone', label:'Tail Taper', position:{x:0,y:-30,z:-0.5}, rotation:{x:90,y:0,z:0}, scale:{x:1,y:1,z:0.65}, params:{radiusBottom:7,height:20,segments:32}, operation:'union', visible:true },
-    { id:'ped', type:'cylinder', label:'Peduncle', position:{x:0,y:-40,z:-0.5}, rotation:{x:90,y:0,z:0}, scale:{x:1,y:1,z:0.6}, params:{radiusTop:2.5,radiusBottom:2.5,height:6,segments:16}, operation:'union', visible:true },
-    { id:'paddle', type:'sphere', label:'Paddle', position:{x:0,y:-46,z:-1}, rotation:{x:0,y:0,z:0}, scale:{x:7,y:3.5,z:1.8}, params:{radius:1,segments:24}, operation:'union', visible:true },
-  ];
+  const primitives = getPrimitives();
 
   const payload = JSON.stringify({ type: 'primitives', name: 'designed_bait', primitives });
 
@@ -748,14 +444,13 @@ async function sendToMoldGenerator() {
     alert('Failed to transfer bait.');
   }
 }
+
+// Expose to inline HTML handlers
+window.setColor = setColor;
+window.snapView = snapView;
+window.switchTab = switchTab;
+window.saveDesign = saveDesign;
 window.sendToMoldGenerator = sendToMoldGenerator;
-window.toggleEyes = function(btn) {
-  showEyes = !showEyes;
-  btn.textContent = showEyes ? 'On' : 'Off';
-  btn.classList.toggle('on', showEyes);
-  document.getElementById('eyeSliders').style.display = showEyes ? 'block' : 'none';
-  rebuildScene();
-};
 window.toggleDesignerMenu = toggleDesignerMenu;
 window.logoutDesigner = logoutDesigner;
 window.forkDesign = forkDesign;
