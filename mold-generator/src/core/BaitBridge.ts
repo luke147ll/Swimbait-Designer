@@ -53,6 +53,19 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
     }
 
     const buffer = await res.arrayBuffer();
+    console.log(`[BaitBridge] Received ${buffer.byteLength} bytes`);
+
+    // Validate STL format
+    if (buffer.byteLength < 84) {
+      return { success: false, error: `Invalid transfer data (${buffer.byteLength} bytes, expected STL)` };
+    }
+    const dv = new DataView(buffer);
+    const triCount = dv.getUint32(80, true);
+    const expectedSize = 80 + 4 + triCount * 50;
+    console.log(`[BaitBridge] STL header: ${triCount} triangles, expected ${expectedSize} bytes`);
+    if (Math.abs(buffer.byteLength - expectedSize) > 10) {
+      return { success: false, error: `STL size mismatch: got ${buffer.byteLength} bytes, expected ${expectedSize} for ${triCount} triangles` };
+    }
 
     // Parse as binary STL
     const geo = parseSTL(buffer);
