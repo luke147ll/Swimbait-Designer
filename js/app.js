@@ -1,25 +1,340 @@
 /**
  * @file app.js
- * Entry point — scene init, renderer, camera, lights, grid, orbit controls,
- * render loop, resize handler, and UI wiring for the primitive-based editor.
+ * Entry point — scene, camera, lights, orbit, spline-driven Manifold ellipsoid pipeline.
+ *
+ * The spline editors (side profile, width profile, cross-section) drive the shape.
+ * Instead of building a triangle mesh (old genBody), we sample the splines at N stations
+ * and render a Three.js ellipsoid at each station for the viewport preview.
+ * The mold generator receives the station data and builds a real Manifold solid.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { initPrimitiveEditor, setPrimitiveColor, getPrimitives } from './primitives.js';
+import { superEllipse, NS, RS } from './engine.js';
+import { buildEyes, buildHookSlot } from './anatomy.js';
+import { loadPreset as applyPreset } from './presets.js';
+import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
+import { createSideEditor, createWidthEditor } from './editors.js';
+import { createXSecEditor } from './xsec-editor.js';
 
-let scene, cam, ren;
-let baitColor = 0x7a8e9a;
+let scene, cam, ren, bodyGroup, eyeGrpL, eyeGrpR, hsM, stationRing;
+let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
+
+const profileState = createProfileState();
+let sideEditor = null, widthEditor = null, xsecEditor = null;
+
+// ── Camera ──
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
   cam.lookAt(0, -.15, 0);
 }
 
+// ── Slider reading ──
+
+function getParams() {
+  return {
+    OL: +document.getElementById('sOL').value,
+    BD: +document.getElementById('sBD').value,
+    WR: +document.getElementById('sWR').value,
+    GP: +document.getElementById('sGP').value,
+    HL: +document.getElementById('sHL').value,
+    SB: +document.getElementById('sSB').value,
+    HW: +document.getElementById('sHW').value,
+    DA: +document.getElementById('sDA').value,
+    BF: +document.getElementById('sBF').value,
+    BT: +document.getElementById('sBT').value,
+    CS: 2.2,
+    SL: +document.getElementById('sSL').value,
+    SD: +document.getElementById('sSD').value,
+    SC: +document.getElementById('sSC').value,
+    TS: 0.80,
+    TT: +document.getElementById('sTT').value,
+    FD: +document.getElementById('sFD').value,
+    FA: +document.getElementById('sFA').value,
+    EP: +document.getElementById('sEP').value,
+    EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
+    ES: +document.getElementById('sES').value,
+    EB: +document.getElementById('sEB').value,
+    HS: +document.getElementById('sHS').value,
+    WP: 0,
+    tail: tailType,
+    stationCount: +document.getElementById('sST').value,
+  };
+}
+
+// ── Spline → Station sampling ──
+
+/**
+ * Sample spline profiles at N stations along the body.
+ * Returns station descriptors that drive the ellipsoid preview and mold transfer.
+ */
+function sampleSplines(stationCount) {
+  const p = getParams();
+  const OL = p.OL; // inches
+  const stations = [];
+
+  for (let i = 0; i <= stationCount; i++) {
+    const t = i / stationCount;
+    const ringIndex = Math.round(t * NS); // map to cached array (0-96)
+
+    const dorsalVal = profileState.dorsalCache[ringIndex];  // fraction of OL
+    const ventralVal = profileState.ventralCache[ringIndex]; // negative fraction
+    const widthVal = profileState.widthCache[ringIndex];     // fraction of OL
+
+    const dorsalHeight = dorsalVal * OL;           // inches
+    const ventralDepth = Math.abs(ventralVal) * OL; // inches (make positive)
+    const halfWidth = widthVal * OL;                // inches
+
+    stations.push({
+      t,
+      positionY: (-OL / 2 + t * OL) * 25.4,       // mm, centered at origin
+      dorsalHeight: dorsalHeight * 25.4,             // mm
+      ventralDepth: ventralDepth * 25.4,             // mm
+      halfWidth: halfWidth * 25.4,                   // mm
+    });
+  }
+
+  return stations;
+}
+
+// ── Ellipsoid preview (replaces old genBody triangle mesh) ──
+
+const bodyMat = new THREE.MeshPhysicalMaterial({
+  color: baitColor, metalness: 0.05, roughness: 0.42,
+  clearcoat: 0.6, clearcoatRoughness: 0.2, side: THREE.DoubleSide,
+});
+
+/**
+ * Build the 3D preview from station ellipsoids.
+ * Each station → a Three.js sphere scaled by (halfWidth, yOverlap, halfHeight).
+ */
+function rebuildEllipsoidPreview() {
+  if (!bodyGroup) return;
+
+  // Clear old ellipsoids
+  while (bodyGroup.children.length) {
+    const child = bodyGroup.children[0];
+    if (child.geometry) child.geometry.dispose();
+    bodyGroup.remove(child);
+  }
+
+  bodyMat.color.set(baitColor);
+
+  const p = getParams();
+  const stationCount = p.stationCount || 20;
+  const stations = sampleSplines(stationCount);
+
+  // Calculate Y spacing for ellipsoid overlap
+  const totalLength = Math.abs(stations[stations.length - 1].positionY - stations[0].positionY);
+  const spacing = stations.length > 1 ? totalLength / (stations.length - 1) : 1;
+  const yRadius = spacing * 0.75; // 50% overlap
+
+  for (const station of stations) {
+    const totalHeight = station.dorsalHeight + station.ventralDepth;
+    const halfHeight = totalHeight / 2;
+    const halfWidth = station.halfWidth;
+
+    // Skip degenerate stations
+    if (halfHeight < 0.3 || halfWidth < 0.3) continue;
+
+    // Vertical center offset for dorsal/ventral asymmetry
+    const zOffset = (station.dorsalHeight - station.ventralDepth) / 2;
+
+    const geo = new THREE.SphereGeometry(1, 20, 10);
+    geo.scale(halfWidth, yRadius, halfHeight);
+
+    const mesh = new THREE.Mesh(geo, bodyMat);
+    mesh.position.set(0, station.positionY, zOffset);
+    bodyGroup.add(mesh);
+  }
+
+  // Scale group from mm to viewport inches
+  bodyGroup.scale.setScalar(1 / 25.4);
+
+  // Expose stations for mold transfer
+  window.baitStations = stations;
+  window.bodyMesh = bodyGroup.children[0] || null;
+}
+
+// ── Scene rebuild ──
+
+function rebuildScene() {
+  const p = getParams();
+  const L = p.OL;
+
+  // Remove old accessories
+  [eyeGrpL, eyeGrpR, hsM].forEach(m => { if (m) scene.remove(m); });
+
+  // Rebuild ellipsoid body
+  rebuildEllipsoidPreview();
+
+  // Eyes
+  if (showEyes) {
+    const eyes = buildEyes(p, L, profileState);
+    eyeGrpL = eyes.eyeGrpL;
+    eyeGrpR = eyes.eyeGrpR;
+    scene.add(eyeGrpL);
+    scene.add(eyeGrpR);
+  } else {
+    eyeGrpL = null;
+    eyeGrpR = null;
+  }
+
+  // Hook slot
+  hsM = buildHookSlot(p, L);
+  if (hsM) scene.add(hsM);
+
+  // Stats
+  let maxD = 0, maxW = 0;
+  for (let i = 0; i <= 96; i++) {
+    const d = (profileState.dorsalCache[i] - profileState.ventralCache[i]) * L;
+    const w = profileState.widthCache[i] * L * 2;
+    if (d > maxD) maxD = d;
+    if (w > maxW) maxW = w;
+  }
+  const approxVol = L * maxD * maxW * 0.35;
+  const wOz = (approxVol * 1.1 * 0.035274).toFixed(1);
+  const stCount = p.stationCount || 20;
+  document.getElementById('stats').innerHTML =
+    `${L.toFixed(1)}" length<br>${maxD.toFixed(2)}" depth<br>${maxW.toFixed(2)}" width<br>~${wOz} oz<br>${stCount} stations`;
+
+  // Refresh editors
+  if (sideEditor) {
+    sideEditor.setEyePosition(p.EP || p.HL * 0.6);
+    sideEditor.refresh();
+  }
+  if (widthEditor) widthEditor.refresh();
+  if (xsecEditor) xsecEditor.refresh();
+
+  // Profile mode badge
+  const badge = document.getElementById('profileMode');
+  if (badge) {
+    const hasDeltas = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
+                      profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
+                      profileState.wDelta.some(d => Math.abs(d) > 0.0001);
+    badge.textContent = hasDeltas ? 'EDITED' : 'BASE';
+    badge.className = 'ed-mode ' + (hasDeltas ? 'manual' : 'sliders');
+  }
+}
+
+// ── Update (slider change) ──
+
+function update() {
+  const p = getParams();
+  const L = p.OL;
+
+  // Display values
+  document.getElementById('vOL').textContent = L.toFixed(1) + '"';
+  document.getElementById('vBD').textContent = p.BD.toFixed(2);
+  document.getElementById('vWR').textContent = p.WR.toFixed(2);
+  document.getElementById('vGP').textContent = Math.round(p.GP * 100) + '%';
+  document.getElementById('vHL').textContent = Math.round(p.HL * 100) + '%';
+  document.getElementById('vSB').textContent = p.SB.toFixed(2);
+  document.getElementById('vHW').textContent = p.HW.toFixed(2);
+  document.getElementById('vDA').textContent = p.DA.toFixed(2);
+  document.getElementById('vBF').textContent = p.BF.toFixed(2);
+  document.getElementById('vBT').textContent = p.BT.toFixed(2);
+  document.getElementById('vSL').textContent = Math.round(p.SL * 100) + '%';
+  document.getElementById('vSD').textContent = p.SD.toFixed(2);
+  document.getElementById('vSC').textContent = p.SC.toFixed(2);
+  document.getElementById('vTT').textContent = p.TT.toFixed(2);
+  document.getElementById('vFD').textContent = p.FD.toFixed(2);
+  document.getElementById('vFA').textContent = p.FA.toFixed(2);
+  document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
+  document.getElementById('vES').textContent = p.ES.toFixed(2);
+  document.getElementById('vEB').textContent = p.EB.toFixed(2);
+  document.getElementById('vHS').textContent = p.HS.toFixed(2);
+  document.getElementById('vST').textContent = p.stationCount;
+
+  // Regenerate profiles from sliders + manual deltas
+  const base = buildProfilesFromSliders(p);
+  while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
+  while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
+  while (profileState.wDelta.length < base.width.length) profileState.wDelta.push(0);
+
+  profileState.dorsal = base.dorsal.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.dDelta[i]
+  }));
+  profileState.ventral = base.ventral.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.vDelta[i]
+  }));
+  profileState.width = base.width.map((pt, i) => ({
+    ...pt, v: pt.v + profileState.wDelta[i]
+  }));
+
+  rebuildProfileCache(profileState, p.CS, p.HL);
+  rebuildScene();
+}
+
+function onSliderInput() {
+  update();
+}
+
+function onXSecEdit() {
+  rebuildScene();
+}
+
+function showStationRing(stationIdx) {
+  const tNorm = stationIdx / NS;
+  if (sideEditor && sideEditor.setStationMarker) sideEditor.setStationMarker(tNorm);
+  if (widthEditor && widthEditor.setStationMarker) widthEditor.setStationMarker(tNorm);
+  if (stationRing) scene.remove(stationRing);
+  if (stationIdx < 1 || stationIdx > NS) { stationRing = null; return; }
+
+  const p = getParams();
+  const L = p.OL, hL = L / 2;
+  const x = -hL + tNorm * L;
+  const dY = profileState.dorsalCache[stationIdx] * L;
+  const vY = profileState.ventralCache[stationIdx] * L;
+  const hW = Math.max(profileState.widthCache[stationIdx] * L, 0.004);
+  const cy = (dY + vY) / 2;
+  const dH = Math.max(dY - cy, 0.003);
+  const vH = Math.max(cy - vY, 0.003);
+  const n = profileState.nCache[stationIdx];
+
+  const bump = 1.03;
+  const pts = [];
+  for (let j = 0; j <= RS; j++) {
+    const angle = (j / RS) * Math.PI * 2;
+    const se = superEllipse(angle, dH * bump, vH * bump, hW * bump, Math.max(n, 1.8));
+    pts.push(new THREE.Vector3(x, se.y + cy, se.z));
+  }
+
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: 0xc4a04a, depthTest: false, transparent: true, opacity: 0.8 });
+  stationRing = new THREE.LineLoop(geo, mat);
+  stationRing.renderOrder = 999;
+  scene.add(stationRing);
+}
+
+function onProfileEdit() {
+  const base = buildProfilesFromSliders(getParams());
+  for (let i = 0; i < base.dorsal.length; i++) {
+    profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
+    profileState.vDelta[i] = (profileState.ventral[i]?.v ?? base.ventral[i].v) - base.ventral[i].v;
+    profileState.wDelta[i] = (profileState.width[i]?.v ?? base.width[i].v) - base.width[i].v;
+  }
+  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
+  rebuildScene();
+}
+
+// ── UI handlers ──
+
 function setColor(el) {
   document.querySelectorAll('.cs').forEach(e => e.classList.remove('on'));
   el.classList.add('on');
   baitColor = parseInt(el.dataset.c);
-  setPrimitiveColor(baitColor);
+  update();
+}
+
+function loadPreset(name) {
+  const newTail = applyPreset(name);
+  if (newTail === null) return;
+  tailType = newTail;
+  profileState.dDelta = [];
+  profileState.vDelta = [];
+  profileState.wDelta = [];
+  update();
 }
 
 function snapView(view) {
@@ -29,23 +344,28 @@ function snapView(view) {
   updateCamera();
 }
 
+function toggleEditors() {
+  const el = document.getElementById('editors');
+  const arrow = document.getElementById('edToggleArrow');
+  const visible = el.style.display !== 'none';
+  el.style.display = visible ? 'none' : 'block';
+  arrow.textContent = visible ? '▸' : '▾';
+}
+
 function switchTab(btn) {
   const viewId = btn.dataset.view;
   const pnl = document.getElementById('pnlControls');
-
   document.querySelectorAll('.mob-view').forEach(el => el.classList.remove('active'));
-
   if (viewId === 'home') {
     if (pnl) pnl.style.display = 'flex';
   } else {
     if (pnl) pnl.style.display = 'none';
+    if (window._initMobEditors) window._initMobEditors();
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
   }
-
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   btn.classList.add('on');
-
   setTimeout(() => {
     const vp = document.getElementById('vp');
     if (vp && vp.clientWidth > 0) {
@@ -56,11 +376,9 @@ function switchTab(btn) {
   }, 50);
 }
 
-// ── Panel resize drag ──
 function initPanelResize() {
   const handle = document.getElementById('pnlResize');
   if (!handle) return;
-
   handle.addEventListener('mousedown', e => {
     e.preventDefault();
     const onMove = ev => {
@@ -78,6 +396,8 @@ function initPanelResize() {
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      if (sideEditor) sideEditor.refresh();
+      if (widthEditor) widthEditor.refresh();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -85,6 +405,8 @@ function initPanelResize() {
     document.body.style.userSelect = 'none';
   });
 }
+
+// ── Init ──
 
 function init() {
   const vp = document.getElementById('vp');
@@ -104,6 +426,10 @@ function init() {
   const d3 = new THREE.DirectionalLight(0xffffff, 0.25); d3.position.set(0, -4, 2); scene.add(d3);
 
   const g = new THREE.GridHelper(16, 32, 0x252522, 0x1a1a17); g.position.y = -2.2; scene.add(g);
+
+  // Body ellipsoid group
+  bodyGroup = new THREE.Group();
+  scene.add(bodyGroup);
 
   // ── Orbit controls: mouse ──
   vp.addEventListener('pointerdown', e => {
@@ -132,14 +458,11 @@ function init() {
   // ── Orbit controls: touch ──
   let touchStartDist = 0;
   let touchStartOd = od;
-
   vp.addEventListener('touchstart', e => {
     if (e.target.closest('.view-btns')) return;
     e.preventDefault();
     if (e.touches.length === 1) {
-      drag = true;
-      px = e.touches[0].clientX;
-      py = e.touches[0].clientY;
+      drag = true; px = e.touches[0].clientX; py = e.touches[0].clientY;
     } else if (e.touches.length === 2) {
       drag = false;
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -148,7 +471,6 @@ function init() {
       touchStartOd = od;
     }
   }, { passive: false });
-
   vp.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && drag) {
@@ -167,36 +489,65 @@ function init() {
       }
     }
   }, { passive: false });
-
   vp.addEventListener('touchend', () => { drag = false; });
 
-  // ── Touch hints ──
+  // Touch hints
   const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const hint = document.getElementById('rhHint');
   if (hint && isTouch) hint.textContent = 'Drag to orbit / pinch to zoom';
+  const edHint = document.getElementById('edHint');
+  if (edHint && isTouch) edHint.textContent = 'Tap point to drag / pinch to zoom';
 
-  // ── Initialize primitive editor ──
-  initPrimitiveEditor(scene);
-  initPanelResize();
+  // ── Initialize spline editors ──
+  const isMobile = window.innerWidth <= 480;
+
+  if (!isMobile) {
+    const sideContainer = document.getElementById('sideEditorContainer');
+    const widthContainer = document.getElementById('widthEditorContainer');
+    if (sideContainer) sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
+    if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
+    const xsecContainer = document.getElementById('xsecEditorContainer');
+    if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit, showStationRing);
+    initPanelResize();
+  }
+
+  // Phone: create editors lazily
+  let mobEditorsCreated = false;
+  window._initMobEditors = function() {
+    if (mobEditorsCreated) return;
+    const sideMob = document.getElementById('sideEditorMob');
+    const widthMob = document.getElementById('widthEditorMob');
+    if (sideMob && !sideMob.querySelector('svg')) sideEditor = createSideEditor(sideMob, profileState, onProfileEdit);
+    if (widthMob && !widthMob.querySelector('svg')) widthEditor = createWidthEditor(widthMob, profileState, onProfileEdit);
+    const xsecMob = document.getElementById('xsecEditorMob');
+    if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit, showStationRing);
+    mobEditorsCreated = true;
+  };
 
   updateCamera();
+  update(); // initial build from default slider values
 
-  // Check auth, load saved/shared design from URL if present
+  if (xsecEditor) {
+    const defaultStation = xsecEditor.getStation ? xsecEditor.getStation() : 33;
+    showStationRing(defaultStation);
+  }
+
+  // Check auth
   initAuth();
 
   (function animate() { requestAnimationFrame(animate); ren.render(scene, cam); })();
 
-  function onResize() {
+  window.addEventListener('resize', () => {
     if (vp.clientWidth > 0 && vp.clientHeight > 0) {
       cam.aspect = vp.clientWidth / vp.clientHeight;
       cam.updateProjectionMatrix();
       ren.setSize(vp.clientWidth, vp.clientHeight);
     }
-  }
-  window.addEventListener('resize', onResize);
+  });
 }
 
 // ── Auth + save/load ──
+
 let currentUser = null;
 let currentDesignId = null;
 let currentDesignName = '';
@@ -210,7 +561,6 @@ function showLoggedInUI(user) {
   const signinEl = document.getElementById('authSignin');
   const userEl = document.getElementById('authUser');
   const usernameEl = document.getElementById('authUsername');
-
   if (avatarEl) avatarEl.style.display = 'flex';
   if (monoEl) monoEl.textContent = mono;
   if (signinEl) signinEl.style.display = 'none';
@@ -227,14 +577,12 @@ function showLoggedOutUI() {
   if (userEl) userEl.style.display = 'none';
 }
 
-function showReadOnlyMode(name) {
+function showReadOnlyMode() {
   isReadOnly = true;
   const banner = document.getElementById('readonlyBanner');
   if (banner) banner.style.display = 'flex';
-  const signinEl = document.getElementById('authSignin');
-  if (signinEl) signinEl.style.display = 'none';
-  const userEl = document.getElementById('authUser');
-  if (userEl) userEl.style.display = 'none';
+  document.getElementById('authSignin')?.style && (document.getElementById('authSignin').style.display = 'none');
+  document.getElementById('authUser')?.style && (document.getElementById('authUser').style.display = 'none');
 }
 
 function toggleDesignerMenu() {
@@ -250,26 +598,40 @@ async function logoutDesigner() {
   window.location.reload();
 }
 
-// ── Design state (primitives-based) ──
+// ── Design state ──
 
 function getDesignState() {
+  const p = getParams();
   return JSON.stringify({
-    primitives: getPrimitives(),
+    sliders: p,
+    dorsal: profileState.dorsal,
+    ventral: profileState.ventral,
+    width: profileState.width,
+    dDelta: profileState.dDelta,
+    vDelta: profileState.vDelta,
+    wDelta: profileState.wDelta,
+    xsecKeyframes: profileState.xsecKeyframes,
+    xsecBlendRadii: profileState.xsecBlendRadii,
+    tailType,
     baitColor,
   });
 }
 
 function loadDesignState(state) {
-  if (state.primitives) {
-    // Replace primitives and rebuild
-    window.loadPreset && window.loadPreset(null); // clear first
-    // Directly set primitives via the global
-    window.baitPrimitives = state.primitives;
+  if (state.sliders) {
+    for (const [key, val] of Object.entries(state.sliders)) {
+      const el = document.getElementById('s' + key);
+      if (el) el.value = val;
+    }
   }
-  if (state.baitColor) {
-    baitColor = state.baitColor;
-    setPrimitiveColor(baitColor);
-  }
+  if (state.tailType) tailType = state.tailType;
+  if (state.baitColor) baitColor = state.baitColor;
+  if (state.dDelta) profileState.dDelta = state.dDelta;
+  if (state.vDelta) profileState.vDelta = state.vDelta;
+  if (state.wDelta) profileState.wDelta = state.wDelta;
+  if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
+  if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
+  update();
 }
 
 async function initAuth() {
@@ -285,7 +647,6 @@ async function initAuth() {
     showLoggedOutUI();
   }
 
-  // Restore stashed design from pre-login state
   if (currentUser) {
     const stashed = localStorage.getItem('sd_pending_design');
     if (stashed) {
@@ -299,19 +660,15 @@ async function initAuth() {
     }
   }
 
-  // Check for shared design URL: /d/{designId}
   const shareMatch = window.location.pathname.match(/^\/d\/([\w-]+)$/);
   if (shareMatch) {
     await loadSharedDesign(shareMatch[1]);
     return;
   }
 
-  // Check for ?design={id} (own saved design)
   const params = new URLSearchParams(window.location.search);
   const designId = params.get('design');
-  if (designId) {
-    await loadDesignFromAPI(designId);
-  }
+  if (designId) await loadDesignFromAPI(designId);
 }
 
 async function saveDesign() {
@@ -320,36 +677,26 @@ async function saveDesign() {
     window.location = '/login';
     return;
   }
-
   const btn = document.getElementById('saveBtn');
   btn.textContent = 'Saving...';
   btn.disabled = true;
-
   try {
     ren.render(scene, cam);
     const thumbnail = ren.domElement.toDataURL('image/jpeg', 0.7);
+    const p = getParams();
     const nameInput = document.getElementById('designNameInput');
     const name = nameInput.value.trim() || 'Untitled design';
-
     const body = {
       name,
       species: 'custom',
-      tailType: 'primitive',
-      length: 0,
+      tailType,
+      length: p.OL,
       stateJSON: getDesignState(),
       thumbnail,
     };
-
     const url = currentDesignId ? `/api/designs/${currentDesignId}` : '/api/designs';
     const method = currentDesignId ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
+    const res = await fetch(url, { method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (res.ok) {
       const data = await res.json();
       currentDesignId = data.id;
@@ -370,10 +717,7 @@ async function saveDesign() {
 async function loadDesignFromAPI(designId) {
   try {
     const res = await fetch(`/api/designs/${designId}`, { credentials: 'include' });
-    if (!res.ok) {
-      window.history.replaceState({}, '', '/');
-      return;
-    }
+    if (!res.ok) { window.history.replaceState({}, '', '/'); return; }
     const design = await res.json();
     const state = JSON.parse(design.stateJSON);
     loadDesignState(state);
@@ -393,7 +737,7 @@ async function loadSharedDesign(designId) {
     const design = await res.json();
     const state = JSON.parse(design.stateJSON);
     loadDesignState(state);
-    showReadOnlyMode(design.name);
+    showReadOnlyMode();
     window._sharedDesignState = design;
   } catch {}
 }
@@ -402,38 +746,39 @@ async function forkDesign() {
   if (!currentUser) { window.location = '/login'; return; }
   const shared = window._sharedDesignState;
   if (!shared) return;
-
   const body = {
     name: (shared.name || 'Shared design') + ' (fork)',
     species: shared.species || 'custom',
-    tailType: 'primitive',
-    length: 0,
+    tailType: shared.tailType || 'paddle',
+    length: shared.length || 8,
     stateJSON: shared.stateJSON,
   };
-
-  const res = await fetch('/api/designs', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
+  const res = await fetch('/api/designs', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (res.ok) {
     const data = await res.json();
     window.location = `/?design=${data.id}`;
   }
 }
 
-async function sendToMoldGenerator() {
-  const primitives = getPrimitives();
+// ── Mold generator transfer — sends station data ──
 
-  const payload = JSON.stringify({ type: 'primitives', name: 'designed_bait', primitives });
+async function sendToMoldGenerator() {
+  const p = getParams();
+  const stations = sampleSplines(p.stationCount || 20);
+
+  const payload = JSON.stringify({
+    type: 'stations',
+    name: currentDesignName || 'designed_bait',
+    OL: p.OL,
+    stationCount: stations.length,
+    stations,
+  });
 
   try {
     const res = await fetch('/api/mold-transfer', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('Upload failed: ' + res.status);
     const data = await res.json();
-    console.log('[SBD] Primitives uploaded, token:', data.token);
+    console.log('[SBD] Stations uploaded, token:', data.token);
 
     const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `http://localhost:5173?transfer=${data.token}`
@@ -445,19 +790,31 @@ async function sendToMoldGenerator() {
   }
 }
 
-// Expose to inline HTML handlers
+// ── Expose to HTML ──
+
+window.onSliderInput = onSliderInput;
 window.setColor = setColor;
+window.loadPreset = loadPreset;
 window.snapView = snapView;
 window.switchTab = switchTab;
+window.toggleEditors = toggleEditors;
 window.saveDesign = saveDesign;
 window.sendToMoldGenerator = sendToMoldGenerator;
 window.toggleDesignerMenu = toggleDesignerMenu;
 window.logoutDesigner = logoutDesigner;
 window.forkDesign = forkDesign;
+window.toggleEyes = function(btn) {
+  showEyes = !showEyes;
+  btn.textContent = showEyes ? 'On' : 'Off';
+  btn.classList.toggle('on', showEyes);
+  document.getElementById('eyeSliders').style.display = showEyes ? 'block' : 'none';
+  rebuildScene();
+};
 window.stashAndLogin = function(e) {
   e.preventDefault();
   try { localStorage.setItem('sd_pending_design', getDesignState()); } catch {}
   window.location = '/login';
 };
+window.profileState = profileState;
 
 init();
