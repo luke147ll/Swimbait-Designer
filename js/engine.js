@@ -196,13 +196,15 @@ export function genBody(p, profiles) {
   // ═══════════════════════════════════════════════════════════
 
   {
-    // Create a nose point slightly ahead of ring 0
-    const noseX = -hL - 0.01; // just ahead of the nose ring
+    // Create nose cap points OFFSET from Z=0 so no cap triangles
+    // touch the parting plane. Right point at +Z, left at -Z.
+    const noseX = -hL - 0.01;
     const noseCy = (profiles.dorsalCache[0] * L + profiles.ventralCache[0] * L) / 2;
+    const noseZOff = Math.max(profiles.widthCache[0] * L * 0.1, 0.005);
     const noseIdx = pos.length / 3;
-    pos.push(noseX, noseCy, 0); // right nose point (Z=0+)
+    pos.push(noseX, noseCy, noseZOff);   // right nose point (Z > 0)
     const noseIdxL = pos.length / 3;
-    pos.push(noseX, noseCy, 0); // left nose point (Z=0-, but at 0 it's same pos, different idx)
+    pos.push(noseX, noseCy, -noseZOff);  // left nose point (Z < 0)
 
     // Right nose: fan from nose point to ring 0
     for (let j = 0; j < HRS; j++) {
@@ -220,12 +222,13 @@ export function genBody(p, profiles) {
 
   {
     const lastRing = NS * vertsPerRing;
-    const tailX = hL + 0.01; // just behind the tail ring
+    const tailX = hL + 0.01;
     const tailCy = (profiles.dorsalCache[NS] * L + profiles.ventralCache[NS] * L) / 2;
+    const tailZOff = Math.max(profiles.widthCache[NS] * L * 0.1, 0.005);
     const tailIdx = pos.length / 3;
-    pos.push(tailX, tailCy, 0);
+    pos.push(tailX, tailCy, tailZOff);
     const tailIdxL = pos.length / 3;
-    pos.push(tailX, tailCy, 0);
+    pos.push(tailX, tailCy, -tailZOff);
 
     // Right tail
     for (let j = 0; j < HRS; j++) {
