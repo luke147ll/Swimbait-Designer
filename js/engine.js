@@ -192,29 +192,32 @@ export function genBody(p, profiles) {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // NOSE CAP: fan from ring 0's dorsal vertex to close the front
+  // NOSE CAP: fan from dorsal vertex to close the front
+  // Covers both right and left half-shells
   // ═══════════════════════════════════════════════════════════
 
-  // Right nose cap
-  for (let j = 0; j < HRS - 1; j++) {
-    idx.push(0, j + 1, j + 2);
+  // Right nose cap (dorsal vertex 0 → ventral vertex HRS)
+  for (let j = 0; j < HRS; j++) {
+    idx.push(0, j, j + 1);
   }
-  // Left nose cap
-  for (let j = 0; j < HRS - 1; j++) {
-    idx.push(leftIdx[0], leftIdx[j + 2], leftIdx[j + 1]);
+  // Left nose cap (mirrors right, reversed winding)
+  for (let j = 0; j < HRS; j++) {
+    idx.push(leftIdx[0], leftIdx[j + 1], leftIdx[j]);
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TAIL CAP: only when no fork
+  // TAIL CAP: ALWAYS generated (closed solid required for mold CSG)
   // ═══════════════════════════════════════════════════════════
 
-  if (forkDepth < 0.01) {
+  {
     const lastRing = NS * vertsPerRing;
-    for (let j = 0; j < HRS - 1; j++) {
-      idx.push(lastRing, lastRing + j + 1, lastRing + j + 2);
+    // Right tail cap
+    for (let j = 0; j < HRS; j++) {
+      idx.push(lastRing, lastRing + j + 1, lastRing + j);
     }
-    for (let j = 0; j < HRS - 1; j++) {
-      idx.push(leftIdx[lastRing], leftIdx[lastRing + j + 2], leftIdx[lastRing + j + 1]);
+    // Left tail cap
+    for (let j = 0; j < HRS; j++) {
+      idx.push(leftIdx[lastRing], leftIdx[lastRing + j], leftIdx[lastRing + j + 1]);
     }
   }
 
