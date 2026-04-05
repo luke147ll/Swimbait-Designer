@@ -244,7 +244,21 @@ export function threeToManifold(geometry: THREE.BufferGeometry): ManifoldSolid {
     }
   }
 
-  throw new Error('Could not create Manifold from mesh. The mesh may not be watertight. Try repairing in MeshLab or export as STL from the designer.');
+  // Last resort: create a convex hull from the mesh vertices.
+  // This loses concavities but is guaranteed manifold.
+  console.log('[CSG] All mesh imports failed. Building convex hull from vertices...');
+  try {
+    const vec = new wasm.Vector_vec3();
+    for (let i = 0; i < numVerts; i++) {
+      vec.push_back({ x: vertProperties[i * 3], y: vertProperties[i * 3 + 1], z: vertProperties[i * 3 + 2] });
+    }
+    const hull = wasm.Manifold.hull(vec);
+    vec.delete();
+    console.log(`[CSG] Hull created: ${hull.numVert()} verts, ${hull.numTri()} tris`);
+    return hull;
+  } catch (hullErr) {
+    throw new Error(`Could not create Manifold from mesh (hull also failed: ${hullErr}). The mesh may not be watertight.`);
+  }
 }
 
 export function manifoldToThree(manifold: ManifoldSolid): THREE.BufferGeometry {
