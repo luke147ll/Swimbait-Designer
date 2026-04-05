@@ -1,37 +1,9 @@
 import * as THREE from 'three';
-import { threeToManifold, mBox, mSubtract, mTranslate, mDispose, type ManifoldSolid } from '../csg';
+import { threeToManifold, mBox, mSubtract, mUnion, mTranslate, type ManifoldSolid } from '../csg';
 import type { MoldConfig } from '../types';
 
 const MIN_WALL = 3;
 
-/** Keep only the largest connected component, discard floating shells */
-function keepLargest(solid: ManifoldSolid): ManifoldSolid {
-  try {
-    const parts = solid.decompose();
-    if (!parts || !Array.isArray(parts) || parts.length <= 1) return solid;
-
-    let largestIdx = 0;
-    let largestTris = parts[0].numTri();
-    for (let i = 1; i < parts.length; i++) {
-      const tris = parts[i].numTri();
-      if (tris > largestTris) {
-        largestIdx = i;
-        largestTris = tris;
-      }
-    }
-
-    // Dispose all except the largest
-    for (let i = 0; i < parts.length; i++) {
-      if (i !== largestIdx) mDispose(parts[i]);
-    }
-
-    console.log(`[BaitSubtraction] Kept largest component (${largestTris} tris), discarded ${parts.length - 1} shells`);
-    return parts[largestIdx];
-  } catch (e) {
-    console.warn('[BaitSubtraction] decompose failed, using original:', e);
-    return solid;
-  }
-}
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
   const geo = geometry.clone();
@@ -96,15 +68,32 @@ export class BaitSubtraction {
 
     console.log(`[BaitSubtraction] Box: ${boxX.toFixed(1)} × ${boxY.toFixed(1)} × ${halfZ.toFixed(1)} mm per half`);
 
-    // Get Manifold solid and shift 0.1mm in +Z so no bait faces
-    // sit exactly on the Z=0 parting plane (prevents co-planar membrane)
+    // Get Manifold solid
     let baitM: ManifoldSolid;
     if (baitManifold && !texturedBaitMesh) {
-      console.log('[BaitSubtraction] Using native Manifold solid (+0.1mm Z shift)');
-      baitM = baitManifold.translate([0, 0, 0.1]);
+      console.log('[BaitSubtraction] Using native Manifold solid');
+      baitM = baitManifold;
     } else {
       console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
-      baitM = threeToManifold(offsetBait).translate([0, 0, 0.1]);
+      baitM = threeToManifold(offsetBait);
+    }
+
+    // The designer mesh is two half-shells that touch at Z=0 but are
+    // separate solids. Fuse them into one solid by decomposing and
+    // unioning, so the subtraction produces a clean single cavity.
+    try {
+      const parts = baitM.decompose();
+      if (Array.isArray(parts) && parts.length > 1) {
+        console.log(`[BaitSubtraction] Bait has ${parts.length} components, fusing into one solid...`);
+        let fused = parts[0];
+        for (let i = 1; i < parts.length; i++) {
+          fused = mUnion(fused, parts[i]);
+        }
+        baitM = fused;
+        console.log(`[BaitSubtraction] Fused: ${baitM.numVert()} verts, ${baitM.numTri()} tris`);
+      }
+    } catch (e) {
+      console.warn('[BaitSubtraction] Fuse failed, using as-is:', e);
     }
 
     // Build mold boxes — parting face at Z=0
@@ -115,16 +104,10 @@ export class BaitSubtraction {
     const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2);
 
     console.log('[BaitSubtraction] Subtracting bait from halfA...');
-    let halfA = mSubtract(boxAM, baitM);
+    const halfA = mSubtract(boxAM, baitM);
 
     console.log('[BaitSubtraction] Subtracting bait from halfB...');
-    let halfB = mSubtract(boxBM, baitM);
-
-    // Keep only the largest connected component from each half.
-    // The subtraction may leave disconnected shells (internal cap faces
-    // from the bait mesh become floating geometry inside the cavity).
-    halfA = keepLargest(halfA);
-    halfB = keepLargest(halfB);
+    const halfB = mSubtract(boxBM, baitM);
 
     const elapsed = (performance.now() - startTime).toFixed(1);
     console.log(`[BaitSubtraction] Done in ${elapsed}ms`);
