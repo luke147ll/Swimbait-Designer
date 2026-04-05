@@ -83,17 +83,27 @@ export default {
       } else if (path.match(/^\/api\/public\/[\w-]+$/) && method === 'GET') {
         response = await handlePublicDesign(request, env, path.split('/').pop());
 
-      // Mold transfer — store geometry temporarily for cross-subdomain handoff
+      // Mold transfer — store primitives JSON or binary STL temporarily
       } else if (path === '/api/mold-transfer' && method === 'POST') {
-        const body = await request.arrayBuffer();
+        const contentType = request.headers.get('Content-Type') || '';
         const token = crypto.randomUUID().slice(0, 12);
-        // Store as base64 string to avoid KV binary encoding issues
-        const bytes = new Uint8Array(body);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        const b64 = btoa(binary);
-        await env.USERS.put(`mold-transfer:${token}`, b64, { expirationTtl: 900 });
-        console.log(`[mold-transfer] Stored ${body.byteLength} bytes as base64 (${b64.length} chars), token: ${token}`);
+
+        if (contentType.includes('application/json')) {
+          // Primitives JSON — store as-is
+          const text = await request.text();
+          await env.USERS.put(`mold-transfer:${token}`, text, { expirationTtl: 900 });
+          await env.USERS.put(`mold-transfer-type:${token}`, 'json', { expirationTtl: 900 });
+          console.log(`[mold-transfer] Stored JSON (${text.length} chars), token: ${token}`);
+        } else {
+          // Binary STL — store as base64
+          const body = await request.arrayBuffer();
+          const bytes = new Uint8Array(body);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          await env.USERS.put(`mold-transfer:${token}`, btoa(binary), { expirationTtl: 900 });
+          await env.USERS.put(`mold-transfer-type:${token}`, 'binary', { expirationTtl: 900 });
+          console.log(`[mold-transfer] Stored binary (${body.byteLength} bytes), token: ${token}`);
+        }
         response = jsonResponse({ token });
 
       } else if (path === '/api/mold-transfer' && method === 'GET') {
@@ -101,19 +111,22 @@ export default {
         if (!token) {
           response = jsonResponse({ error: 'Missing token' }, 400);
         } else {
-          const b64 = await env.USERS.get(`mold-transfer:${token}`, 'text');
-          if (!b64) {
+          const data = await env.USERS.get(`mold-transfer:${token}`, 'text');
+          const dataType = await env.USERS.get(`mold-transfer-type:${token}`, 'text') || 'binary';
+          if (!data) {
             response = jsonResponse({ error: 'Transfer expired or not found' }, 404);
           } else {
             await env.USERS.delete(`mold-transfer:${token}`);
-            // Decode base64 back to binary
-            const binary = atob(b64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            console.log(`[mold-transfer] Retrieved ${bytes.length} bytes from base64`);
-            response = new Response(bytes.buffer, {
-              headers: { 'Content-Type': 'application/octet-stream' },
-            });
+            await env.USERS.delete(`mold-transfer-type:${token}`);
+
+            if (dataType === 'json') {
+              response = new Response(data, { headers: { 'Content-Type': 'application/json' } });
+            } else {
+              const binary = atob(data);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              response = new Response(bytes.buffer, { headers: { 'Content-Type': 'application/octet-stream' } });
+            }
           }
         }
 

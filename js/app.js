@@ -779,54 +779,23 @@ window.bodyMesh = null;
 window.profileState = profileState;
 
 async function sendToMoldGenerator() {
-  if (!bodyMesh || !bodyMesh.geometry) {
-    alert('Design a bait first');
-    return;
-  }
-  const geo = bodyMesh.geometry;
-  const p = getParams();
+  // Use the default paddletail primitives for now
+  // (will be replaced with user-editable primitives in the designer UI)
+  const primitives = window.baitPrimitives || [
+    { id:'body', type:'sphere', label:'Body', position:{x:0,y:0,z:0}, rotation:{x:0,y:0,z:0}, scale:{x:9,y:32,z:7}, params:{radius:1,segments:32}, operation:'union', visible:true },
+    { id:'head', type:'sphere', label:'Head', position:{x:0,y:26,z:0.5}, rotation:{x:0,y:0,z:0}, scale:{x:8,y:6,z:7}, params:{radius:1,segments:32}, operation:'union', visible:true },
+    { id:'tail', type:'cone', label:'Tail Taper', position:{x:0,y:-30,z:-0.5}, rotation:{x:90,y:0,z:0}, scale:{x:1,y:1,z:0.65}, params:{radiusBottom:7,height:20,segments:32}, operation:'union', visible:true },
+    { id:'ped', type:'cylinder', label:'Peduncle', position:{x:0,y:-40,z:-0.5}, rotation:{x:90,y:0,z:0}, scale:{x:1,y:1,z:0.6}, params:{radiusTop:2.5,radiusBottom:2.5,height:6,segments:16}, operation:'union', visible:true },
+    { id:'paddle', type:'sphere', label:'Paddle', position:{x:0,y:-46,z:-1}, rotation:{x:0,y:0,z:0}, scale:{x:7,y:3.5,z:1.8}, params:{radius:1,segments:24}, operation:'union', visible:true },
+  ];
 
-  // Export as binary STL — this produces clean non-indexed triangle soup
-  // that Manifold can import without topology issues
-  const nonIndexed = geo.index ? geo.toNonIndexed() : geo.clone();
-  nonIndexed.computeVertexNormals();
-  const positions = nonIndexed.attributes.position;
-  const normals = nonIndexed.attributes.normal;
-  const triCount = positions.count / 3;
+  const payload = JSON.stringify({ type: 'primitives', name: 'designed_bait', primitives });
 
-  const stlSize = 80 + 4 + triCount * 50;
-  const buffer = new ArrayBuffer(stlSize);
-  const dv = new DataView(buffer);
-
-  // STL header
-  const header = `SBD Designer Export - ${p.OL}in bait`;
-  for (let i = 0; i < 80; i++) dv.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
-  dv.setUint32(80, triCount, true);
-
-  let off = 84;
-  for (let t = 0; t < triCount; t++) {
-    const i = t * 3;
-    // Face normal (average of vertex normals)
-    const nx = (normals.getX(i) + normals.getX(i+1) + normals.getX(i+2)) / 3;
-    const ny = (normals.getY(i) + normals.getY(i+1) + normals.getY(i+2)) / 3;
-    const nz = (normals.getZ(i) + normals.getZ(i+1) + normals.getZ(i+2)) / 3;
-    dv.setFloat32(off, nx, true); off += 4;
-    dv.setFloat32(off, ny, true); off += 4;
-    dv.setFloat32(off, nz, true); off += 4;
-    for (let v = 0; v < 3; v++) {
-      dv.setFloat32(off, positions.getX(i+v), true); off += 4;
-      dv.setFloat32(off, positions.getY(i+v), true); off += 4;
-      dv.setFloat32(off, positions.getZ(i+v), true); off += 4;
-    }
-    dv.setUint16(off, 0, true); off += 2;
-  }
-
-  // POST to Worker API
   try {
-    const res = await fetch('/api/mold-transfer', { method: 'POST', body: buffer });
+    const res = await fetch('/api/mold-transfer', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('Upload failed: ' + res.status);
     const data = await res.json();
-    console.log('[SBD] Bait uploaded, token:', data.token);
+    console.log('[SBD] Primitives uploaded, token:', data.token);
 
     const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `http://localhost:5173?transfer=${data.token}`
@@ -834,7 +803,7 @@ async function sendToMoldGenerator() {
     window.open(moldUrl, '_blank');
   } catch (e) {
     console.error('[SBD] Transfer failed:', e);
-    alert('Failed to transfer bait. Try exporting STL and importing manually.');
+    alert('Failed to transfer bait.');
   }
 }
 window.sendToMoldGenerator = sendToMoldGenerator;

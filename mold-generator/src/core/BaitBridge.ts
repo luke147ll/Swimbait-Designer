@@ -1,13 +1,14 @@
 /**
  * BaitBridge — handles handoff from Swimbait Designer to Mold Generator.
  *
- * Transfer: binary STL via Worker API KV.
- * Manifold solid: built from profile ellipsoids (same as sample bait),
- * NOT from Three.js mesh conversion. This guarantees manifold output.
+ * Two transfer modes:
+ * 1. Primitives JSON (new system) — rebuilds identical Manifold solid
+ * 2. Binary STL (legacy/import) — builds from profile ellipsoids
  */
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
+import { buildBait, type BaitPrimitive } from './BaitPrimitives';
 
 const INCHES_TO_MM = 25.4;
 const API_BASE = 'https://swimbaitdesigner.com';
@@ -37,12 +38,9 @@ function parseSTL(buffer: ArrayBuffer): THREE.BufferGeometry {
 }
 
 /**
- * Build a Manifold solid from vertex positions by creating overlapping
- * ellipsoids at cross-section stations — same technique as createSampleBait.
- * Guaranteed manifold, no Three.js→Manifold conversion needed.
+ * Build Manifold from profile ellipsoids (fallback for STL imports)
  */
-function buildManifoldFromVertices(positions: Float32Array, vertCount: number): ManifoldSolid {
-  // Scale inches → mm
+function buildFromVertices(positions: Float32Array, vertCount: number): ManifoldSolid {
   const pts: { x: number; y: number; z: number }[] = [];
   for (let i = 0; i < vertCount; i++) {
     pts.push({
@@ -51,102 +49,79 @@ function buildManifoldFromVertices(positions: Float32Array, vertCount: number): 
       z: positions[i * 3 + 2] * INCHES_TO_MM,
     });
   }
-
-  // Find X extent
-  let minX = Infinity, maxX = -Infinity;
-  let centerY = 0, centerZ = 0;
-  for (const p of pts) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    centerY += p.y;
-    centerZ += p.z;
-  }
-  centerY /= pts.length;
-  centerZ /= pts.length;
+  let minX = Infinity, maxX = -Infinity, sumY = 0, sumZ = 0;
+  for (const p of pts) { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; sumY += p.y; sumZ += p.z; }
+  const cy = sumY / pts.length, cz = sumZ / pts.length;
+  const cx = (minX + maxX) / 2;
+  for (const p of pts) { p.x -= cx; p.y -= cy; p.z -= cz; }
   const lenX = maxX - minX;
 
-  // Center the points
-  for (const p of pts) {
-    p.x -= (minX + maxX) / 2;
-    p.y -= centerY;
-    p.z -= centerZ;
-  }
-  minX -= (minX + maxX) / 2;
-  maxX = -minX;
-
-  // Sample cross-sections
   const stations = 48;
-  const sliceWidth = lenX / stations * 0.6;
+  const sw = lenX / stations * 0.6;
   let result: ManifoldSolid | null = null;
 
   for (let s = 0; s <= stations; s++) {
-    const stationX = minX + (s / stations) * lenX;
-
-    let sMinY = Infinity, sMaxY = -Infinity;
-    let sMinZ = Infinity, sMaxZ = -Infinity;
-    let count = 0;
-
+    const sx = -lenX / 2 + (s / stations) * lenX;
+    let sMinY = Infinity, sMaxY = -Infinity, sMinZ = Infinity, sMaxZ = -Infinity, cnt = 0;
     for (const p of pts) {
-      if (Math.abs(p.x - stationX) <= sliceWidth) {
-        if (p.y < sMinY) sMinY = p.y;
-        if (p.y > sMaxY) sMaxY = p.y;
-        if (p.z < sMinZ) sMinZ = p.z;
-        if (p.z > sMaxZ) sMaxZ = p.z;
-        count++;
-      }
+      if (Math.abs(p.x - sx) <= sw) { if (p.y < sMinY) sMinY = p.y; if (p.y > sMaxY) sMaxY = p.y; if (p.z < sMinZ) sMinZ = p.z; if (p.z > sMaxZ) sMaxZ = p.z; cnt++; }
     }
-
-    if (count < 3) continue;
-
-    const halfH = (sMaxY - sMinY) / 2;
-    const halfW = (sMaxZ - sMinZ) / 2;
-    const cy = (sMinY + sMaxY) / 2;
-
-    if (halfH < 0.5 || halfW < 0.5) continue;
-
-    // Create ellipsoid: sphere(1) scaled to cross-section dims
-    const xStretch = Math.max(lenX / stations * 0.65, 1);
-    let ellipsoid = mSphere(1, 16).scale([xStretch, halfH, halfW]);
-    ellipsoid = ellipsoid.translate([stationX, cy, 0]);
-
-    if (result === null) {
-      result = ellipsoid;
-    } else {
-      result = result.add(ellipsoid);
-    }
+    if (cnt < 3) continue;
+    const hH = (sMaxY - sMinY) / 2, hW = (sMaxZ - sMinZ) / 2, sCy = (sMinY + sMaxY) / 2;
+    if (hH < 0.5 || hW < 0.5) continue;
+    const xStr = Math.max(lenX / stations * 0.65, 1);
+    let e = mSphere(1, 16).scale([xStr, hH, hW]).translate([sx, sCy, 0]);
+    result = result ? result.add(e) : e;
   }
-
-  if (!result) throw new Error('No valid cross-sections found');
-
-  console.log(`[BaitBridge] Built Manifold from ${stations} profile ellipsoids: ${result.numVert()} verts, ${result.numTri()} tris`);
+  if (!result) throw new Error('No cross-sections');
   return result;
 }
 
 export async function transferBaitFromAPI(token: string): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('[BaitBridge] Fetching transfer:', token);
-
     const res = await fetch(`${API_BASE}/api/mold-transfer?token=${encodeURIComponent(token)}`);
     if (!res.ok) {
       if (res.status === 404) return { success: false, error: 'Transfer expired. Click "Generate Mold" again.' };
       return { success: false, error: `API error: ${res.status}` };
     }
 
-    const buffer = await res.arrayBuffer();
-    console.log(`[BaitBridge] Received ${buffer.byteLength} bytes`);
+    const contentType = res.headers.get('Content-Type') || '';
+    const store = useMoldStore.getState();
+    await initCSG();
 
-    if (buffer.byteLength < 84) {
-      return { success: false, error: `Invalid transfer data (${buffer.byteLength} bytes)` };
+    // Check if it's JSON (primitives) or binary (STL)
+    if (contentType.includes('application/json')) {
+      // Primitives transfer — rebuild identical Manifold solid
+      const data = await res.json();
+      if (data.type === 'primitives' && data.primitives) {
+        console.log(`[BaitBridge] Primitives transfer: ${data.primitives.length} primitives`);
+        const { manifold, geometry } = await buildBait(data.primitives as BaitPrimitive[]);
+
+        geometry.computeBoundingBox();
+        const size = new THREE.Vector3();
+        geometry.boundingBox!.getSize(size);
+        console.log(`[BaitBridge] Built: ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`);
+
+        store.setBaitMesh(geometry, data.name || 'designed_bait');
+        store.setBaitManifold(manifold);
+
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+        return { success: true };
+      }
     }
+
+    // Binary STL transfer (legacy/import)
+    const buffer = await res.arrayBuffer();
+    console.log(`[BaitBridge] STL transfer: ${buffer.byteLength} bytes`);
+
+    if (buffer.byteLength < 84) return { success: false, error: 'Invalid data' };
     const dv = new DataView(buffer);
     const triCount = dv.getUint32(80, true);
     const expectedSize = 80 + 4 + triCount * 50;
-    console.log(`[BaitBridge] STL: ${triCount} triangles, expected ${expectedSize} bytes`);
-    if (Math.abs(buffer.byteLength - expectedSize) > 10) {
-      return { success: false, error: `STL size mismatch` };
-    }
+    if (Math.abs(buffer.byteLength - expectedSize) > 10) return { success: false, error: 'STL size mismatch' };
 
-    // Parse STL for Three.js display (ghost overlay)
     const geo = parseSTL(buffer);
     geo.scale(INCHES_TO_MM, INCHES_TO_MM, INCHES_TO_MM);
     geo.computeBoundingBox();
@@ -156,31 +131,20 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
     geo.computeVertexNormals();
     geo.computeBoundingBox();
 
-    const size = new THREE.Vector3();
-    geo.boundingBox!.getSize(size);
-    console.log(`[BaitBridge] Bait: ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`);
-
-    const store = useMoldStore.getState();
     store.setBaitMesh(geo, 'designed_bait.stl');
 
-    // Build Manifold solid from profile ellipsoids — NOT from Three.js mesh
-    // Same technique as the working sample bait
+    // Build Manifold from profile ellipsoids
     try {
-      await initCSG();
-      const rawPositions = parseSTL(buffer).attributes.position.array as Float32Array;
-      const manifold = buildManifoldFromVertices(rawPositions, rawPositions.length / 3);
+      const rawPos = parseSTL(buffer).attributes.position.array as Float32Array;
+      const manifold = buildFromVertices(rawPos, rawPos.length / 3);
       store.setBaitManifold(manifold);
-      console.log('[BaitBridge] Manifold solid built from profile ellipsoids');
+      console.log('[BaitBridge] Built Manifold from profile ellipsoids');
     } catch (e) {
       console.warn('[BaitBridge] Manifold build failed:', e);
       store.setBaitManifold(null);
     }
 
-    // Clean URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete('transfer');
-    window.history.replaceState({}, '', url.pathname);
-
+    window.history.replaceState({}, '', window.location.pathname);
     return { success: true };
   } catch (e) {
     return { success: false, error: `Transfer failed: ${e}` };
