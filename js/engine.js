@@ -1,10 +1,8 @@
 /**
  * @file engine.js
- * Core geometry engine — two mirrored half-shells (right + left).
- * Each cross-section is a half-ring from dorsal (angle=0) to ventral (angle=PI).
- * The left half mirrors across Z=0 with shared midline vertices.
- * No special nose geometry — ring 0 uses profile values (small oval, not a point).
- * Fork tail via per-vertex X offset in the tail zone.
+ * Core geometry engine — single continuous tube (full ring per cross-section).
+ * Each ring goes 0→2π around the cross-section. No seam, no mirroring.
+ * Nose and tail close by converging to single points.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
 
@@ -40,8 +38,6 @@ export function getXSecAtRing(i, profiles) {
   const keys = Object.keys(kf).map(Number).sort((a, b) => a - b);
   if (keys.length === 0) return null;
 
-  const radii = profiles.xsecBlendRadii || {};
-
   function lerpPoly(a, b, t) {
     const len = Math.min(a.length, b.length);
     const r = [];
@@ -56,10 +52,9 @@ export function getXSecAtRing(i, profiles) {
     return defaultXSecPoly(n);
   }
 
-  // Smoothstep fade: 0 at keyframe, 1 at edge of blend radius
   function smoothstep(t) { return t * t * (3 - 2 * t); }
 
-  // Collect contributions from all keyframes within their blend radius
+  const radii = profiles.xsecBlendRadii || {};
   const contributions = [];
   for (const k of keys) {
     if (!kf[k]) continue;
@@ -76,14 +71,12 @@ export function getXSecAtRing(i, profiles) {
 
   if (contributions.length === 0) return null;
 
-  // Start from default shape, blend each keyframe's edit on top
   const def = getDefPoly();
   const result = def.map(p => ({ y: p.y, z: p.z }));
 
   for (const { poly, weight } of contributions) {
     const len = Math.min(result.length, poly.length);
     for (let j = 0; j < len; j++) {
-      // Blend: move from current result toward this keyframe's shape
       result[j].y += (poly[j].y - def[j].y) * weight;
       result[j].z += (poly[j].z - def[j].z) * weight;
     }
@@ -92,35 +85,41 @@ export function getXSecAtRing(i, profiles) {
   return result;
 }
 
-function halfRingVertex(j, dorsalH, ventralH, halfW, n, xsec) {
-  const angle = (j / HRS) * Math.PI;
+function fullRingVertex(j, dorsalH, ventralH, halfW, n, xsec) {
+  const angle = (j / RS) * Math.PI * 2;
   if (xsec && xsec.length === RS + 1) {
     const pt = xsec[j];
     const y = pt.y >= 0 ? pt.y * dorsalH : pt.y * ventralH;
-    const z = Math.abs(pt.z * halfW);
+    const z = pt.z * halfW;
     return { y, z };
   }
   const se = superEllipse(angle, dorsalH, ventralH, halfW, Math.max(n, 1.8));
-  return { y: se.y, z: Math.abs(se.z) };
+  return { y: se.y, z: se.z };
 }
 
 /**
- * Generate the fish body as two mirrored half-shells.
- * Ring 0 uses actual profile values (small oval) — no convergence to a point.
+ * Generate the fish body as a single continuous tube with full-ring cross-sections.
+ * No mirroring, no seam at Z=0. Nose and tail converge to single points.
  */
 export function genBody(p, profiles) {
   const L = p.OL;
   const hL = L / 2;
   const pos = [], idx = [];
-  const vertsPerRing = HRS + 1;
+  const vertsPerRing = RS; // full ring, last vertex wraps to first
 
   const forkDepth = p.FD || 0;
   const forkAsym = p.FA || 0;
   const TAIL_ZONE = 0.85;
 
   // ═══════════════════════════════════════════════════════════
-  // RIGHT HALF-SHELL: all rings from i=0 to NS
-  // Ring 0 is NOT a point — it's a small oval from the profiles
+  // NOSE POINT: single vertex at the front
+  // ═══════════════════════════════════════════════════════════
+  const noseCy = (profiles.dorsalCache[0] * L + profiles.ventralCache[0] * L) / 2;
+  const noseIdx = 0;
+  pos.push(-hL - 0.01, noseCy, 0);
+
+  // ═══════════════════════════════════════════════════════════
+  // BODY RINGS: full 360° cross-sections from ring 0 to NS
   // ═══════════════════════════════════════════════════════════
 
   for (let i = 0; i <= NS; i++) {
@@ -136,14 +135,14 @@ export function genBody(p, profiles) {
     const ventralH = Math.max(cy - ventralY, 0.003);
     const xsec = getXSecAtRing(i, profiles);
 
-    for (let j = 0; j <= HRS; j++) {
-      const v = halfRingVertex(j, dorsalH, ventralH, halfW, n, xsec);
+    for (let j = 0; j < RS; j++) {
+      const v = fullRingVertex(j, dorsalH, ventralH, halfW, n, xsec);
 
       // Fork X-offset in tail zone
       let vx = x;
       if (t > TAIL_ZONE && forkDepth > 0) {
         const tailT = (t - TAIL_ZONE) / (1.0 - TAIL_ZONE);
-        const angle = (j / HRS) * Math.PI;
+        const angle = (j / RS) * Math.PI * 2;
         const ca = Math.cos(angle);
         const lobe = ca * ca;
         const dorsalBias = ca >= 0 ? (1 + forkAsym) : (1 - forkAsym);
@@ -154,90 +153,47 @@ export function genBody(p, profiles) {
     }
   }
 
-  // Right half-shell quad strips
+  // ═══════════════════════════════════════════════════════════
+  // TAIL POINT: single vertex at the back
+  // ═══════════════════════════════════════════════════════════
+  const tailCy = (profiles.dorsalCache[NS] * L + profiles.ventralCache[NS] * L) / 2;
+  const tailPtIdx = pos.length / 3;
+  pos.push(hL + 0.01, tailCy, 0);
+
+  // ═══════════════════════════════════════════════════════════
+  // NOSE CAP: fan from nose point to first ring
+  // ═══════════════════════════════════════════════════════════
+  const ring0Start = 1; // ring 0 starts at vertex index 1 (after nose point)
+  for (let j = 0; j < RS; j++) {
+    const j1 = ring0Start + j;
+    const j2 = ring0Start + (j + 1) % RS;
+    idx.push(noseIdx, j2, j1);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // BODY QUAD STRIPS: connect adjacent rings
+  // ═══════════════════════════════════════════════════════════
   for (let i = 0; i < NS; i++) {
-    for (let j = 0; j < HRS; j++) {
-      const a = i * vertsPerRing + j;
-      const b = a + vertsPerRing;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    const ringA = 1 + i * vertsPerRing;
+    const ringB = 1 + (i + 1) * vertsPerRing;
+    for (let j = 0; j < RS; j++) {
+      const a = ringA + j;
+      const b = ringB + j;
+      const a1 = ringA + (j + 1) % RS;
+      const b1 = ringB + (j + 1) % RS;
+      idx.push(a, b, a1);
+      idx.push(b, b1, a1);
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LEFT HALF-SHELL: mirror all right vertices across Z=0
-  // Midline vertices (Z ≈ 0) are shared
+  // TAIL CAP: fan from tail point to last ring
   // ═══════════════════════════════════════════════════════════
-
-  const rightVertCount = pos.length / 3;
-  const leftIdx = new Int32Array(rightVertCount);
-
-  for (let vi = 0; vi < rightVertCount; vi++) {
-    const z = pos[vi * 3 + 2];
-    // ALWAYS create separate vertices for left half — no sharing.
-    // Shared midline vertices create non-manifold edges (4 faces per edge)
-    // which Manifold CSG rejects. Separate vertices = 2 faces per edge.
-    pos.push(pos[vi * 3], pos[vi * 3 + 1], -z);
-    leftIdx[vi] = (pos.length / 3) - 1;
-  }
-
-  // Left half-shell quad strips (reversed winding)
-  for (let i = 0; i < NS; i++) {
-    for (let j = 0; j < HRS; j++) {
-      const a = i * vertsPerRing + j;
-      const b = a + vertsPerRing;
-      idx.push(leftIdx[b], leftIdx[a], leftIdx[a + 1]);
-      idx.push(leftIdx[b + 1], leftIdx[b], leftIdx[a + 1]);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // NOSE CAP: converge to a single point ahead of ring 0
-  // This closes the mesh without internal flat faces
-  // ═══════════════════════════════════════════════════════════
-
-  {
-    // Create nose cap points OFFSET from Z=0 so no cap triangles
-    // touch the parting plane. Right point at +Z, left at -Z.
-    const noseX = -hL - 0.01;
-    const noseCy = (profiles.dorsalCache[0] * L + profiles.ventralCache[0] * L) / 2;
-    const noseZOff = Math.max(profiles.widthCache[0] * L * 0.1, 0.005);
-    const noseIdx = pos.length / 3;
-    pos.push(noseX, noseCy, noseZOff);   // right nose point (Z > 0)
-    const noseIdxL = pos.length / 3;
-    pos.push(noseX, noseCy, -noseZOff);  // left nose point (Z < 0)
-
-    // Right nose: fan from nose point to ring 0
-    for (let j = 0; j < HRS; j++) {
-      idx.push(noseIdx, j, j + 1);
-    }
-    // Left nose: fan from left nose point to left ring 0
-    for (let j = 0; j < HRS; j++) {
-      idx.push(noseIdxL, leftIdx[j + 1], leftIdx[j]);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // TAIL CAP: converge to a single point behind last ring
-  // ═══════════════════════════════════════════════════════════
-
-  {
-    const lastRing = NS * vertsPerRing;
-    const tailX = hL + 0.01;
-    const tailCy = (profiles.dorsalCache[NS] * L + profiles.ventralCache[NS] * L) / 2;
-    const tailZOff = Math.max(profiles.widthCache[NS] * L * 0.1, 0.005);
-    const tailIdx = pos.length / 3;
-    pos.push(tailX, tailCy, tailZOff);
-    const tailIdxL = pos.length / 3;
-    pos.push(tailX, tailCy, -tailZOff);
-
-    // Right tail
-    for (let j = 0; j < HRS; j++) {
-      idx.push(tailIdx, lastRing + j + 1, lastRing + j);
-    }
-    // Left tail
-    for (let j = 0; j < HRS; j++) {
-      idx.push(tailIdxL, leftIdx[lastRing + j], leftIdx[lastRing + j + 1]);
-    }
+  const lastRingStart = 1 + NS * vertsPerRing;
+  for (let j = 0; j < RS; j++) {
+    const j1 = lastRingStart + j;
+    const j2 = lastRingStart + (j + 1) % RS;
+    idx.push(tailPtIdx, j1, j2);
   }
 
   const geo = new THREE.BufferGeometry();
