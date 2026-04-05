@@ -96,12 +96,15 @@ export class BaitSubtraction {
       console.warn('[BaitSubtraction] Fuse failed, using as-is:', e);
     }
 
-    // Build mold boxes — parting face at Z=0
+    // Build mold boxes — each extends 0.5mm past Z=0 into the other half.
+    // This ensures the bait's Z=0 cap faces are fully inside each box,
+    // not co-planar with the box face (which creates interior membrane).
+    const OVERLAP = 0.5;
     const cx = center.x;
     const cy = center.y;
 
-    const boxAM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, -halfZ / 2);
-    const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2);
+    const boxAM = mTranslate(mBox(boxX, boxY, halfZ + OVERLAP), cx, cy, -(halfZ + OVERLAP) / 2 + OVERLAP);
+    const boxBM = mTranslate(mBox(boxX, boxY, halfZ + OVERLAP), cx, cy, (halfZ + OVERLAP) / 2 - OVERLAP);
 
     console.log('[BaitSubtraction] Subtracting bait from halfA...');
     const halfA = mSubtract(boxAM, baitM);
