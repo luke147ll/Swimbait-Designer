@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
-import type { AlignmentConfig, MoldConfig, Vec3 } from '../types';
+import type { AlignmentConfig, ClampConfig, MoldConfig, Vec3 } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 
 const EPS = 0.01;
+const KEY_CLEARANCE = 2.0; // mm clearance radius around pins/bolts in the key frame
 
 function autoPlacePositions(config: AlignmentConfig, bb: THREE.Box3, mc: MoldConfig): Vec3[] {
   const cx = (bb.max.x + bb.min.x) / 2;
@@ -36,6 +37,7 @@ export class AlignmentFeatures {
     baitBounds: THREE.Box3,
     moldConfig: MoldConfig,
     _dims: MoldDimensions,
+    clampPositions: Vec3[] = [],
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig);
@@ -103,18 +105,42 @@ export class AlignmentFeatures {
       const outerY = baitHtY + moldConfig.wallMarginX * 2 + moldConfig.clampFlange * 2 - 4;
       const lipW = 1.5, keyH = config.keyHeight;
 
-      // HalfA: raised lip frame
+      // Collect all positions that need clearance (pins + bolts)
+      const allHolePositions = [...positions, ...clampPositions];
+
+      // HalfA: raised lip frame with clearance cutouts
       const outer = mTranslate(mBox(outerX, outerY, keyH), cx, cy, keyH / 2);
       const inner = mTranslate(mBox(outerX - lipW * 2, outerY - lipW * 2, keyH + EPS * 2), cx, cy, keyH / 2);
-      const frame = mSubtract(outer, inner);
+      let frame = mSubtract(outer, inner);
+
+      // Cut clearance holes through the key frame at each pin/bolt position
+      if (allHolePositions.length > 0) {
+        const cutouts: ManifoldSolid[] = [];
+        for (const pos of allHolePositions) {
+          const r = config.pinDiameter / 2 + KEY_CLEARANCE;
+          cutouts.push(mTranslate(mCylZ(r, keyH + EPS * 4), pos.x, pos.y, keyH / 2));
+        }
+        frame = mSubtract(frame, mBatchUnion(cutouts));
+      }
+
       halfA = mUnion(halfA, frame);
 
-      // HalfB: matching recess
+      // HalfB: matching recess with same clearance cutouts
       if (halfB) {
         const rH = keyH + 0.15 + EPS;
         const rOuter = mTranslate(mBox(outerX + 0.3, outerY + 0.3, rH), cx, cy, rH / 2 - EPS / 2);
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
-        const recess = mSubtract(rOuter, rInner);
+        let recess = mSubtract(rOuter, rInner);
+
+        if (allHolePositions.length > 0) {
+          const cutouts: ManifoldSolid[] = [];
+          for (const pos of allHolePositions) {
+            const r = config.pinDiameter / 2 + KEY_CLEARANCE;
+            cutouts.push(mTranslate(mCylZ(r, rH + EPS * 4), pos.x, pos.y, rH / 2 - EPS / 2));
+          }
+          recess = mSubtract(recess, mBatchUnion(cutouts));
+        }
+
         halfB = mSubtract(halfB, recess);
       }
     }

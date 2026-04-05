@@ -1,4 +1,4 @@
-import type { MoldState, ValidationResult, BillOfMaterials } from './types';
+import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
 import * as THREE from 'three';
 import { initCSG, manifoldToThree, mDispose } from './csg';
 import { BaitSubtraction } from './geometry/BaitSubtraction';
@@ -86,10 +86,13 @@ export class MoldEngine {
     state.baitMesh.computeBoundingBox();
     const baitBounds = state.baitMesh.boundingBox!;
 
+    // Pre-compute clamp bolt positions so alignment can add key clearance around them
+    const clampPositions = this.computeClampPositions(state.clampConfig, baitBounds, effectiveMoldConfig, dims);
+
     // Step 5: Alignment — operates on Manifold objects directly
     console.log('[MoldEngine] Step 5: Alignment (Manifold-native)');
     ({ halfA, halfB } = this.alignmentGen.generateManifold(
-      halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims
+      halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions
     ));
 
     // Step 6: Clamps — Manifold-native
@@ -132,5 +135,26 @@ export class MoldEngine {
     console.log(`[MoldEngine] Complete in ${generationTimeMs.toFixed(1)}ms`);
 
     return { halfA: halfAGeo, halfB: halfBGeo, validation, bom, generationTimeMs };
+  }
+
+  /** Compute bolt positions using the same logic as ClampFeatures auto-placement. */
+  private computeClampPositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, dims: { boxY: number }): Vec3[] {
+    if (config.mode === 'external_clamp') return [];
+    if (config.positions.length > 0) return config.positions;
+
+    const cx = (bb.max.x + bb.min.x) / 2;
+    const cy = (bb.max.y + bb.min.y) / 2;
+    const baitLenX = bb.max.x - bb.min.x;
+    const baitHtY = bb.max.y - bb.min.y;
+    const boxX = baitLenX + mc.wallMarginY * 2;
+    const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
+    const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35;
+    const spacing = config.boltCount >= 6 ? boxX / 4 : boxX / 3;
+    const offsets = config.boltCount >= 6 ? [-spacing, 0, spacing] : [-spacing / 2, spacing / 2];
+    const positions: Vec3[] = [];
+    for (const side of [-1, 1])
+      for (const xOff of offsets)
+        positions.push({ x: cx + xOff, y: cy + side * flangeCenter, z: 0 });
+    return positions;
   }
 }
