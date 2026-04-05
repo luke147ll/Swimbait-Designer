@@ -175,33 +175,46 @@ export function threeToManifold(geometry: THREE.BufferGeometry): ManifoldSolid {
   const triVerts = new Uint32Array(index.count);
   for (let i = 0; i < index.count; i++) triVerts[i] = index.getX(i);
 
+  // Attempt 1: direct import
   try {
     return new wasm.Manifold({ numProp: 3, vertProperties, triVerts });
-  } catch {
-    console.warn('[CSG] Direct import failed, trying with merge vectors...');
-
-    const tolerance = 0.001;
-    const vertexMap = new Map<string, number>();
-    const mergeFrom: number[] = [];
-    const mergeTo: number[] = [];
-
-    for (let i = 0; i < numVerts; i++) {
-      const key = `${Math.round(vertProperties[i * 3] / tolerance)},${Math.round(vertProperties[i * 3 + 1] / tolerance)},${Math.round(vertProperties[i * 3 + 2] / tolerance)}`;
-      const existing = vertexMap.get(key);
-      if (existing !== undefined && existing !== i) {
-        mergeFrom.push(i);
-        mergeTo.push(existing);
-      } else {
-        vertexMap.set(key, i);
-      }
-    }
-
-    return new wasm.Manifold({
-      numProp: 3, vertProperties, triVerts,
-      mergeFromVert: new Uint32Array(mergeFrom),
-      mergeToVert: new Uint32Array(mergeTo),
-    });
+  } catch (e1) {
+    console.warn('[CSG] Direct import failed:', e1);
   }
+
+  // Attempt 2-4: merge vectors at increasing tolerances
+  for (const tolerance of [0.001, 0.01, 0.1]) {
+    try {
+      console.log(`[CSG] Trying merge vectors at tolerance ${tolerance}...`);
+      const vertexMap = new Map<string, number>();
+      const mergeFrom: number[] = [];
+      const mergeTo: number[] = [];
+
+      for (let i = 0; i < numVerts; i++) {
+        const key = `${Math.round(vertProperties[i * 3] / tolerance)},${Math.round(vertProperties[i * 3 + 1] / tolerance)},${Math.round(vertProperties[i * 3 + 2] / tolerance)}`;
+        const existing = vertexMap.get(key);
+        if (existing !== undefined && existing !== i) {
+          mergeFrom.push(i);
+          mergeTo.push(existing);
+        } else {
+          vertexMap.set(key, i);
+        }
+      }
+
+      console.log(`[CSG] Merge vectors: ${mergeFrom.length} pairs`);
+      const result = new wasm.Manifold({
+        numProp: 3, vertProperties, triVerts,
+        mergeFromVert: new Uint32Array(mergeFrom),
+        mergeToVert: new Uint32Array(mergeTo),
+      });
+      console.log(`[CSG] Merge succeeded at tolerance ${tolerance}`);
+      return result;
+    } catch (e) {
+      console.warn(`[CSG] Merge at tolerance ${tolerance} failed:`, e);
+    }
+  }
+
+  throw new Error('Could not create Manifold from mesh. The mesh may not be watertight. Try repairing in MeshLab or export as STL from the designer.');
 }
 
 export function manifoldToThree(manifold: ManifoldSolid): THREE.BufferGeometry {

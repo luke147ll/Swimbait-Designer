@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { threeToManifold, manifoldToThree, mBox, mSubtract, mTranslate, type ManifoldSolid } from '../csg';
+import { threeToManifold, mBox, mSubtract, mTranslate, type ManifoldSolid } from '../csg';
 import type { MoldConfig } from '../types';
 
 const PARTING_OVERLAP = 0.05;
-const MIN_WALL = 3; // mm — absolute minimum wall around any part of the bait
+const MIN_WALL = 3;
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
   const geo = geometry.clone();
@@ -35,25 +35,15 @@ export class BaitSubtraction {
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null; dims: MoldDimensions } {
     const startTime = performance.now();
 
-    // Get Manifold solid
-    let baitM: ManifoldSolid;
-    if (baitManifold && !texturedBaitMesh) {
-      console.log('[BaitSubtraction] Using native Manifold solid');
-      baitM = baitManifold;
-    } else {
-      const meshToUse = texturedBaitMesh ?? baitMesh;
-      const offsetBait = moldConfig.cavityClearance > 0
-        ? offsetMesh(meshToUse, moldConfig.cavityClearance)
-        : meshToUse.clone();
-      console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
-      baitM = threeToManifold(offsetBait);
-    }
+    // Apply cavity clearance to Three.js mesh (for bounding box)
+    const meshToUse = texturedBaitMesh ?? baitMesh;
+    const offsetBait = moldConfig.cavityClearance > 0
+      ? offsetMesh(meshToUse, moldConfig.cavityClearance)
+      : meshToUse.clone();
 
-    // Get ACTUAL bait bounds from the Manifold solid (not the Three.js mesh)
-    // Convert momentarily to get accurate bounds
-    const tempGeo = manifoldToThree(baitM);
-    tempGeo.computeBoundingBox();
-    const bb = tempGeo.boundingBox!;
+    // Get bounds from Three.js mesh (always works, no Manifold needed)
+    offsetBait.computeBoundingBox();
+    const bb = offsetBait.boundingBox!;
     const center = new THREE.Vector3();
     bb.getCenter(center);
 
@@ -61,31 +51,37 @@ export class BaitSubtraction {
     const baitHtY = bb.max.y - bb.min.y;
     const baitWidZ = bb.max.z - bb.min.z;
 
-    console.log(`[BaitSubtraction] Bait bounds: ${baitLenX.toFixed(1)} × ${baitHtY.toFixed(1)} × ${baitWidZ.toFixed(1)} mm, center: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)})`);
+    console.log(`[BaitSubtraction] Bait bounds: ${baitLenX.toFixed(1)} × ${baitHtY.toFixed(1)} × ${baitWidZ.toFixed(1)} mm`);
 
-    // Calculate box dimensions with guaranteed minimum wall thickness
+    // Calculate box dimensions
     const wallX = Math.max(moldConfig.wallMarginY, MIN_WALL);
     const wallY = Math.max(moldConfig.wallMarginX, MIN_WALL);
     const wallZ = Math.max(moldConfig.wallMarginZ, MIN_WALL);
 
     const boxX = baitLenX + wallX * 2;
     const boxY = baitHtY + wallY * 2 + moldConfig.clampFlange * 2;
+    const baitAboveZ = bb.max.z;
+    const baitBelowZ = Math.abs(bb.min.z);
+    const halfZ = Math.max(baitAboveZ, baitBelowZ, baitWidZ / 2) + wallZ + moldConfig.partingFaceDepth + PARTING_OVERLAP;
 
-    // Z: each half must contain the bait's extent on its side + floor + parting depth
-    const baitAboveZ = bb.max.z; // how far bait extends above Z=0
-    const baitBelowZ = Math.abs(bb.min.z); // how far below Z=0
-    const halfAZ = Math.max(baitBelowZ, baitWidZ / 2) + wallZ + moldConfig.partingFaceDepth + PARTING_OVERLAP;
-    const halfBZ = Math.max(baitAboveZ, baitWidZ / 2) + wallZ + moldConfig.partingFaceDepth + PARTING_OVERLAP;
-    const boxZ = Math.max(halfAZ, halfBZ); // use the larger of the two for symmetry
+    console.log(`[BaitSubtraction] Box: ${boxX.toFixed(1)} × ${boxY.toFixed(1)} × ${halfZ.toFixed(1)} mm per half`);
 
-    console.log(`[BaitSubtraction] Box: ${boxX.toFixed(1)} × ${boxY.toFixed(1)} × ${boxZ.toFixed(1)} mm (per half)`);
+    // Get Manifold solid — use native if available, otherwise convert
+    let baitM: ManifoldSolid;
+    if (baitManifold && !texturedBaitMesh) {
+      console.log('[BaitSubtraction] Using native Manifold solid');
+      baitM = baitManifold;
+    } else {
+      console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
+      baitM = threeToManifold(offsetBait);
+    }
 
-    // Build mold boxes centered on the bait's XY center (Z stays at parting plane)
+    // Build mold boxes centered on the bait
     const cx = center.x;
     const cy = center.y;
 
-    const boxAM = mTranslate(mBox(boxX, boxY, boxZ), cx, cy, -boxZ / 2 + PARTING_OVERLAP);
-    const boxBM = mTranslate(mBox(boxX, boxY, boxZ), cx, cy, boxZ / 2 - PARTING_OVERLAP);
+    const boxAM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, -halfZ / 2 + PARTING_OVERLAP);
+    const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2 - PARTING_OVERLAP);
 
     console.log('[BaitSubtraction] Subtracting bait from halfA...');
     const halfA = mSubtract(boxAM, baitM);
@@ -96,6 +92,6 @@ export class BaitSubtraction {
     const elapsed = (performance.now() - startTime).toFixed(1);
     console.log(`[BaitSubtraction] Done in ${elapsed}ms`);
 
-    return { halfA, halfB, dims: { boxX, boxY, boxZ } };
+    return { halfA, halfB, dims: { boxX, boxY, boxZ: halfZ } };
   }
 }
