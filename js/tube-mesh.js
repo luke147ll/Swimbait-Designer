@@ -55,9 +55,9 @@ export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40
     for (let j = 0; j < RS; j++) {
       const angle = (j / RS) * Math.PI * 2;
       const idx = vi * 3;
-      vertProperties[idx]     = Math.cos(angle) * halfW;     // X — width
-      vertProperties[idx + 1] = y;                            // Y — length
-      vertProperties[idx + 2] = Math.sin(angle) * halfH + zCenter; // Z — height + offset
+      vertProperties[idx]     = y;                                   // X — length (body axis)
+      vertProperties[idx + 1] = Math.sin(angle) * halfH + zCenter;  // Y — height + offset
+      vertProperties[idx + 2] = Math.cos(angle) * halfW;            // Z — width
       vi++;
     }
   }
@@ -66,18 +66,18 @@ export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40
   const noseCenterIdx = vi;
   const noseDorsal  = Math.max(getDorsal(0),  MIN_R);
   const noseVentral = Math.max(getVentral(0), MIN_R);
-  vertProperties[vi * 3]     = 0;
-  vertProperties[vi * 3 + 1] = -lengthMM / 2 - 0.1;
-  vertProperties[vi * 3 + 2] = (noseDorsal - noseVentral) / 2;
+  vertProperties[vi * 3]     = -lengthMM / 2 - 0.1;             // X — length
+  vertProperties[vi * 3 + 1] = (noseDorsal - noseVentral) / 2;  // Y — height offset
+  vertProperties[vi * 3 + 2] = 0;                                // Z — width center
   vi++;
 
   // ── Tail cap center ──
   const tailCenterIdx = vi;
   const tailDorsal  = Math.max(getDorsal(1),  MIN_R);
   const tailVentral = Math.max(getVentral(1), MIN_R);
-  vertProperties[vi * 3]     = 0;
-  vertProperties[vi * 3 + 1] = lengthMM / 2 + 0.1;
-  vertProperties[vi * 3 + 2] = (tailDorsal - tailVentral) / 2;
+  vertProperties[vi * 3]     = lengthMM / 2 + 0.1;              // X — length
+  vertProperties[vi * 3 + 1] = (tailDorsal - tailVentral) / 2;  // Y — height offset
+  vertProperties[vi * 3 + 2] = 0;                                // Z — width center
   vi++;
 
   // ── Body quad strips ──
