@@ -67,18 +67,18 @@ export class BaitSubtraction {
 
     console.log(`[BaitSubtraction] Box: ${boxX.toFixed(1)} × ${boxY.toFixed(1)} × ${halfZ.toFixed(1)} mm per half`);
 
-    // Get Manifold solid
+    // Get Manifold solid and shift 0.1mm in +Z so no bait faces
+    // sit exactly on the Z=0 parting plane (prevents co-planar membrane)
     let baitM: ManifoldSolid;
     if (baitManifold && !texturedBaitMesh) {
-      console.log('[BaitSubtraction] Using native Manifold solid');
-      baitM = baitManifold;
+      console.log('[BaitSubtraction] Using native Manifold solid (+0.1mm Z shift)');
+      baitM = baitManifold.translate([0, 0, 0.1]);
     } else {
       console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
-      baitM = threeToManifold(offsetBait);
+      baitM = threeToManifold(offsetBait).translate([0, 0, 0.1]);
     }
 
-    // Build mold boxes — NO overlap, parting face exactly at Z=0
-    // The bait's Z-scale ensures no co-planar faces
+    // Build mold boxes — parting face at Z=0
     const cx = center.x;
     const cy = center.y;
 
