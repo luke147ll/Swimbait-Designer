@@ -780,18 +780,28 @@ async function sendToMoldGenerator() {
     triVerts: Array.from(currentMeshData.triVerts),
   });
 
+  // Open window immediately (before async fetch) to satisfy mobile popup blocker
+  const moldBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5173'
+    : 'https://mold.swimbaitdesigner.com';
+  const moldWindow = window.open(moldBase + '/loading', '_blank');
+
   try {
     const res = await fetch('/api/mold-transfer', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('Upload failed: ' + res.status);
     const data = await res.json();
     console.log('[SBD] Mesh uploaded, token:', data.token);
 
-    const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? `http://localhost:5173?transfer=${data.token}`
-      : `https://mold.swimbaitdesigner.com?transfer=${data.token}`;
-    window.open(moldUrl, '_blank');
+    const moldUrl = moldBase + '?transfer=' + data.token;
+    if (moldWindow) {
+      moldWindow.location.href = moldUrl;
+    } else {
+      // Fallback if popup was still blocked — navigate current tab
+      window.location.href = moldUrl;
+    }
   } catch (e) {
     console.error('[SBD] Transfer failed:', e);
+    if (moldWindow) moldWindow.close();
     alert('Failed to transfer bait.');
   }
 }
