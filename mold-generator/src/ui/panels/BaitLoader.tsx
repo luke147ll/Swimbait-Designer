@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
 import { createSampleBait, manifoldToThree, initCSG } from '../../core/csg';
-import { transferBaitToMoldGenerator, isBaitReady, getBaitDimensions } from '../../core/BaitBridge';
+import { isBaitInIDB, transferBaitFromIDB } from '../../core/BaitBridge';
 
 export function BaitLoader() {
   const setBaitMesh = useMoldStore(s => s.setBaitMesh);
@@ -10,15 +10,29 @@ export function BaitLoader() {
   const baitFileName = useMoldStore(s => s.baitFileName);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [idbReady, setIdbReady] = useState(false);
 
-  const designerReady = isBaitReady();
-  const dims = designerReady ? getBaitDimensions() : null;
+  // Check IndexedDB on mount for a pending bait transfer
+  useEffect(() => {
+    isBaitInIDB().then(ready => {
+      setIdbReady(ready);
+      // Auto-load if bait is waiting and nothing is loaded yet
+      if (ready && !useMoldStore.getState().baitMesh) {
+        handleTransfer();
+      }
+    });
+  }, []);
 
   const handleTransfer = useCallback(async () => {
-    setStatus('Transferring...');
-    const result = await transferBaitToMoldGenerator();
-    setStatus(result.success ? 'Bait loaded from designer' : result.error || 'Transfer failed');
-    if (result.success) setTimeout(() => setStatus(null), 3000);
+    setStatus('Loading from designer...');
+    const result = await transferBaitFromIDB();
+    if (result.success) {
+      setStatus('Bait loaded from designer');
+      setIdbReady(false);
+      setTimeout(() => setStatus(null), 3000);
+    } else {
+      setStatus(result.error || 'Transfer failed');
+    }
   }, []);
 
   const handleSample = useCallback(async () => {
@@ -67,30 +81,15 @@ export function BaitLoader() {
         </div>
       )}
 
-      {/* Load from designer — shown when bodyMesh is available on window */}
-      {designerReady && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>
-            Designed bait available
-            {dims && <span style={{ color: T.text }}> — {dims.length.toFixed(1)}" × {dims.width.toFixed(1)}" × {dims.height.toFixed(1)}"</span>}
-          </div>
-          <button style={{ ...btnBase, background: T.gold, color: T.bgDeep }} onClick={handleTransfer}>
-            ▶ Load from Designer
-          </button>
-        </div>
-      )}
-
-      {/* Divider */}
-      {designerReady && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', color: T.textDim, fontSize: 10 }}>
-          <div style={{ flex: 1, height: 1, background: T.borderSubtle }} />
-          <span>or</span>
-          <div style={{ flex: 1, height: 1, background: T.borderSubtle }} />
-        </div>
+      {/* Transfer from designer via IndexedDB */}
+      {idbReady && (
+        <button style={{ ...btnBase, background: T.gold, color: T.bgDeep }} onClick={handleTransfer}>
+          ▶ Load from Designer
+        </button>
       )}
 
       {/* Sample bait */}
-      <button style={{ ...btnBase, background: designerReady ? T.bgSurface : T.gold, color: designerReady ? T.textMuted : T.bgDeep, border: designerReady ? `1px solid ${T.border}` : 'none' }} onClick={handleSample}>
+      <button style={{ ...btnBase, background: idbReady ? T.bgSurface : T.gold, color: idbReady ? T.textMuted : T.bgDeep, border: idbReady ? `1px solid ${T.border}` : 'none' }} onClick={handleSample}>
         Load Sample Bait
       </button>
 

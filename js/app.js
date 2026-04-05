@@ -778,27 +778,48 @@ window.saveDesign = saveDesign;
 window.bodyMesh = null;
 window.profileState = profileState;
 
-function sendToMoldGenerator() {
+async function sendToMoldGenerator() {
   if (!bodyMesh || !bodyMesh.geometry) {
     alert('Design a bait first');
     return;
   }
-  // Serialize geometry to localStorage for cross-page transfer
   const geo = bodyMesh.geometry;
-  const positions = Array.from(geo.attributes.position.array);
-  const index = geo.index ? Array.from(geo.index.array) : null;
   const p = getParams();
-  localStorage.setItem('sbd_bait_geometry', JSON.stringify({
-    positions, index,
-    name: `sbd_${p.OL}in_bait`,
-    timestamp: Date.now(),
-  }));
-  console.log('[SBD] Bait saved to localStorage for mold generator');
+
+  // Store geometry in IndexedDB (accessible across subdomains of swimbaitdesigner.com)
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('sbd', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('transfers');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const tx = db.transaction('transfers', 'readwrite');
+    const store = tx.objectStore('transfers');
+    store.put({
+      positions: geo.attributes.position.array.buffer.slice(0),
+      index: geo.index ? geo.index.array.buffer.slice(0) : null,
+      normals: geo.attributes.normal ? geo.attributes.normal.array.buffer.slice(0) : null,
+      meta: {
+        name: `sbd_${p.OL}in_bait`,
+        vertCount: geo.attributes.position.count,
+        units: 'inches',
+        timestamp: Date.now(),
+      }
+    }, 'current_bait');
+    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = reject; });
+    db.close();
+    console.log('[SBD] Bait saved to IndexedDB for mold generator');
+  } catch (e) {
+    console.error('[SBD] IndexedDB write failed:', e);
+    alert('Failed to prepare bait for mold generator');
+    return;
+  }
+
   // Navigate to mold generator
-  // Dev: localhost:5173, Prod: adjust to deployed URL
   const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5173'
-    : '/mold-generator/';
+    : 'https://mold.swimbaitdesigner.com';
   window.open(moldUrl, '_blank');
 }
 window.sendToMoldGenerator = sendToMoldGenerator;
