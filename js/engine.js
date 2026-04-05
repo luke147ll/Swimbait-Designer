@@ -191,32 +191,49 @@ export function genBody(p, profiles) {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // NOSE CAP: fan from dorsal vertex to close the front
-  // Covers both right and left half-shells
+  // NOSE CAP: converge to a single point ahead of ring 0
+  // This closes the mesh without internal flat faces
   // ═══════════════════════════════════════════════════════════
 
-  // Right nose cap (fan from vertex 0, skip j=0 to avoid degenerate tri)
-  for (let j = 1; j < HRS; j++) {
-    idx.push(0, j, j + 1);
-  }
-  // Left nose cap
-  for (let j = 1; j < HRS; j++) {
-    idx.push(leftIdx[0], leftIdx[j + 1], leftIdx[j]);
+  {
+    // Create a nose point slightly ahead of ring 0
+    const noseX = -hL - 0.01; // just ahead of the nose ring
+    const noseCy = (profiles.dorsalCache[0] * L + profiles.ventralCache[0] * L) / 2;
+    const noseIdx = pos.length / 3;
+    pos.push(noseX, noseCy, 0); // right nose point (Z=0+)
+    const noseIdxL = pos.length / 3;
+    pos.push(noseX, noseCy, 0); // left nose point (Z=0-, but at 0 it's same pos, different idx)
+
+    // Right nose: fan from nose point to ring 0
+    for (let j = 0; j < HRS; j++) {
+      idx.push(noseIdx, j, j + 1);
+    }
+    // Left nose: fan from left nose point to left ring 0
+    for (let j = 0; j < HRS; j++) {
+      idx.push(noseIdxL, leftIdx[j + 1], leftIdx[j]);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TAIL CAP: ALWAYS generated (closed solid required for mold CSG)
+  // TAIL CAP: converge to a single point behind last ring
   // ═══════════════════════════════════════════════════════════
 
   {
     const lastRing = NS * vertsPerRing;
-    // Right tail cap (skip j=0 to avoid degenerate tri)
-    for (let j = 1; j < HRS; j++) {
-      idx.push(lastRing, lastRing + j + 1, lastRing + j);
+    const tailX = hL + 0.01; // just behind the tail ring
+    const tailCy = (profiles.dorsalCache[NS] * L + profiles.ventralCache[NS] * L) / 2;
+    const tailIdx = pos.length / 3;
+    pos.push(tailX, tailCy, 0);
+    const tailIdxL = pos.length / 3;
+    pos.push(tailX, tailCy, 0);
+
+    // Right tail
+    for (let j = 0; j < HRS; j++) {
+      idx.push(tailIdx, lastRing + j + 1, lastRing + j);
     }
-    // Left tail cap
-    for (let j = 1; j < HRS; j++) {
-      idx.push(leftIdx[lastRing], leftIdx[lastRing + j], leftIdx[lastRing + j + 1]);
+    // Left tail
+    for (let j = 0; j < HRS; j++) {
+      idx.push(tailIdxL, leftIdx[lastRing + j], leftIdx[lastRing + j + 1]);
     }
   }
 
