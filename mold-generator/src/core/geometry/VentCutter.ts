@@ -45,16 +45,23 @@ export class VentCutter {
       const distToXEdge = boxXHalf - Math.abs(pos.x - cx);
       const distToYEdge = boxYHalf - Math.abs(pos.y - cy);
 
-      if (distToXEdge <= distToYEdge || Math.abs(pos.x) >= boxXHalf - 1) {
-        const dir = pos.x >= 0 ? 1 : -1;
+      // Vent channel: shallow groove on the parting face (Z=0) of halfA,
+      // running from the bait cavity to the nearest mold edge.
+      // Z positioned so top face is at Z=0, channel cuts downward into halfA.
+      const ventZ = -config.ventDepth / 2;
+
+      if (distToXEdge <= distToYEdge || Math.abs(pos.x - cx) >= boxXHalf - 1) {
+        // Run toward nearest X edge
+        const dir = (pos.x - cx) >= 0 ? 1 : -1;
         const runLen = distToXEdge + OS;
-        cutters.push(mTranslate(mBox(runLen, config.ventWidth, config.ventDepth + OS),
-          pos.x + dir * (runLen / 2), pos.y, -(config.ventDepth + OS) / 2 + OS));
+        cutters.push(mTranslate(mBox(runLen, config.ventWidth, config.ventDepth),
+          pos.x + dir * (runLen / 2), pos.y, ventZ));
       } else {
-        const dir = pos.y >= 0 ? 1 : -1;
+        // Run toward nearest Y edge
+        const dir = (pos.y - cy) >= 0 ? 1 : -1;
         const runLen = distToYEdge + OS;
-        cutters.push(mTranslate(mBox(config.ventWidth, runLen, config.ventDepth + OS),
-          pos.x, pos.y + dir * (runLen / 2), -(config.ventDepth + OS) / 2 + OS));
+        cutters.push(mTranslate(mBox(config.ventWidth, runLen, config.ventDepth),
+          pos.x, pos.y + dir * (runLen / 2), ventZ));
       }
     }
 
