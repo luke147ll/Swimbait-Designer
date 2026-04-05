@@ -73,6 +73,7 @@ function rebuildScene() {
   const geo = genBody(p, profileState);
   bodyMesh = new THREE.Mesh(geo, mat);
   scene.add(bodyMesh);
+  window.bodyMesh = bodyMesh; // expose for mold generator
 
   if (showEyes) {
     const eyes = buildEyes(p, L, profileState);
@@ -772,6 +773,35 @@ window.snapView = snapView;
 window.switchTab = switchTab;
 window.toggleEditors = toggleEditors;
 window.saveDesign = saveDesign;
+
+// Expose for mold generator handoff
+window.bodyMesh = null;
+window.profileState = profileState;
+
+function sendToMoldGenerator() {
+  if (!bodyMesh || !bodyMesh.geometry) {
+    alert('Design a bait first');
+    return;
+  }
+  // Serialize geometry to localStorage for cross-page transfer
+  const geo = bodyMesh.geometry;
+  const positions = Array.from(geo.attributes.position.array);
+  const index = geo.index ? Array.from(geo.index.array) : null;
+  const p = getParams();
+  localStorage.setItem('sbd_bait_geometry', JSON.stringify({
+    positions, index,
+    name: `sbd_${p.OL}in_bait`,
+    timestamp: Date.now(),
+  }));
+  console.log('[SBD] Bait saved to localStorage for mold generator');
+  // Navigate to mold generator
+  // Dev: localhost:5173, Prod: adjust to deployed URL
+  const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5173'
+    : '/mold-generator/';
+  window.open(moldUrl, '_blank');
+}
+window.sendToMoldGenerator = sendToMoldGenerator;
 window.toggleEyes = function(btn) {
   showEyes = !showEyes;
   btn.textContent = showEyes ? 'On' : 'Off';
