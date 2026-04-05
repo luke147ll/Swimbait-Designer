@@ -4,23 +4,12 @@
  * render loop, resize handler, profile state management, and UI wiring.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { genBody, superEllipse, NS, RS } from './engine.js';
+import { initPrimitiveEditor, setPrimitiveColor, getPrimitives } from './primitives.js';
 
-import { buildEyes, buildHookSlot } from './anatomy.js';
-import { loadPreset as applyPreset } from './presets.js';
-import { exportSTL as generateSTL } from './export-stl.js';
-import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
-import { createSideEditor, createWidthEditor } from './editors.js';
-import { createXSecEditor } from './xsec-editor.js';
-
-let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
-let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
+let scene, cam, ren, bodyMesh;
+let tailType = 'paddle', baitColor = 0x7a8e9a;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let editorDragging = false;
-
-// Profile state — source of truth for body shape
-const profileState = createProfileState();
-let sideEditor = null, widthEditor = null, xsecEditor = null;
 
 function updateCamera() {
   cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
@@ -59,21 +48,7 @@ function getParams() {
 }
 
 function rebuildScene() {
-  const p = getParams();
-  const L = p.OL;
-
-  [bodyMesh, eyeGrpL, eyeGrpR, hsM].forEach(m => { if (m) scene.remove(m); });
-
-  const mat = new THREE.MeshPhysicalMaterial({
-    color: baitColor, metalness: 0.05, roughness: 0.42,
-    clearcoat: 0.6, clearcoatRoughness: 0.2,
-    side: THREE.DoubleSide
-  });
-
-  const geo = genBody(p, profileState);
-  bodyMesh = new THREE.Mesh(geo, mat);
-  scene.add(bodyMesh);
-  window.bodyMesh = bodyMesh; // expose for mold generator
+  // Primitives handle their own rendering via primitives.js
 
   if (showEyes) {
     const eyes = buildEyes(p, L, profileState);
@@ -167,7 +142,7 @@ function update() {
 }
 
 function onSliderInput() {
-  update();
+  // Legacy — no longer used with primitive system
 }
 
 // Called when cross-section keyframe changes — just rebuild the mesh
@@ -234,7 +209,7 @@ function setColor(el) {
   document.querySelectorAll('.cs').forEach(e => e.classList.remove('on'));
   el.classList.add('on');
   baitColor = parseInt(el.dataset.c);
-  update();
+  setPrimitiveColor(baitColor);
 }
 
 function loadPreset(name) {
@@ -460,44 +435,11 @@ function init() {
   const edHint = document.getElementById('edHint');
   if (edHint && isTouch) edHint.textContent = 'Tap point to drag / pinch to zoom';
 
-  // ── Initialize editors (only one set — desktop OR mobile, not both) ──
-  const isMobile = window.innerWidth <= 480;
-
-  if (!isMobile) {
-    const sideContainer = document.getElementById('sideEditorContainer');
-    const widthContainer = document.getElementById('widthEditorContainer');
-    const finContainer = document.getElementById('finEditorContainer');
-    if (sideContainer) sideEditor = createSideEditor(sideContainer, profileState, onProfileEdit);
-    if (widthContainer) widthEditor = createWidthEditor(widthContainer, profileState, onProfileEdit);
-    if (finContainer) finEditor = createFinEditor(finContainer, finState, onFinEdit);
-    const xsecContainer = document.getElementById('xsecEditorContainer');
-    if (xsecContainer) xsecEditor = createXSecEditor(xsecContainer, profileState, onXSecEdit, showStationRing);
-    initPanelResize();
-  }
-
-  // Phone: create editors lazily on first tab open
-  let mobEditorsCreated = false;
-  window._initMobEditors = function() {
-    if (mobEditorsCreated) return;
-    const sideMob = document.getElementById('sideEditorMob');
-    const widthMob = document.getElementById('widthEditorMob');
-    const finMob = document.getElementById('finEditorMob');
-    if (sideMob && !sideMob.querySelector('svg')) sideEditor = createSideEditor(sideMob, profileState, onProfileEdit);
-    if (widthMob && !widthMob.querySelector('svg')) widthEditor = createWidthEditor(widthMob, profileState, onProfileEdit);
-    if (finMob && !finMob.querySelector('svg')) finEditor = createFinEditor(finMob, finState, onFinEdit);
-    const xsecMob = document.getElementById('xsecEditorMob');
-    if (xsecMob && !xsecMob.querySelector('svg')) xsecEditor = createXSecEditor(xsecMob, profileState, onXSecEdit, showStationRing);
-    mobEditorsCreated = true;
-  };
+  // ── Initialize primitive editor ──
+  initPrimitiveEditor(scene);
+  initPanelResize();
 
   updateCamera();
-  update();
-
-  // Show the cross-section reference line at the default station on startup
-  if (xsecEditor) {
-    const defaultStation = xsecEditor.getStation ? xsecEditor.getStation() : 33;
-    showStationRing(defaultStation);
-  }
 
   // Check auth, load saved/shared design from URL if present
   initAuth();

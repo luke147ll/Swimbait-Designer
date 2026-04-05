@@ -30,67 +30,23 @@
   </div>
 
   <div class="sec">
-    <div class="st ed-toggle-row" onclick="toggleEditors()">
-      <span><span id="edToggleArrow">▾</span> Profile editors</span>
-      <span class="ed-mode sliders" id="profileMode">BASE</span>
+    <div class="st">Bait Primitives</div>
+    <div class="c">
+      <select id="presetSelect" onchange="loadPreset(this.value)" style="width:100%;padding:6px;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px">
+        <option value="paddletail">Paddletail Shad</option>
+        <option value="stick">Stick Bait</option>
+        <option value="blank">Blank</option>
+      </select>
     </div>
-    <div class="editors" id="editors">
-      <div class="ed-label">Side profile (drag points vertically)</div>
-      <div id="sideEditorContainer"></div>
-      <div class="ed-label">Width profile (top-down)</div>
-      <div id="widthEditorContainer"></div>
-      <div class="ed-label">Cross-section shape (front view)</div>
-      <div id="xsecEditorContainer"></div>
-      <div class="ed-hint" id="edHint">Dbl-click: add point &middot; Right-click: remove &middot; Shift+drag: move horizontally (profiles) / soft brush (cross-section) &middot; Scroll: zoom &middot; Alt+drag: pan</div>
+    <div id="primitiveList"></div>
+    <div style="margin-top:8px">
+      <button class="tb" onclick="addPrimitive('sphere')" style="padding:6px">+ Sphere</button>
+      <button class="tb" onclick="addPrimitive('cylinder')" style="padding:6px">+ Cylinder</button>
+      <button class="tb" onclick="addPrimitive('cone')" style="padding:6px">+ Cone</button>
     </div>
   </div>
 
-  <div class="sec">
-    <div class="st">Body dimensions</div>
-    <div class="c"><div class="cr"><label>Overall length</label><span class="v" id="vOL"></span></div><input type="range" id="sOL" min="3" max="14" step="0.25" value="8" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Max body depth</label><span class="v" id="vBD"></span></div><input type="range" id="sBD" min="0.15" max="0.55" step="0.005" value="0.32" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Max width ratio</label><span class="v" id="vWR"></span></div><input type="range" id="sWR" min="0.30" max="1.0" step="0.01" value="0.60" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Girth position</label><span class="v" id="vGP"></span></div><input type="range" id="sGP" min="0.25" max="0.50" step="0.005" value="0.34" oninput="onSliderInput()"></div>
-  </div>
-
-  <div class="sec">
-    <div class="st">Head</div>
-    <div class="c"><div class="cr"><label>Head length</label><span class="v" id="vHL"></span></div><input type="range" id="sHL" min="0.15" max="0.35" step="0.005" value="0.24" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Snout bluntness</label><span class="v" id="vSB"></span></div><input type="range" id="sSB" min="0.15" max="0.85" step="0.01" value="0.50" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Head width</label><span class="v" id="vHW"></span></div><input type="range" id="sHW" min="0.5" max="1.1" step="0.01" value="0.85" oninput="onSliderInput()"></div>
-  </div>
-
-  <div class="sec">
-    <div class="st">Profile shape</div>
-    <div class="c"><div class="cr"><label>Dorsal arch</label><span class="v" id="vDA"></span></div><input type="range" id="sDA" min="0.0" max="0.60" step="0.01" value="0.20" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Belly fullness</label><span class="v" id="vBF"></span></div><input type="range" id="sBF" min="0.0" max="0.70" step="0.01" value="0.30" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Body taper</label><span class="v" id="vBT"></span></div><input type="range" id="sBT" min="0.3" max="0.9" step="0.01" value="0.55" oninput="onSliderInput()"></div>
-  </div>
-
-  <div class="sec">
-    <div class="st">Caudal peduncle</div>
-    <div class="c"><div class="cr"><label>Stalk length</label><span class="v" id="vSL"></span></div><input type="range" id="sSL" min="0.08" max="0.25" step="0.005" value="0.14" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Stalk depth</label><span class="v" id="vSD"></span></div><input type="range" id="sSD" min="0.12" max="0.40" step="0.01" value="0.22" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Stalk compression</label><span class="v" id="vSC"></span></div><input type="range" id="sSC" min="0.3" max="0.9" step="0.01" value="0.55" oninput="onSliderInput()"></div>
-  </div>
-
-  <div class="sec">
-    <div class="st">Tail</div>
-    <div class="c"><div class="cr"><label>Tail thickness</label><span class="v" id="vTT"></span></div><input type="range" id="sTT" min="0.05" max="1.0" step="0.01" value="0.55" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Fork depth</label><span class="v" id="vFD"></span></div><input type="range" id="sFD" min="0" max="1.0" step="0.01" value="0" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Fork asymmetry</label><span class="v" id="vFA"></span></div><input type="range" id="sFA" min="-1.0" max="1.0" step="0.01" value="0" oninput="onSliderInput()"></div>
-  </div>
-
-  <div class="sec">
-    <div class="st">Features</div>
-    <div class="c"><div class="cr"><label>Eyes</label><button class="tb on" id="eyeToggle" onclick="toggleEyes(this)" style="padding:4px 10px">On</button></div></div>
-    <div id="eyeSliders">
-    <div class="c"><div class="cr"><label>Eye position</label><span class="v" id="vEP"></span></div><input type="range" id="sEP" min="0.03" max="0.25" step="0.001" value="0.08" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Eye size</label><span class="v" id="vES"></span></div><input type="range" id="sES" min="0.2" max="2.0" step="0.01" value="0.55" oninput="onSliderInput()"></div>
-    <div class="c"><div class="cr"><label>Eye bulge</label><span class="v" id="vEB"></span></div><input type="range" id="sEB" min="0.0" max="1.0" step="0.01" value="0.50" oninput="onSliderInput()"></div>
-    </div>
-    <div class="c"><div class="cr"><label>Hook slot</label><span class="v" id="vHS"></span></div><input type="range" id="sHS" min="0" max="0.8" step="0.01" value="0.40" oninput="onSliderInput()"></div>
-  </div>
+  <!-- Old slider sections replaced by primitive editor above -->
 
   <div class="sec">
     <div class="st">Color</div>
