@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { threeToManifold, mBox, mSubtract, mTranslate, type ManifoldSolid } from '../csg';
 import type { MoldConfig } from '../types';
 
-const PARTING_OVERLAP = 1.0; // mm — each half extends past Z=0 to ensure bait fully penetrates
 const MIN_WALL = 3;
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
@@ -35,23 +34,24 @@ export class BaitSubtraction {
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null; dims: MoldDimensions } {
     const startTime = performance.now();
 
-    // Nudge midline vertices off Z=0 to prevent co-planar CSG artifacts
     const meshToUse = texturedBaitMesh ?? baitMesh;
-    const nudged = meshToUse.clone();
-    const srcPos = nudged.attributes.position;
-    for (let i = 0; i < srcPos.count; i++) {
-      const z = srcPos.getZ(i);
-      if (Math.abs(z) < 0.05) {
-        srcPos.setZ(i, z >= 0 ? 0.05 : -0.05);
-      }
+
+    // Scale bait 1.002x in Z to push midline off Z=0.
+    // The designer mesh has triangles lying flat on Z=0 (cap faces
+    // connecting the two half-shells). A tiny Z scale breaks the
+    // co-planar condition without visible distortion.
+    const prepared = meshToUse.clone();
+    const pos = prepared.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setZ(i, pos.getZ(i) * 1.002);
     }
-    srcPos.needsUpdate = true;
+    pos.needsUpdate = true;
 
     const offsetBait = moldConfig.cavityClearance > 0
-      ? offsetMesh(nudged, moldConfig.cavityClearance)
-      : nudged;
+      ? offsetMesh(prepared, moldConfig.cavityClearance)
+      : prepared;
 
-    // Get bounds from Three.js mesh (always works, no Manifold needed)
+    // Get bounds from Three.js mesh
     offsetBait.computeBoundingBox();
     const bb = offsetBait.boundingBox!;
     const center = new THREE.Vector3();
@@ -72,26 +72,28 @@ export class BaitSubtraction {
     const boxY = baitHtY + wallY * 2 + moldConfig.clampFlange * 2;
     const baitAboveZ = bb.max.z;
     const baitBelowZ = Math.abs(bb.min.z);
-    const halfZ = Math.max(baitAboveZ, baitBelowZ, baitWidZ / 2) + wallZ + moldConfig.partingFaceDepth + PARTING_OVERLAP;
+    const halfZ = Math.max(baitAboveZ, baitBelowZ, baitWidZ / 2) + wallZ + moldConfig.partingFaceDepth;
 
     console.log(`[BaitSubtraction] Box: ${boxX.toFixed(1)} × ${boxY.toFixed(1)} × ${halfZ.toFixed(1)} mm per half`);
 
-    // Get Manifold solid — use native if available, otherwise convert
+    // Get Manifold solid
     let baitM: ManifoldSolid;
     if (baitManifold && !texturedBaitMesh) {
-      console.log('[BaitSubtraction] Using native Manifold solid');
-      baitM = baitManifold;
+      // Scale the native Manifold solid too
+      console.log('[BaitSubtraction] Using native Manifold solid (Z-scaled)');
+      baitM = baitManifold.scale([1, 1, 1.002]);
     } else {
       console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
       baitM = threeToManifold(offsetBait);
     }
 
-    // Build mold boxes centered on the bait
+    // Build mold boxes — NO overlap, parting face exactly at Z=0
+    // The bait's Z-scale ensures no co-planar faces
     const cx = center.x;
     const cy = center.y;
 
-    const boxAM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, -halfZ / 2 + PARTING_OVERLAP);
-    const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2 - PARTING_OVERLAP);
+    const boxAM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, -halfZ / 2);
+    const boxBM = mTranslate(mBox(boxX, boxY, halfZ), cx, cy, halfZ / 2);
 
     console.log('[BaitSubtraction] Subtracting bait from halfA...');
     const halfA = mSubtract(boxAM, baitM);
