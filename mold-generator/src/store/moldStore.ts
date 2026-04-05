@@ -1,0 +1,53 @@
+import { create } from 'zustand';
+import * as THREE from 'three';
+import type { MoldState, MoldConfig, AlignmentConfig, ClampConfig, SprueConfig, VentConfig, PrinterProfile, ValidationResult } from '../core/types';
+import type { TextureConfig } from '../core/texture/types';
+import { DEFAULT_MOLD_CONFIG, DEFAULT_ALIGNMENT_CONFIG, DEFAULT_CLAMP_CONFIG, DEFAULT_SPRUE_CONFIG, DEFAULT_VENT_CONFIG, PRINTER_PROFILES } from '../core/constants';
+
+export const useMoldStore = create<MoldState>((set) => ({
+  baitMesh: null,
+  baitFileName: null,
+  baitManifold: null,
+  moldConfig: { ...DEFAULT_MOLD_CONFIG },
+  alignmentConfig: { ...DEFAULT_ALIGNMENT_CONFIG },
+  clampConfig: { ...DEFAULT_CLAMP_CONFIG },
+  sprueConfig: { ...DEFAULT_SPRUE_CONFIG },
+  ventConfig: { ...DEFAULT_VENT_CONFIG },
+  printerProfile: PRINTER_PROFILES[0],
+  textureConfig: null,
+  texturedBaitMesh: null,
+  moldHalfA: null,
+  moldHalfB: null,
+  validationResult: null,
+  isGenerating: false,
+  lastGeneratedAt: null,
+  setBaitMesh: (mesh: THREE.BufferGeometry, fileName: string) => set({ baitMesh: mesh, baitFileName: fileName }),
+  setBaitManifold: (manifold) => set({ baitManifold: manifold }),
+  updateMoldConfig: (partial: Partial<MoldConfig>) => set((s) => ({ moldConfig: { ...s.moldConfig, ...partial } })),
+  updateAlignmentConfig: (partial: Partial<AlignmentConfig>) => set((s) => ({ alignmentConfig: { ...s.alignmentConfig, ...partial } })),
+  updateClampConfig: (partial: Partial<ClampConfig>) => set((s) => ({ clampConfig: { ...s.clampConfig, ...partial } })),
+  updateSprueConfig: (partial: Partial<SprueConfig>) => set((s) => ({ sprueConfig: { ...s.sprueConfig, ...partial } })),
+  updateVentConfig: (partial: Partial<VentConfig>) => set((s) => ({ ventConfig: { ...s.ventConfig, ...partial } })),
+  setPrinterProfile: (profile: PrinterProfile) => set({ printerProfile: profile }),
+  setGeneratedMold: (halfA: THREE.BufferGeometry, halfB: THREE.BufferGeometry | null) => set({ moldHalfA: halfA, moldHalfB: halfB, lastGeneratedAt: Date.now() }),
+  setValidationResult: (result: ValidationResult) => set({ validationResult: result }),
+  setIsGenerating: (generating: boolean) => set({ isGenerating: generating }),
+  setTexturedBaitMesh: (mesh: THREE.BufferGeometry | null) => set({ texturedBaitMesh: mesh }),
+  setTextureConfig: (config: TextureConfig | null) => set({ textureConfig: config }),
+  resetToDefaults: () => set({
+    baitManifold: null,
+    moldConfig: { ...DEFAULT_MOLD_CONFIG },
+    alignmentConfig: { ...DEFAULT_ALIGNMENT_CONFIG },
+    clampConfig: { ...DEFAULT_CLAMP_CONFIG },
+    sprueConfig: { ...DEFAULT_SPRUE_CONFIG },
+    ventConfig: { ...DEFAULT_VENT_CONFIG },
+    printerProfile: PRINTER_PROFILES[0],
+    textureConfig: null,
+    texturedBaitMesh: null,
+    moldHalfA: null,
+    moldHalfB: null,
+    validationResult: null,
+    isGenerating: false,
+    lastGeneratedAt: null,
+  }),
+}));
