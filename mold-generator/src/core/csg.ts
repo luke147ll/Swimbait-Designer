@@ -244,20 +244,50 @@ export function threeToManifold(geometry: THREE.BufferGeometry): ManifoldSolid {
     }
   }
 
-  // Last resort: create a convex hull from the mesh vertices.
-  // This loses concavities but is guaranteed manifold.
-  console.log('[CSG] All mesh imports failed. Building convex hull from vertices...');
+  // Last resort: rebuild as a lofted solid by sampling cross-sections
+  // along the X axis and hulling sliced point clouds
+  console.log('[CSG] All mesh imports failed. Rebuilding as lofted hull slices...');
   try {
-    const vec = new wasm.Vector_vec3();
+    const allPoints = new wasm.Vector_vec3();
+
+    // Sample cross-sections along X
+    // Find X extent
+    let minX = Infinity, maxX = -Infinity;
     for (let i = 0; i < numVerts; i++) {
-      vec.push_back({ x: vertProperties[i * 3], y: vertProperties[i * 3 + 1], z: vertProperties[i * 3 + 2] });
+      const x = vertProperties[i * 3];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
     }
-    const hull = wasm.Manifold.hull(vec);
-    vec.delete();
-    console.log(`[CSG] Hull created: ${hull.numVert()} verts, ${hull.numTri()} tris`);
+
+    const sliceCount = 48;
+    const sliceWidth = (maxX - minX) / sliceCount;
+
+    for (let s = 0; s <= sliceCount; s++) {
+      const sliceX = minX + s * (maxX - minX) / sliceCount;
+      const sliceMin = sliceX - sliceWidth * 0.6;
+      const sliceMax = sliceX + sliceWidth * 0.6;
+
+      // Collect vertices in this slice
+      for (let i = 0; i < numVerts; i++) {
+        const x = vertProperties[i * 3];
+        if (x >= sliceMin && x <= sliceMax) {
+          // Project to the slice plane
+          allPoints.push_back({
+            x: sliceX,
+            y: vertProperties[i * 3 + 1],
+            z: vertProperties[i * 3 + 2]
+          });
+        }
+      }
+    }
+
+    console.log(`[CSG] Collected ${allPoints.size()} slice points from ${sliceCount} slices`);
+    const hull = wasm.Manifold.hull(allPoints);
+    allPoints.delete();
+    console.log(`[CSG] Lofted hull: ${hull.numVert()} verts, ${hull.numTri()} tris`);
     return hull;
   } catch (hullErr) {
-    throw new Error(`Could not create Manifold from mesh (hull also failed: ${hullErr}). The mesh may not be watertight.`);
+    throw new Error(`Could not create Manifold from mesh (lofted hull also failed: ${hullErr}).`);
   }
 }
 
