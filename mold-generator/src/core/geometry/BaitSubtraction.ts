@@ -35,11 +35,21 @@ export class BaitSubtraction {
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null; dims: MoldDimensions } {
     const startTime = performance.now();
 
-    // Apply cavity clearance to Three.js mesh (for bounding box)
+    // Nudge midline vertices off Z=0 to prevent co-planar CSG artifacts
     const meshToUse = texturedBaitMesh ?? baitMesh;
+    const nudged = meshToUse.clone();
+    const srcPos = nudged.attributes.position;
+    for (let i = 0; i < srcPos.count; i++) {
+      const z = srcPos.getZ(i);
+      if (Math.abs(z) < 0.05) {
+        srcPos.setZ(i, z >= 0 ? 0.05 : -0.05);
+      }
+    }
+    srcPos.needsUpdate = true;
+
     const offsetBait = moldConfig.cavityClearance > 0
-      ? offsetMesh(meshToUse, moldConfig.cavityClearance)
-      : meshToUse.clone();
+      ? offsetMesh(nudged, moldConfig.cavityClearance)
+      : nudged;
 
     // Get bounds from Three.js mesh (always works, no Manifold needed)
     offsetBait.computeBoundingBox();
