@@ -118,8 +118,19 @@ function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeomet
   // shared between left and right half-shells)
   let work = geo.index ? geo.toNonIndexed() : geo.clone();
 
-  // Remove NaN vertices
+  // Nudge vertices off Z=0 — the designer mesh has its midline exactly
+  // at Z=0 which creates co-planar faces with the mold box parting plane.
+  // Shifting by 0.01mm is invisible but prevents CSG artifacts.
   const pos = work.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i);
+    if (Math.abs(z) < 0.02) {
+      pos.setZ(i, z >= 0 ? 0.02 : -0.02);
+    }
+  }
+  pos.needsUpdate = true;
+
+  // Remove NaN vertices
   for (let i = 0; i < pos.count; i++) {
     if (isNaN(pos.getX(i)) || isNaN(pos.getY(i)) || isNaN(pos.getZ(i))) {
       pos.setXYZ(i, 0, 0, 0);
