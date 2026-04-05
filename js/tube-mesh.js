@@ -28,10 +28,11 @@
  * @param {Function} getWidth   - getWidth(t) → half-width in mm at t∈[0,1]
  * @param {number} lengthMM     - overall length in mm
  * @param {number} NS           - stations along the body (default 40)
- * @param {number} RS           - segments per ring (default 32)
+ * @param {number} RS           - segments per ring (default 36)
+ * @param {Function|null} getXSec - getXSec(ringIndex96) → [{y,z},...] normalized polygon (RS+1 pts) or null
  * @returns {{ vertProperties: Float32Array, triVerts: Uint32Array, vertCount: number, triCount: number }}
  */
-export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40, RS = 32) {
+export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40, RS = 36, getXSec = null) {
   const vertCount = (NS + 1) * RS + 2;
   const triCount = NS * RS * 2 + RS * 2;
   const vertProperties = new Float32Array(vertCount * 3);
@@ -50,14 +51,32 @@ export function buildTubeMesh(getDorsal, getVentral, getWidth, lengthMM, NS = 40
     const halfW   = Math.max(getWidth(t),   MIN_R);
 
     const zCenter = (dorsal - ventral) / 2;
-    const halfH   = (dorsal + ventral) / 2;
+
+    // Check for cross-section keyframe override at this station
+    // getXSec maps tube station → engine ring index (0-96) → polygon
+    const ringIndex96 = Math.round(t * 96);
+    const xsec = getXSec ? getXSec(ringIndex96) : null;
 
     for (let j = 0; j < RS; j++) {
-      const angle = (j / RS) * Math.PI * 2;
+      let vy, vz;
+
+      if (xsec && xsec.length === RS + 1) {
+        // Use cross-section polygon — normalized coords scaled by dorsal/ventral/width
+        const pt = xsec[j];
+        vy = (pt.y >= 0 ? pt.y * dorsal : pt.y * ventral) + zCenter;
+        vz = pt.z * halfW;
+      } else {
+        // Default elliptical cross-section
+        const angle = (j / RS) * Math.PI * 2;
+        const halfH = (dorsal + ventral) / 2;
+        vy = Math.sin(angle) * halfH + zCenter;
+        vz = Math.cos(angle) * halfW;
+      }
+
       const idx = vi * 3;
-      vertProperties[idx]     = y;                                   // X — length (body axis)
-      vertProperties[idx + 1] = Math.sin(angle) * halfH + zCenter;  // Y — height + offset
-      vertProperties[idx + 2] = Math.cos(angle) * halfW;            // Z — width
+      vertProperties[idx]     = y;   // X — length (body axis)
+      vertProperties[idx + 1] = vy;  // Y — height
+      vertProperties[idx + 2] = vz;  // Z — width
       vi++;
     }
   }
