@@ -195,12 +195,12 @@ export function genBody(p, profiles) {
   // Covers both right and left half-shells
   // ═══════════════════════════════════════════════════════════
 
-  // Right nose cap (dorsal vertex 0 → ventral vertex HRS)
-  for (let j = 0; j < HRS; j++) {
+  // Right nose cap (fan from vertex 0, skip j=0 to avoid degenerate tri)
+  for (let j = 1; j < HRS; j++) {
     idx.push(0, j, j + 1);
   }
-  // Left nose cap (mirrors right, reversed winding)
-  for (let j = 0; j < HRS; j++) {
+  // Left nose cap
+  for (let j = 1; j < HRS; j++) {
     idx.push(leftIdx[0], leftIdx[j + 1], leftIdx[j]);
   }
 
@@ -210,12 +210,12 @@ export function genBody(p, profiles) {
 
   {
     const lastRing = NS * vertsPerRing;
-    // Right tail cap
-    for (let j = 0; j < HRS; j++) {
+    // Right tail cap (skip j=0 to avoid degenerate tri)
+    for (let j = 1; j < HRS; j++) {
       idx.push(lastRing, lastRing + j + 1, lastRing + j);
     }
     // Left tail cap
-    for (let j = 0; j < HRS; j++) {
+    for (let j = 1; j < HRS; j++) {
       idx.push(leftIdx[lastRing], leftIdx[lastRing + j], leftIdx[lastRing + j + 1]);
     }
   }

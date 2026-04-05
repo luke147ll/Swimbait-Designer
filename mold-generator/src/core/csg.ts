@@ -144,8 +144,7 @@ function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeomet
     e1.subVectors(b, a); e2.subVectors(c, a);
     if (e1.cross(e2).lengthSq() < 1e-10) continue;
 
-    // Skip midline seam faces (all 3 vertices near Z=0)
-    if (Math.abs(a.z) < 0.15 && Math.abs(b.z) < 0.15 && Math.abs(c.z) < 0.15) continue;
+    // Don't strip midline faces — they're valid cap geometry
 
     // Build sorted vertex key for duplicate detection
     const verts = [
