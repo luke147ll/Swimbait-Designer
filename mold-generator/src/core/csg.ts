@@ -179,11 +179,18 @@ function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeomet
   const clean = new THREE.BufferGeometry();
   clean.setAttribute('position', new THREE.Float32BufferAttribute(cleanPositions, 3));
 
-  // Re-index by merging coincident vertices
-  const merged = mergeVerts(clean, 0.001);
-  merged.computeVertexNormals();
-  merged.computeBoundingBox();
-  return merged;
+  // Do NOT merge vertices here — merging recreates non-manifold edges
+  // at the midline where left/right half-shells have coincident vertices.
+  // Instead, create a simple sequential index (non-indexed → indexed with identity)
+  // and let Manifold's merge vectors handle coincident vertex merging
+  // while maintaining manifold topology.
+  const vertCount = cleanPositions.length / 3;
+  const indices: number[] = [];
+  for (let i = 0; i < vertCount; i++) indices.push(i);
+  clean.setIndex(indices);
+  clean.computeVertexNormals();
+  clean.computeBoundingBox();
+  return clean;
 }
 
 // ─── Three.js ↔ Manifold conversion ────────────────────────
@@ -270,28 +277,3 @@ export function manifoldToThree(manifold: ManifoldSolid): THREE.BufferGeometry {
   return geo;
 }
 
-// ─── Internal vertex merge ──────────────────────────────────
-
-function mergeVerts(geometry: THREE.BufferGeometry, tolerance: number): THREE.BufferGeometry {
-  const positions = geometry.attributes.position;
-  const vertexMap = new Map<string, number>();
-  const newPositions: number[] = [];
-  const indexMap: number[] = [];
-
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
-    const key = `${Math.round(x / tolerance)},${Math.round(y / tolerance)},${Math.round(z / tolerance)}`;
-    let idx = vertexMap.get(key);
-    if (idx === undefined) {
-      idx = newPositions.length / 3;
-      vertexMap.set(key, idx);
-      newPositions.push(x, y, z);
-    }
-    indexMap.push(idx);
-  }
-
-  const newGeo = new THREE.BufferGeometry();
-  newGeo.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
-  newGeo.setIndex(indexMap);
-  return newGeo;
-}
