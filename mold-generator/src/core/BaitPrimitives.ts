@@ -2,7 +2,7 @@
  * BaitPrimitives — primitive-based bait design system.
  * Uses the SAME Manifold WASM instance as csg.ts (critical — can't mix instances).
  */
-import { initCSG, mSphere, mCylZ, mCone, manifoldToThree, type ManifoldSolid } from './csg';
+import { initCSG, mSphere, mCylZ, mCone, mFromMesh, manifoldToThree, type ManifoldSolid } from './csg';
 import * as THREE from 'three';
 
 // ─── Data Model ─────────────────────────────────────────────
@@ -141,6 +141,101 @@ export async function buildBait(primitives: BaitPrimitive[]): Promise<{
   geometry: THREE.BufferGeometry;
 }> {
   const manifold = await buildBaitSolid(primitives);
+  const geometry = manifoldToThree(manifold);
+  return { manifold, geometry };
+}
+
+// ─── Station-based Build (spline-driven ellipsoids) ────────
+
+export interface StationData {
+  t: number;
+  positionY: number;      // mm, centered at origin
+  dorsalHeight: number;   // mm
+  ventralDepth: number;   // mm
+  halfWidth: number;      // mm
+}
+
+/**
+ * Build a Manifold bait solid from sampled station data.
+ * Each station becomes an ellipsoid. All ellipsoids are unioned.
+ * The ellipsoids overlap with neighbors for a smooth continuous shape.
+ */
+export async function buildBaitFromStations(stations: StationData[]): Promise<ManifoldSolid> {
+  await initCSG();
+
+  // Calculate spacing for overlap
+  const totalLength = Math.abs(stations[stations.length - 1].positionY - stations[0].positionY);
+  const spacing = stations.length > 1 ? totalLength / (stations.length - 1) : 1;
+  const yRadius = spacing * 0.75; // 50% overlap between adjacent ellipsoids
+
+  let bait: ManifoldSolid | null = null;
+
+  for (const station of stations) {
+    const totalHeight = station.dorsalHeight + station.ventralDepth;
+    const halfHeight = totalHeight / 2;
+    const halfWidth = station.halfWidth;
+
+    // Skip degenerate stations (nose/tail tips)
+    if (halfHeight < 0.3 || halfWidth < 0.3) continue;
+
+    // Vertical center offset for dorsal/ventral asymmetry
+    const zOffset = (station.dorsalHeight - station.ventralDepth) / 2;
+
+    // Create ellipsoid: sphere scaled to station dimensions
+    let section = mSphere(1, 20);
+    section = section.scale([halfWidth, yRadius, halfHeight]);
+    section = section.translate([0, station.positionY, zOffset]);
+
+    if (bait === null) {
+      bait = section;
+    } else {
+      bait = bait.add(section);
+    }
+  }
+
+  if (!bait) throw new Error('No valid stations — bait has zero cross-section everywhere');
+
+  // Rotate 90° CCW around Z so length axis (Y in stations) aligns with X (mold convention)
+  bait = bait.rotate([0, 0, 90]);
+
+  return bait;
+}
+
+/**
+ * Build from stations and return both Manifold solid and Three.js geometry.
+ */
+export async function buildBaitFromStationData(stations: StationData[]): Promise<{
+  manifold: ManifoldSolid;
+  geometry: THREE.BufferGeometry;
+}> {
+  const manifold = await buildBaitFromStations(stations);
+  const geometry = manifoldToThree(manifold);
+  return { manifold, geometry };
+}
+
+// ─── Mesh Data Build (tube mesh from designer) ─────────────
+
+/**
+ * Build a Manifold solid directly from raw mesh arrays (vertProperties + triVerts).
+ * This is the preferred transfer path: the designer builds a watertight tube mesh
+ * and sends the raw arrays. We feed them straight to Manifold's constructor.
+ * No boolean unions, no conversion — just validation.
+ */
+export async function buildBaitFromMeshData(
+  vertProperties: number[],
+  triVerts: number[],
+): Promise<{ manifold: ManifoldSolid; geometry: THREE.BufferGeometry }> {
+  await initCSG();
+
+  const vp = new Float32Array(vertProperties);
+  const tv = new Uint32Array(triVerts);
+
+  console.log(`[BaitPrimitives] Mesh data: ${vp.length / 3} verts, ${tv.length / 3} tris`);
+
+  // Create Manifold from raw arrays — the mesh was built for this
+  // Tube mesh already has length along X (mold convention), no rotation needed
+  const manifold = mFromMesh(vp, tv);
+
   const geometry = manifoldToThree(manifold);
   return { manifold, geometry };
 }

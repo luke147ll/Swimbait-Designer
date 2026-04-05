@@ -71,6 +71,44 @@ export function mDispose(solid: ManifoldSolid): void {
   try { solid.delete(); } catch { /* already deleted */ }
 }
 
+/**
+ * Create a Manifold solid from raw mesh arrays (vertProperties + triVerts).
+ * This is the preferred path for designer→mold transfer: the mesh was built
+ * specifically for Manifold's constructor (watertight tube, correct winding).
+ */
+export function mFromMesh(vertProperties: Float32Array, triVerts: Uint32Array): ManifoldSolid {
+  try {
+    return new wasm.Manifold({ numProp: 3, vertProperties, triVerts });
+  } catch (e1) {
+    console.warn('[CSG] Direct mesh import failed, trying with merge vectors:', e1);
+
+    // Build merge vectors at 0.1mm tolerance as fallback
+    const tolerance = 0.1;
+    const numVerts = vertProperties.length / 3;
+    const vertexMap = new Map<string, number>();
+    const mergeFrom: number[] = [];
+    const mergeTo: number[] = [];
+
+    for (let i = 0; i < numVerts; i++) {
+      const key = `${Math.round(vertProperties[i * 3] / tolerance)},${Math.round(vertProperties[i * 3 + 1] / tolerance)},${Math.round(vertProperties[i * 3 + 2] / tolerance)}`;
+      const existing = vertexMap.get(key);
+      if (existing !== undefined && existing !== i) {
+        mergeFrom.push(i);
+        mergeTo.push(existing);
+      } else {
+        vertexMap.set(key, i);
+      }
+    }
+
+    console.log(`[CSG] Merge vectors: ${mergeFrom.length} pairs at tolerance ${tolerance}`);
+    return new wasm.Manifold({
+      numProp: 3, vertProperties, triVerts,
+      mergeFromVert: new Uint32Array(mergeFrom),
+      mergeToVert: new Uint32Array(mergeTo),
+    });
+  }
+}
+
 // ─── Sample bait (native Manifold, guaranteed manifold) ─────
 
 /**

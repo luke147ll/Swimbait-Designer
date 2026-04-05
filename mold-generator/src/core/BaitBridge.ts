@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
-import { buildBait, type BaitPrimitive } from './BaitPrimitives';
+import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, type BaitPrimitive, type StationData } from './BaitPrimitives';
 
 const INCHES_TO_MM = 25.4;
 const API_BASE = 'https://swimbaitdesigner.com';
@@ -90,10 +90,46 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
     const store = useMoldStore.getState();
     await initCSG();
 
-    // Check if it's JSON (primitives) or binary (STL)
+    // Check if it's JSON (mesh/stations/primitives) or binary (STL)
     if (contentType.includes('application/json')) {
-      // Primitives transfer — rebuild identical Manifold solid
       const data = await res.json();
+      console.log(`[BaitBridge] JSON transfer, type: ${data.type}, keys: ${Object.keys(data).join(',')}`);
+
+      // Manifold mesh transfer (tube mesh from designer) — preferred path
+      if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
+        console.log(`[BaitBridge] Mesh transfer: ${data.vertProperties.length / 3} verts, ${data.triVerts.length / 3} tris`);
+        const { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
+
+        geometry.computeBoundingBox();
+        const size = new THREE.Vector3();
+        geometry.boundingBox!.getSize(size);
+        console.log(`[BaitBridge] Built from mesh: ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`);
+
+        store.setBaitMesh(geometry, data.name || 'designed_bait');
+        store.setBaitManifold(manifold);
+
+        window.history.replaceState({}, '', window.location.pathname);
+        return { success: true };
+      }
+
+      // Stations transfer (spline-driven ellipsoids) — fallback path
+      if (data.type === 'stations' && data.stations) {
+        console.log(`[BaitBridge] Stations transfer: ${data.stations.length} stations`);
+        const { manifold, geometry } = await buildBaitFromStationData(data.stations as StationData[]);
+
+        geometry.computeBoundingBox();
+        const size = new THREE.Vector3();
+        geometry.boundingBox!.getSize(size);
+        console.log(`[BaitBridge] Built from stations: ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`);
+
+        store.setBaitMesh(geometry, data.name || 'designed_bait');
+        store.setBaitManifold(manifold);
+
+        window.history.replaceState({}, '', window.location.pathname);
+        return { success: true };
+      }
+
+      // Primitives transfer — rebuild identical Manifold solid
       if (data.type === 'primitives' && data.primitives) {
         console.log(`[BaitBridge] Primitives transfer: ${data.primitives.length} primitives`);
         const { manifold, geometry } = await buildBait(data.primitives as BaitPrimitive[]);
@@ -106,10 +142,12 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
         store.setBaitMesh(geometry, data.name || 'designed_bait');
         store.setBaitManifold(manifold);
 
-        // Clean URL
         window.history.replaceState({}, '', window.location.pathname);
         return { success: true };
       }
+
+      // JSON was parsed but type not recognized
+      return { success: false, error: `Unknown JSON transfer type: ${data.type || 'missing'}` };
     }
 
     // Binary STL transfer (legacy/import)
