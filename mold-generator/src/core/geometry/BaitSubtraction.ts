@@ -6,23 +6,31 @@ const MIN_WALL = 3;
 
 /** Keep only the largest connected component, discard floating shells */
 function keepLargest(solid: ManifoldSolid): ManifoldSolid {
-  const parts = solid.decompose();
-  if (parts.length <= 1) return solid;
+  try {
+    const parts = solid.decompose();
+    if (!parts || !Array.isArray(parts) || parts.length <= 1) return solid;
 
-  let largest = parts[0];
-  let largestVol = Math.abs(largest.volume());
-  for (let i = 1; i < parts.length; i++) {
-    const vol = Math.abs(parts[i].volume());
-    if (vol > largestVol) {
-      mDispose(largest);
-      largest = parts[i];
-      largestVol = vol;
-    } else {
-      mDispose(parts[i]);
+    let largestIdx = 0;
+    let largestTris = parts[0].numTri();
+    for (let i = 1; i < parts.length; i++) {
+      const tris = parts[i].numTri();
+      if (tris > largestTris) {
+        largestIdx = i;
+        largestTris = tris;
+      }
     }
+
+    // Dispose all except the largest
+    for (let i = 0; i < parts.length; i++) {
+      if (i !== largestIdx) mDispose(parts[i]);
+    }
+
+    console.log(`[BaitSubtraction] Kept largest component (${largestTris} tris), discarded ${parts.length - 1} shells`);
+    return parts[largestIdx];
+  } catch (e) {
+    console.warn('[BaitSubtraction] decompose failed, using original:', e);
+    return solid;
   }
-  console.log(`[BaitSubtraction] Kept largest component (${largestVol.toFixed(0)} mm³), discarded ${parts.length - 1} floating shells`);
-  return largest;
 }
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
