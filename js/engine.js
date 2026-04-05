@@ -111,12 +111,7 @@ export function genBody(p, profiles) {
   const forkAsym = p.FA || 0;
   const TAIL_ZONE = 0.85;
 
-  // ═══════════════════════════════════════════════════════════
-  // NOSE POINT: single vertex at the front
-  // ═══════════════════════════════════════════════════════════
-  const noseCy = (profiles.dorsalCache[0] * L + profiles.ventralCache[0] * L) / 2;
-  const noseIdx = 0;
-  pos.push(-hL - 0.01, noseCy, 0);
+  // No separate nose point — ring 0 collapses to a single position
 
   // ═══════════════════════════════════════════════════════════
   // BODY RINGS: full 360° cross-sections from ring 0 to NS
@@ -126,61 +121,50 @@ export function genBody(p, profiles) {
     const t = i / NS;
     let x = -hL + t * L;
 
-    // Taper first and last rings toward zero for clean point caps
-    let taper = 1;
-    if (i <= 1) taper = i === 0 ? 0.01 : 0.3;
-    if (i >= NS - 1) taper = i === NS ? 0.01 : 0.3;
-
-    const dorsalY = profiles.dorsalCache[i] * L * taper;
-    const ventralY = profiles.ventralCache[i] * L * taper;
-    const halfW = Math.max(profiles.widthCache[i] * L * taper, 0.001);
+    const dorsalY = profiles.dorsalCache[i] * L;
+    const ventralY = profiles.ventralCache[i] * L;
+    const halfW = Math.max(profiles.widthCache[i] * L, 0.004);
     const n = profiles.nCache[i];
     const cy = (dorsalY + ventralY) / 2;
-    const dorsalH = Math.max(dorsalY - cy, 0.001);
-    const ventralH = Math.max(cy - ventralY, 0.001);
+    const dorsalH = Math.max(dorsalY - cy, 0.003);
+    const ventralH = Math.max(cy - ventralY, 0.003);
+
+    // Ring 0 and ring NS: collapse all vertices to a single point
+    // This closes the mesh without any cap geometry
+    const collapsed = (i === 0 || i === NS);
     const xsec = getXSecAtRing(i, profiles);
 
     for (let j = 0; j < RS; j++) {
-      const v = fullRingVertex(j, dorsalH, ventralH, halfW, n, xsec);
+      if (collapsed) {
+        // All vertices in this ring are at the same point
+        pos.push(x, cy, 0);
+      } else {
+        const v = fullRingVertex(j, dorsalH, ventralH, halfW, n, xsec);
 
-      // Fork X-offset in tail zone
-      let vx = x;
-      if (t > TAIL_ZONE && forkDepth > 0) {
-        const tailT = (t - TAIL_ZONE) / (1.0 - TAIL_ZONE);
-        const angle = (j / RS) * Math.PI * 2;
-        const ca = Math.cos(angle);
-        const lobe = ca * ca;
-        const dorsalBias = ca >= 0 ? (1 + forkAsym) : (1 - forkAsym);
-        vx += tailT * tailT * forkDepth * (dorsalH + ventralH) * lobe * Math.max(0, dorsalBias) * 0.5;
+        // Fork X-offset in tail zone
+        let vx = x;
+        if (t > TAIL_ZONE && forkDepth > 0) {
+          const tailT = (t - TAIL_ZONE) / (1.0 - TAIL_ZONE);
+          const angle = (j / RS) * Math.PI * 2;
+          const ca = Math.cos(angle);
+          const lobe = ca * ca;
+          const dorsalBias = ca >= 0 ? (1 + forkAsym) : (1 - forkAsym);
+          vx += tailT * tailT * forkDepth * (dorsalH + ventralH) * lobe * Math.max(0, dorsalBias) * 0.5;
+        }
+
+        pos.push(vx, v.y + cy, v.z);
       }
-
-      pos.push(vx, v.y + cy, v.z);
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TAIL POINT: single vertex at the back
-  // ═══════════════════════════════════════════════════════════
-  const tailCy = (profiles.dorsalCache[NS] * L + profiles.ventralCache[NS] * L) / 2;
-  const tailPtIdx = pos.length / 3;
-  pos.push(hL + 0.01, tailCy, 0);
-
-  // ═══════════════════════════════════════════════════════════
-  // NOSE CAP: fan from nose point to first ring
-  // ═══════════════════════════════════════════════════════════
-  const ring0Start = 1; // ring 0 starts at vertex index 1 (after nose point)
-  for (let j = 0; j < RS; j++) {
-    const j1 = ring0Start + j;
-    const j2 = ring0Start + (j + 1) % RS;
-    idx.push(noseIdx, j2, j1);
-  }
-
-  // ═══════════════════════════════════════════════════════════
   // BODY QUAD STRIPS: connect adjacent rings
+  // Ring 0 and ring NS are collapsed (all verts at same point),
+  // so their quad strips degenerate into triangle fans = caps
   // ═══════════════════════════════════════════════════════════
   for (let i = 0; i < NS; i++) {
-    const ringA = 1 + i * vertsPerRing;
-    const ringB = 1 + (i + 1) * vertsPerRing;
+    const ringA = i * vertsPerRing;
+    const ringB = (i + 1) * vertsPerRing;
     for (let j = 0; j < RS; j++) {
       const a = ringA + j;
       const b = ringB + j;
@@ -189,16 +173,6 @@ export function genBody(p, profiles) {
       idx.push(a, b, a1);
       idx.push(b, b1, a1);
     }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // TAIL CAP: fan from tail point to last ring
-  // ═══════════════════════════════════════════════════════════
-  const lastRingStart = 1 + NS * vertsPerRing;
-  for (let j = 0; j < RS; j++) {
-    const j1 = lastRingStart + j;
-    const j2 = lastRingStart + (j + 1) % RS;
-    idx.push(tailPtIdx, j1, j2);
   }
 
   const geo = new THREE.BufferGeometry();
