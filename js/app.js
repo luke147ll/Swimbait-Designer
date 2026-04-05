@@ -8,7 +8,7 @@
  * it's fed directly to Manifold's constructor — guaranteed manifold, no boolean unions.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
-import { superEllipse, getXSecAtRing, NS, RS } from './engine.js';
+import { superEllipse, getXSecAtRing, defaultXSecPoly, NS, RS } from './engine.js';
 import { buildEyes, buildHookSlot } from './anatomy.js';
 import { loadPreset as applyPreset } from './presets.js';
 import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } from './splines.js';
@@ -106,8 +106,15 @@ function rebuildTubePreview() {
   const tubeNS = p.stationCount || 40;
   const tubeRS = RS; // 36 — matches cross-section editor polygon length
 
-  // Cross-section callback: maps ring index (0-96) to normalized polygon
-  const getXSec = (ringIndex96) => getXSecAtRing(ringIndex96, profileState);
+  // Cross-section callback: always returns a polygon (RS+1 points).
+  // Uses keyframe blend when available, otherwise the default super-ellipse.
+  // This avoids shape discontinuity at blend boundaries.
+  const getXSec = (ringIndex96) => {
+    const kf = getXSecAtRing(ringIndex96, profileState);
+    if (kf) return kf;
+    const n = profileState.nCache[ringIndex96] || 2.2;
+    return defaultXSecPoly(n);
+  };
 
   const { getDorsal, getVentral, getWidth, lengthMM } = makeSplineSamplers();
   const { vertProperties, triVerts, vertCount, triCount } = buildTubeMesh(
