@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
-import type { AlignmentConfig, ClampConfig, MoldConfig, Vec3 } from '../types';
+import type { AlignmentConfig, MoldConfig, Vec3 } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 
 const EPS = 0.01;

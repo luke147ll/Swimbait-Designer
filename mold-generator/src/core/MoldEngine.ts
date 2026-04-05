@@ -138,7 +138,7 @@ export class MoldEngine {
   }
 
   /** Compute bolt positions using the same logic as ClampFeatures auto-placement. */
-  private computeClampPositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, dims: { boxY: number }): Vec3[] {
+  private computeClampPositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, _dims: { boxY: number }): Vec3[] {
     if (config.mode === 'external_clamp') return [];
     if (config.positions.length > 0) return config.positions;
 
