@@ -10,6 +10,39 @@ import { BedValidator } from './validation/BedValidator';
 import { MeshValidator } from './validation/MeshValidator';
 import { BOMGenerator } from './export/BOMGenerator';
 
+/** Remove triangles with near-zero area (degenerate co-planar artifacts from CSG) */
+function stripDegenerates(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  const src = geo.index ? geo.toNonIndexed() : geo;
+  const pos = src.attributes.position;
+  const triCount = pos.count / 3;
+  const keep: number[] = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+
+  for (let t = 0; t < triCount; t++) {
+    const i = t * 3;
+    a.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+    b.set(pos.getX(i+1), pos.getY(i+1), pos.getZ(i+1));
+    c.set(pos.getX(i+2), pos.getY(i+2), pos.getZ(i+2));
+    e1.subVectors(b, a);
+    e2.subVectors(c, a);
+    const area = e1.cross(e2).length() * 0.5;
+    if (area > 0.001) { // keep triangles larger than 0.001 mm²
+      keep.push(
+        a.x, a.y, a.z,
+        b.x, b.y, b.z,
+        c.x, c.y, c.z
+      );
+    }
+  }
+
+  const stripped = new THREE.BufferGeometry();
+  stripped.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3));
+  stripped.computeVertexNormals();
+  stripped.computeBoundingBox();
+  return stripped;
+}
+
 export interface MoldResult {
   halfA: THREE.BufferGeometry;
   halfB: THREE.BufferGeometry | null;
@@ -79,10 +112,14 @@ export class MoldEngine {
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)
     console.log('[MoldEngine] Step 9: Convert to Three.js');
-    const halfAGeo = manifoldToThree(halfA);
-    const halfBGeo = halfB ? manifoldToThree(halfB) : null;
+    let halfAGeo = manifoldToThree(halfA);
+    let halfBGeo = halfB ? manifoldToThree(halfB) : null;
     mDispose(halfA);
     if (halfB) mDispose(halfB);
+
+    // Strip degenerate triangles (near-zero area) from CSG output
+    halfAGeo = stripDegenerates(halfAGeo);
+    if (halfBGeo) halfBGeo = stripDegenerates(halfBGeo);
 
     // Step 10: Validation
     console.log('[MoldEngine] Step 10: Validate');

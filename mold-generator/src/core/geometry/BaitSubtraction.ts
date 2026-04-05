@@ -36,7 +36,11 @@ export class BaitSubtraction {
 
     const meshToUse = texturedBaitMesh ?? baitMesh;
 
+    // Shift bait 0.15mm in +Z so no bait geometry sits on the
+    // Z=0 parting plane. This prevents Manifold from creating
+    // degenerate co-planar triangles at the intersection.
     const prepared = meshToUse.clone();
+    prepared.translate(0, 0, 0.15);
 
     const offsetBait = moldConfig.cavityClearance > 0
       ? offsetMesh(prepared, moldConfig.cavityClearance)
@@ -70,8 +74,8 @@ export class BaitSubtraction {
     // Get Manifold solid
     let baitM: ManifoldSolid;
     if (baitManifold && !texturedBaitMesh) {
-      console.log('[BaitSubtraction] Using native Manifold solid');
-      baitM = baitManifold;
+      console.log('[BaitSubtraction] Using native Manifold solid (Z-shifted)');
+      baitM = baitManifold.translate([0, 0, 0.15]);
     } else {
       console.log('[BaitSubtraction] Converting Three.js mesh to Manifold...');
       baitM = threeToManifold(offsetBait);
