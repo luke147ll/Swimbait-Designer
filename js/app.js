@@ -819,7 +819,7 @@ async function sendToMoldGenerator() {
   // Navigate to mold generator
   const moldUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5173'
-    : 'https://mold.swimbaitdesigner.com';
+    : 'https://sbd-mold-generator.luke-landi.workers.dev';
   window.open(moldUrl, '_blank');
 }
 window.sendToMoldGenerator = sendToMoldGenerator;
