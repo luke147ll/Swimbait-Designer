@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { threeToManifold, mBox, mSubtract, mTranslate, type ManifoldSolid } from '../csg';
 import type { MoldConfig } from '../types';
 
-const PARTING_OVERLAP = 0.05;
+const PARTING_OVERLAP = 1.0; // mm — each half extends past Z=0 to ensure bait fully penetrates
 const MIN_WALL = 3;
 
 function offsetMesh(geometry: THREE.BufferGeometry, offset: number): THREE.BufferGeometry {
