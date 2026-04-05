@@ -73,10 +73,6 @@ export function BaitLoader() {
         </div>
       )}
 
-      <button style={{ ...btnBase, background: T.gold, color: T.bgDeep }} onClick={handleSample}>
-        Load Sample Bait
-      </button>
-
       <button style={{ ...btnBase, background: T.bgSurface, color: T.textMuted, border: `1px solid ${T.border}` }}
         onClick={() => fileRef.current?.click()}>
         Import STL
