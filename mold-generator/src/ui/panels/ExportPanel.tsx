@@ -28,6 +28,7 @@ export function ExportPanel() {
   const halfA = useMoldStore(s => s.moldHalfA);
   const halfB = useMoldStore(s => s.moldHalfB);
   const insertCards = useMoldStore(s => s.insertCards);
+  const alignmentPins = useMoldStore(s => s.alignmentPins);
   const validation = useMoldStore(s => s.validationResult);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +91,12 @@ export function ExportPanel() {
           Export Half B (.stl)
         </button>
       )}
+      {alignmentPins.length > 0 && alignmentPins.map((pin, i) => (
+        <button key={`pin-${i}`} style={expBtn(!canExport)} disabled={!canExport}
+          onClick={() => stlExporter.exportBinary(pin.geometry, `hex_pin_${i + 1}`)}>
+          Export {pin.label} (.stl)
+        </button>
+      ))}
       {insertCards.length > 0 && insertCards.map((card, i) => (
         <button key={`card-${i}`} style={expBtn(!canExport)} disabled={!canExport}
           onClick={() => stlExporter.exportBinary(card.geometry, `insert_card_${i + 1}`)}>

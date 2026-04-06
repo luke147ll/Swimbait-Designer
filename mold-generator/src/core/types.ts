@@ -31,7 +31,12 @@ export interface MoldConfig {
   cornerRadius: number;
 }
 
-export type AlignmentType = 'dowel_pin' | 'printed_pin';
+export type AlignmentType = 'dowel_pin' | 'printed_pin' | 'hex_printed';
+
+export interface AlignmentPin {
+  label: string;
+  geometry: THREE.BufferGeometry;
+}
 
 export interface AlignmentConfig {
   type: AlignmentType;
@@ -165,6 +170,7 @@ export interface MoldState {
   moldHalfB: THREE.BufferGeometry | null;
   slotConfigs: SlotConfig[];
   insertCards: InsertCard[];
+  alignmentPins: AlignmentPin[];
   watermarkEnabled: boolean;
   validationResult: ValidationResult | null;
   isGenerating: boolean;
@@ -185,6 +191,7 @@ export interface MoldState {
   setTextureConfig: (config: TextureConfig | null) => void;
   setSlotConfigs: (configs: SlotConfig[]) => void;
   setInsertCards: (cards: InsertCard[]) => void;
+  setAlignmentPins: (pins: AlignmentPin[]) => void;
   setWatermarkEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }

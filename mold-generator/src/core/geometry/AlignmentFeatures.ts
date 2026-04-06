@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
-import type { AlignmentConfig, MoldConfig, Vec3, PrintOrientation } from '../types';
+import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, manifoldToThree, type ManifoldSolid } from '../csg';
+import type { AlignmentConfig, AlignmentPin, MoldConfig, Vec3, PrintOrientation } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 
 const EPS = 0.01;
@@ -39,9 +39,10 @@ export class AlignmentFeatures {
     _dims: MoldDimensions,
     clampPositions: Vec3[] = [],
     printOrientation: PrintOrientation = 'on_edge',
-  ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
+  ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null; pins: AlignmentPin[] } {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig);
+    let generatedPins: AlignmentPin[] = [];
 
     const socketDepth = config.pinLength / 2 + 1 + EPS;
 
@@ -75,8 +76,42 @@ export class AlignmentFeatures {
           halfB = mSubtract(halfB, compound);
         }
       }
+    } else if (config.type === 'hex_printed') {
+      // Hex printed pins: hex sockets in BOTH halves, separate printable hex pins.
+      // Hex = 6-segment cylinder. Socket has 0.15mm clearance per side.
+      const HEX_CLEARANCE = 0.15;
+      const pinR = config.pinDiameter / 2;
+      const socketR = pinR + HEX_CLEARANCE;
+      const halfDepth = config.pinLength / 2 + 0.5 + EPS;
+
+      // Hex sockets in halfA (extending into -Z)
+      const cuttersA: ManifoldSolid[] = [];
+      for (const pos of positions) {
+        cuttersA.push(mTranslate(mCylZ(socketR, halfDepth, 6), pos.x, pos.y, -halfDepth / 2 + EPS / 2));
+      }
+      if (cuttersA.length > 0) halfA = mSubtract(halfA, mBatchUnion(cuttersA));
+
+      // Hex sockets in halfB (extending into +Z)
+      if (halfB) {
+        const cuttersB: ManifoldSolid[] = [];
+        for (const pos of positions) {
+          cuttersB.push(mTranslate(mCylZ(socketR, halfDepth, 6), pos.x, pos.y, halfDepth / 2 - EPS / 2));
+        }
+        if (cuttersB.length > 0) halfB = mSubtract(halfB, mBatchUnion(cuttersB));
+      }
+
+      // Generate printable hex pins (separate STL exports)
+      const pins: AlignmentPin[] = [];
+      for (let i = 0; i < positions.length; i++) {
+        const pinSolid = mCylZ(pinR, config.pinLength, 6);
+        const pinGeo = manifoldToThree(pinSolid);
+        pinGeo.computeVertexNormals();
+        pins.push({ label: `Hex Pin ${i + 1}`, geometry: pinGeo });
+      }
+      generatedPins = pins;
+      console.log(`[AlignmentFeatures] ${positions.length} hex sockets (${socketR.toFixed(2)}mm radius, ${HEX_CLEARANCE}mm clearance)`);
     } else {
-      // Printed pin: bosses on halfA
+      // Printed pin (round): bosses on halfA
       const bosses: ManifoldSolid[] = [];
       for (const pos of positions) {
         const h = config.pinLength / 2;
@@ -185,6 +220,6 @@ export class AlignmentFeatures {
     }
 
     console.log(`[AlignmentFeatures] ${positions.length} pins (${config.type}), perimeterKey=${config.perimeterKey}`);
-    return { halfA, halfB };
+    return { halfA, halfB, pins: generatedPins };
   }
 }

@@ -18,21 +18,25 @@ export function AlignmentPanel() {
 
   const clearanceA = config.type === 'dowel_pin'
     ? (config.pinDiameter + config.pressClearance).toFixed(1)
+    : config.type === 'hex_printed'
+    ? (config.pinDiameter + 0.3).toFixed(1)
     : config.pinDiameter.toFixed(1);
   const clearanceB = config.type === 'dowel_pin'
     ? (config.pinDiameter + config.slipClearance).toFixed(1)
     : (config.pinDiameter + 0.3).toFixed(1);
-  const labelA = config.type === 'dowel_pin' ? 'Press' : 'Boss';
-  const labelB = config.type === 'dowel_pin' ? 'Slip' : 'Socket';
+  const labelA = config.type === 'dowel_pin' ? 'Press' : 'Socket A';
+  const labelB = config.type === 'dowel_pin' ? 'Slip' : 'Socket B';
 
   return (
     <AccordionPanel title="Alignment" defaultExpanded={true}>
       {/* Type selector */}
       <div style={{ display: 'flex', marginBottom: 12, borderRadius: 3, overflow: 'hidden' }}>
         <button style={segBtn(config.type === 'dowel_pin')}
-          onClick={() => update({ type: 'dowel_pin' as AlignmentType })}>Dowel Pins</button>
+          onClick={() => update({ type: 'dowel_pin' as AlignmentType })}>Dowel</button>
         <button style={segBtn(config.type === 'printed_pin')}
-          onClick={() => update({ type: 'printed_pin' as AlignmentType })}>Printed Pins</button>
+          onClick={() => update({ type: 'printed_pin' as AlignmentType })}>Printed</button>
+        <button style={segBtn(config.type === 'hex_printed')}
+          onClick={() => update({ type: 'hex_printed' as AlignmentType })}>Hex</button>
       </div>
 
       <Slider label="Pin Diameter" value={config.pinDiameter} min={3} max={6} step={0.5} unit="mm"
@@ -62,6 +66,8 @@ export function AlignmentPanel() {
       <div style={{ fontSize: 11, color: T.textDim, marginBottom: 12, lineHeight: 1.5 }}>
         {config.type === 'dowel_pin'
           ? 'Use stainless steel dowel pins. Available at any hardware store or Amazon.'
+          : config.type === 'hex_printed'
+          ? 'Hex pins print as separate STL files. Anti-rotation, 0.15mm clearance. No hardware needed.'
           : 'Printed pins wear faster. Expect replacement after ~20 uses. No additional hardware needed.'}
       </div>
 

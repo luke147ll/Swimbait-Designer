@@ -96,9 +96,14 @@ export class MoldEngine {
 
     // Step 5: Alignment — operates on Manifold objects directly
     console.log('[MoldEngine] Step 5: Alignment (Manifold-native)');
-    ({ halfA, halfB } = this.alignmentGen.generateManifold(
+    const alignResult = this.alignmentGen.generateManifold(
       halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions, printOrientation
-    ));
+    );
+    halfA = alignResult.halfA;
+    halfB = alignResult.halfB;
+    if (alignResult.pins.length > 0) {
+      useMoldStore.getState().setAlignmentPins(alignResult.pins);
+    }
 
     // Step 6: Clamps — Manifold-native
     console.log('[MoldEngine] Step 6: Clamps (Manifold-native)');
