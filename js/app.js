@@ -155,7 +155,7 @@ function getParams() {
     EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
     ES: +document.getElementById('sES').value,
     EB: +document.getElementById('sEB').value,
-    HS: +document.getElementById('sHS').value,
+    HS: 0,
     WP: 0,
     tail: tailType,
   };
@@ -338,7 +338,6 @@ function update(resolution) {
   document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
-  document.getElementById('vHS').textContent = p.HS.toFixed(2);
 
   // Regenerate profiles from sliders + manual deltas
   const base = buildProfilesFromSliders(p);
