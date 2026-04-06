@@ -14,14 +14,30 @@ function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig,
   const boxX = baitLenX + mc.wallMarginY * 2;
   const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
   const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35;
+  const cornerInset = 12; // mm from the corner along X
   const positions: Vec3[] = [];
-  const spacing = config.boltCount >= 6 ? boxX / 4 : boxX / 3;
-  const offsets = config.boltCount >= 6 ? [-spacing, 0, spacing] : [-spacing / 2, spacing / 2];
-  for (const side of [-1, 1])
-    for (const xOff of offsets)
-      positions.push({ x: cx + xOff, y: cy + side * flangeCenter, z: 0 });
 
-  console.log(`[ClampFeatures] Auto-placed ${positions.length} bolts, flangeCenter=${flangeCenter.toFixed(1)}, boxX=${boxX.toFixed(1)}, boxY=${dims.boxY.toFixed(1)}`);
+  // Always place bolts at the 4 corners — most important for clamping
+  const cornerX = boxX / 2 - cornerInset;
+  for (const sx of [-1, 1])
+    for (const sy of [-1, 1])
+      positions.push({ x: cx + sx * cornerX, y: cy + sy * flangeCenter, z: 0 });
+
+  // Add mid-span bolts if bolt count > 4
+  if (config.boltCount >= 6) {
+    // Add center bolt on each flange
+    for (const sy of [-1, 1])
+      positions.push({ x: cx, y: cy + sy * flangeCenter, z: 0 });
+  }
+  if (config.boltCount >= 8) {
+    // Add quarter-span bolts
+    const midX = cornerX / 2;
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1])
+        positions.push({ x: cx + sx * midX, y: cy + sy * flangeCenter, z: 0 });
+  }
+
+  console.log(`[ClampFeatures] Auto-placed ${positions.length} bolts (corners + ${positions.length - 4} mid-span), flangeCenter=${flangeCenter.toFixed(1)}, boxX=${boxX.toFixed(1)}`);
   for (const p of positions) console.log(`  Bolt at (${p.x.toFixed(1)}, ${p.y.toFixed(1)})`);
 
   return positions;
@@ -47,7 +63,7 @@ export class ClampFeatures {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig, dims);
     const bs = config.boltSize;
-    const BOLT_DROOP = 0.3; // mm extra diameter for top-edge bolt holes
+    const BOLT_DROOP = 0.45; // mm extra diameter for top-edge bolt holes
 
     if (config.mode === 'heat_set_insert') {
       const ins = HEAT_SET_INSERT_HOLES[bs];

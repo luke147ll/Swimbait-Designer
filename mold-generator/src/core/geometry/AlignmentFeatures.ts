@@ -47,7 +47,7 @@ export class AlignmentFeatures {
 
     if (config.type === 'dowel_pin') {
       // Droop compensation: oversize top-edge sockets when printing on edge
-      const PIN_DROOP = 0.2; // mm extra radius for top-edge pins
+      const PIN_DROOP = 0.3; // mm extra radius for top-edge pins
 
       // HalfA: press-fit sockets
       const cuttersA: ManifoldSolid[] = [];
