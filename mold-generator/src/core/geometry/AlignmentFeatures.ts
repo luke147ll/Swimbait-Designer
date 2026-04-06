@@ -110,7 +110,10 @@ export class AlignmentFeatures {
       const baitHtY = baitBounds.max.y - baitBounds.min.y;
       const outerX = baitLenX + moldConfig.wallMarginY * 2 - 4;
       const outerY = baitHtY + moldConfig.wallMarginX * 2 + moldConfig.clampFlange * 2 - 4;
-      const lipW = 2.0, keyH = config.keyHeight;
+      const lipW = 2.0;
+      // On-edge: key extends in Z → horizontal in print. Keep it ≤1mm so
+      // the overhang is just a single-layer bridge (trivial for FDM).
+      const keyH = printOrientation === 'on_edge' ? Math.min(config.keyHeight, 1.0) : config.keyHeight;
 
       // Collect all positions that need clearance (pins + bolts)
       const allHolePositions = [...positions, ...clampPositions];
@@ -151,15 +154,9 @@ export class AlignmentFeatures {
 
       halfA = mUnion(halfA, frame);
 
-      // HalfB: matching recess
+      // HalfB: matching recess (slightly deeper than key for clearance)
       if (halfB) {
-        // For on-edge: make recess open-topped (extend through the outer face)
-        // so there's no horizontal ceiling to sag during printing.
-        // The key only needs lateral registration, not vertical containment.
-        const rDepth = printOrientation === 'on_edge'
-          ? 50  // extend well past the outer face — open channel
-          : keyH + 0.15 + EPS;  // normal closed recess for flat printing
-        const rH = rDepth;
+        const rH = keyH + 0.15 + EPS;
         const rOuter = mTranslate(mBox(outerX + 0.3, outerY + 0.3, rH), cx, cy, rH / 2 - EPS / 2);
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
         let recess = mSubtract(rOuter, rInner);
@@ -172,7 +169,6 @@ export class AlignmentFeatures {
           const topCut = mTranslate(mBox(outerX + 4, cutH, rH + 4),
             cx, cy + outerY / 2 - lipW / 2, rH / 2 - EPS / 2);
           recess = mSubtract(recess, mBatchUnion([bottomCut, topCut]));
-          console.log('[AlignmentFeatures] On-edge: open-topped recess (no ceiling to sag)');
         }
 
         if (allHolePositions.length > 0) {
