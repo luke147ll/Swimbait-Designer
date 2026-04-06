@@ -1,4 +1,4 @@
-import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3, PrintOrientation } from './types';
+import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
 import * as THREE from 'three';
 import { initCSG, manifoldToThree, mDispose } from './csg';
 import { useMoldStore } from '../store/moldStore';
