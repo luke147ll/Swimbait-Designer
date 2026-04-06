@@ -25,6 +25,103 @@ let hiResTimer = null;
 const profileState = createProfileState();
 let sideEditor = null, widthEditor = null, xsecEditor = null;
 
+// ── Slot insert system ──
+
+let slots = [
+  { id: 'slot_1', label: 'Slot 1', enabled: false, width: 2.5, length: 20, depth: 'through', positionX: 0, positionY: 0, positionZ: 0 },
+];
+let slotMeshes = []; // Three.js preview meshes
+
+const slotMat = new THREE.MeshStandardMaterial({
+  color: 0xcc6644, transparent: true, opacity: 0.4, depthWrite: false,
+});
+
+function rebuildSlotPreview() {
+  // Remove old slot meshes
+  for (const m of slotMeshes) { if (m.geometry) m.geometry.dispose(); scene.remove(m); }
+  slotMeshes = [];
+
+  const p = getParams();
+  const OL_mm = p.OL * 25.4;
+  const scale = 1 / 25.4;
+
+  for (const slot of slots) {
+    if (!slot.enabled) continue;
+
+    // Determine depth in mm
+    let depthMM = 50; // through — oversized
+    if (slot.depth !== 'through') depthMM = slot.depth;
+
+    // Box: width(X-viewport=Z-mesh) × length(Y-viewport=X-mesh) × depth(Z-viewport=Y-mesh)
+    // Mesh convention: X=length, Y=height, Z=width
+    // Slot: thin in Z (width axis), long in X (body axis), tall in Y (depth)
+    const geo = new THREE.BoxGeometry(
+      slot.length * scale,  // X — along body
+      depthMM * scale,      // Y — vertical (depth)
+      slot.width * scale    // Z — across bait (thin)
+    );
+
+    const mesh = new THREE.Mesh(geo, slotMat);
+    mesh.position.set(
+      slot.positionY * scale,  // body axis position
+      slot.positionZ * scale,  // vertical offset
+      slot.positionX * scale   // lateral offset
+    );
+    mesh.renderOrder = 10;
+    scene.add(mesh);
+    slotMeshes.push(mesh);
+  }
+}
+
+function renderSlotUI() {
+  const container = document.getElementById('slotList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  slots.forEach((slot, idx) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'border-bottom:1px solid var(--bd);padding:8px 0';
+
+    const p = getParams();
+    const halfLen = (p.OL * 25.4) / 2;
+
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:10px;color:var(--ac);text-transform:uppercase;letter-spacing:1px">${slot.label}</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <button class="tb${slot.enabled ? ' on' : ''}" style="padding:3px 8px;font-size:9px"
+            onclick="toggleSlot(${idx})">${slot.enabled ? 'On' : 'Off'}</button>
+          ${slots.length > 1 ? `<span style="color:var(--mu);font-size:10px;cursor:pointer" onclick="removeSlot(${idx})">×</span>` : ''}
+        </span>
+      </div>
+    `;
+
+    if (slot.enabled) {
+      const controls = document.createElement('div');
+      controls.innerHTML = `
+        <div class="c"><div class="cr"><label>Width</label><span class="v">${slot.width.toFixed(1)}</span></div>
+          <input type="range" min="1.0" max="8.0" step="0.1" value="${slot.width}" oninput="updateSlot(${idx},'width',this.value)"></div>
+        <div class="c"><div class="cr"><label>Length</label><span class="v">${slot.length.toFixed(1)}</span></div>
+          <input type="range" min="5" max="80" step="0.5" value="${slot.length}" oninput="updateSlot(${idx},'length',this.value)"></div>
+        <div class="c"><div class="cr"><label>Depth</label><span class="v">${slot.depth === 'through' ? 'Through' : slot.depth.toFixed(1)}</span></div>
+          <select onchange="updateSlot(${idx},'depth',this.value)" style="width:100%;padding:4px;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px">
+            <option value="through" ${slot.depth === 'through' ? 'selected' : ''}>Through</option>
+            <option value="5" ${slot.depth === 5 ? 'selected' : ''}>Custom</option>
+          </select></div>
+        ${slot.depth !== 'through' ? `<div class="c"><div class="cr"><label>Depth mm</label><span class="v">${slot.depth}</span></div>
+          <input type="range" min="2" max="30" step="0.5" value="${slot.depth}" oninput="updateSlot(${idx},'depth',this.value)"></div>` : ''}
+        <div class="c"><div class="cr"><label>Position Y</label><span class="v">${slot.positionY.toFixed(1)}</span></div>
+          <input type="range" min="${-halfLen}" max="${halfLen}" step="0.5" value="${slot.positionY}" oninput="updateSlot(${idx},'positionY',this.value)"></div>
+        <div class="c"><div class="cr"><label>Position Z</label><span class="v">${slot.positionZ.toFixed(1)}</span></div>
+          <input type="range" min="-15" max="15" step="0.5" value="${slot.positionZ}" oninput="updateSlot(${idx},'positionZ',this.value)"></div>
+      `;
+      div.appendChild(controls);
+    }
+
+    container.appendChild(div);
+  });
+}
+
 // ── Camera ──
 
 function updateCamera() {
@@ -175,9 +272,12 @@ function rebuildScene(resolution) {
     eyeGrpR = null;
   }
 
-  // Hook slot
-  hsM = buildHookSlot(p, L);
-  if (hsM) scene.add(hsM);
+  // Hook slot (legacy — replaced by slot insert system)
+  // hsM = buildHookSlot(p, L);
+  // if (hsM) scene.add(hsM);
+
+  // Slot inserts
+  rebuildSlotPreview();
 
   // Stats
   let maxD = 0, maxW = 0;
@@ -530,6 +630,7 @@ function init() {
 
   updateCamera();
   update(); // initial build from default slider values
+  renderSlotUI();
 
   if (xsecEditor) {
     const defaultStation = xsecEditor.getStation ? xsecEditor.getStation() : 33;
@@ -618,6 +719,7 @@ function getDesignState() {
     xsecBlendRadii: profileState.xsecBlendRadii,
     tailType,
     baitColor,
+    slots,
   });
 }
 
@@ -635,6 +737,7 @@ function loadDesignState(state) {
   if (state.wDelta) profileState.wDelta = state.wDelta;
   if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
   if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
+  if (state.slots) { slots = state.slots; renderSlotUI(); }
   update();
 }
 
@@ -772,12 +875,18 @@ async function sendToMoldGenerator() {
     return;
   }
 
+  const enabledSlots = slots.filter(s => s.enabled).map(s => ({
+    width: s.width, length: s.length, depth: s.depth,
+    positionX: s.positionX, positionY: s.positionY, positionZ: s.positionZ,
+  }));
+
   const payload = JSON.stringify({
     type: 'manifold_mesh',
     name: currentDesignName || 'designed_bait',
     numProp: 3,
     vertProperties: Array.from(currentMeshData.vertProperties),
     triVerts: Array.from(currentMeshData.triVerts),
+    slots: enabledSlots,
   });
 
   // Open window immediately (before async fetch) to satisfy mobile popup blocker
@@ -805,6 +914,36 @@ async function sendToMoldGenerator() {
     alert('Failed to transfer bait.');
   }
 }
+
+// ── Slot handlers ──
+
+window.toggleSlot = function(idx) {
+  slots[idx].enabled = !slots[idx].enabled;
+  renderSlotUI();
+  rebuildSlotPreview();
+};
+window.updateSlot = function(idx, key, val) {
+  if (key === 'depth') {
+    slots[idx].depth = val === 'through' ? 'through' : parseFloat(val);
+  } else {
+    slots[idx][key] = parseFloat(val);
+  }
+  renderSlotUI();
+  rebuildSlotPreview();
+};
+window.addSlot = function() {
+  const id = 'slot_' + Date.now().toString(36);
+  slots.push({ id, label: 'Slot ' + (slots.length + 1), enabled: true, width: 2.5, length: 20, depth: 'through', positionX: 0, positionY: 0, positionZ: 0 });
+  renderSlotUI();
+  rebuildSlotPreview();
+};
+window.removeSlot = function(idx) {
+  if (slots.length <= 1) return;
+  slots.splice(idx, 1);
+  slots.forEach((s, i) => s.label = 'Slot ' + (i + 1));
+  renderSlotUI();
+  rebuildSlotPreview();
+};
 
 // ── Expose to HTML ──
 

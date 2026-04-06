@@ -6,6 +6,20 @@ export interface Vec3 {
   z: number;
 }
 
+export interface SlotConfig {
+  width: number;
+  length: number;
+  depth: 'through' | number;
+  positionX: number;
+  positionY: number;
+  positionZ: number;
+}
+
+export interface InsertCard {
+  label: string;
+  geometry: THREE.BufferGeometry;
+}
+
 export interface MoldConfig {
   wallMarginX: number;
   wallMarginY: number;
@@ -145,6 +159,8 @@ export interface MoldState {
   texturedBaitMesh: THREE.BufferGeometry | null;
   moldHalfA: THREE.BufferGeometry | null;
   moldHalfB: THREE.BufferGeometry | null;
+  slotConfigs: SlotConfig[];
+  insertCards: InsertCard[];
   validationResult: ValidationResult | null;
   isGenerating: boolean;
   lastGeneratedAt: number | null;
@@ -162,6 +178,8 @@ export interface MoldState {
   setIsGenerating: (generating: boolean) => void;
   setTexturedBaitMesh: (mesh: THREE.BufferGeometry | null) => void;
   setTextureConfig: (config: TextureConfig | null) => void;
+  setSlotConfigs: (configs: SlotConfig[]) => void;
+  setInsertCards: (cards: InsertCard[]) => void;
   resetToDefaults: () => void;
 }
 

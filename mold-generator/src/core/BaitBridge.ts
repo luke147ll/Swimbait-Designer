@@ -8,7 +8,8 @@
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
-import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, type BaitPrimitive, type StationData } from './BaitPrimitives';
+import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, subtractSlots, generateInsertCard, type BaitPrimitive, type StationData } from './BaitPrimitives';
+import type { SlotConfig, InsertCard } from './types';
 
 const INCHES_TO_MM = 25.4;
 const API_BASE = 'https://swimbaitdesigner.com';
@@ -98,7 +99,30 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
       // Manifold mesh transfer (tube mesh from designer) — preferred path
       if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
         console.log(`[BaitBridge] Mesh transfer: ${data.vertProperties.length / 3} verts, ${data.triVerts.length / 3} tris`);
-        const { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
+        let { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
+
+        // Process slots: subtract from bait, generate insert cards
+        const slotsData: SlotConfig[] = data.slots || [];
+        if (slotsData.length > 0) {
+          console.log(`[BaitBridge] Processing ${slotsData.length} slot(s)`);
+
+          // Get bait height for insert card generation
+          geometry.computeBoundingBox();
+          const baitHeight = geometry.boundingBox!.max.y - geometry.boundingBox!.min.y;
+
+          manifold = subtractSlots(manifold, slotsData);
+          geometry = (await import('./csg')).manifoldToThree(manifold);
+
+          // Generate insert cards
+          const cards: InsertCard[] = [];
+          for (let i = 0; i < slotsData.length; i++) {
+            const { geometry: cardGeo } = generateInsertCard(slotsData[i], baitHeight);
+            cardGeo.computeVertexNormals();
+            cards.push({ label: `Insert Card ${i + 1}`, geometry: cardGeo });
+          }
+          store.setSlotConfigs(slotsData);
+          store.setInsertCards(cards);
+        }
 
         geometry.computeBoundingBox();
         const size = new THREE.Vector3();

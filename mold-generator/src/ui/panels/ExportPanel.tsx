@@ -27,6 +27,7 @@ const secBtn: React.CSSProperties = {
 export function ExportPanel() {
   const halfA = useMoldStore(s => s.moldHalfA);
   const halfB = useMoldStore(s => s.moldHalfB);
+  const insertCards = useMoldStore(s => s.insertCards);
   const validation = useMoldStore(s => s.validationResult);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +90,12 @@ export function ExportPanel() {
           Export Half B (.stl)
         </button>
       )}
+      {insertCards.length > 0 && insertCards.map((card, i) => (
+        <button key={`card-${i}`} style={expBtn(!canExport)} disabled={!canExport}
+          onClick={() => stlExporter.exportBinary(card.geometry, `insert_card_${i + 1}`)}>
+          Export {card.label} (.stl)
+        </button>
+      ))}
       <button style={expBtn(!canExport)} disabled={!canExport} onClick={handleExportAll}>
         Export All (STL + Config)
       </button>

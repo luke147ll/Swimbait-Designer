@@ -239,3 +239,60 @@ export async function buildBaitFromMeshData(
   const geometry = manifoldToThree(manifold);
   return { manifold, geometry };
 }
+
+// ─── Slot Subtraction and Insert Card Generation ───────────
+
+import type { SlotConfig } from './types';
+
+/**
+ * Subtract slot boxes from a bait Manifold solid.
+ * Tube mesh convention: X=length(body), Y=height, Z=width.
+ * Slot convention from designer: positionY=body axis, positionZ=height, positionX=width.
+ * slot.length → X, slot depth → Y, slot.width → Z.
+ */
+export function subtractSlots(bait: ManifoldSolid, slotsData: SlotConfig[]): ManifoldSolid {
+  for (const slot of slotsData) {
+    let depthMM: number;
+    if (slot.depth === 'through') {
+      const mesh = bait.getMesh();
+      const vp = mesh.vertProperties;
+      let minY = Infinity, maxY = -Infinity;
+      for (let i = 1; i < vp.length; i += 3) {
+        if (vp[i] < minY) minY = vp[i];
+        if (vp[i] > maxY) maxY = vp[i];
+      }
+      depthMM = (maxY - minY) + 4;
+    } else {
+      depthMM = slot.depth as number;
+    }
+
+    const slotBox = mBox(slot.length, depthMM, slot.width)
+      .translate([slot.positionY, slot.positionZ, slot.positionX]);
+
+    bait = bait.subtract(slotBox);
+    console.log(`[BaitPrimitives] Subtracted slot: ${slot.width}×${slot.length}×${depthMM}mm at Y=${slot.positionY}`);
+  }
+  return bait;
+}
+
+/**
+ * Generate a simple insert card for a slot.
+ * Slightly smaller than the slot for friction fit (0.15mm clearance per side).
+ */
+export function generateInsertCard(
+  slot: SlotConfig,
+  baitHeightMM: number,
+): { manifold: ManifoldSolid; geometry: THREE.BufferGeometry } {
+  const clearance = 0.15;
+  const cardLength = slot.length - clearance * 2;
+  const cardWidth = slot.width - clearance * 2;
+  const cardDepth = slot.depth === 'through'
+    ? baitHeightMM - clearance
+    : (slot.depth as number) - clearance;
+
+  const card = mBox(cardLength, cardDepth, cardWidth)
+    .translate([slot.positionY, slot.positionZ, slot.positionX]);
+
+  const geometry = manifoldToThree(card);
+  return { manifold: card, geometry };
+}
