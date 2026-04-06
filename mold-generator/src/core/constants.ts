@@ -37,7 +37,7 @@ export const DEFAULT_MOLD_CONFIG: MoldConfig = {
 export const DEFAULT_ALIGNMENT_CONFIG: AlignmentConfig = {
   type: 'dowel_pin', pinDiameter: 4, pinLength: 16, pinCount: 2,
   pressClearance: -0.1, slipClearance: 0.15, positions: [],
-  perimeterKey: true, keyHeight: 0.8,
+  perimeterKey: true, keyHeight: 2.0,
 };
 
 export const DEFAULT_CLAMP_CONFIG: ClampConfig = {

@@ -90,8 +90,9 @@ export function applyWatermarks(
   {
     const { unitSize, totalW, totalH } = calculateScale('SWIMBAIT', availW, availH);
     console.log(`[Watermark] "SWIMBAIT" — unit: ${unitSize.toFixed(2)}mm, size: ${totalW.toFixed(1)}×${totalH.toFixed(1)}mm`);
-    const text = buildTextSolid('SWIMBAIT', unitSize, totalW, totalH, depth);
-    // Position at -Z outer face, voids cut inward (+Z direction)
+    let text = buildTextSolid('SWIMBAIT', unitSize, totalW, totalH, depth);
+    // Mirror X so text reads correctly when viewing -Z face (mold flipped over)
+    text = text.scale([-1, 1, 1]);
     const positioned = text.translate([0, 0, -halfZ + depth / 2]);
     halfA = mSubtract(halfA, positioned);
   }

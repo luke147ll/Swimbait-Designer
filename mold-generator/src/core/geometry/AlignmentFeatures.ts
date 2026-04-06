@@ -110,41 +110,31 @@ export class AlignmentFeatures {
       const baitHtY = baitBounds.max.y - baitBounds.min.y;
       const outerX = baitLenX + moldConfig.wallMarginY * 2 - 4;
       const outerY = baitHtY + moldConfig.wallMarginX * 2 + moldConfig.clampFlange * 2 - 4;
-      const lipW = 1.5, keyH = config.keyHeight;
+      const lipW = 2.0, keyH = config.keyHeight;
 
       // Collect all positions that need clearance (pins + bolts)
       const allHolePositions = [...positions, ...clampPositions];
 
-      // HalfA: raised lip frame with clearance cutouts
+      // Build key frame
       const outer = mTranslate(mBox(outerX, outerY, keyH), cx, cy, keyH / 2);
       const inner = mTranslate(mBox(outerX - lipW * 2, outerY - lipW * 2, keyH + EPS * 2), cx, cy, keyH / 2);
       let frame = mSubtract(outer, inner);
 
-      // On-edge printing: mold sits on -Y face.
-      // Remove -Y key segment (on build plate).
-      // Chamfer +Y key segment (top, horizontal overhang would sag).
+      // On-edge: remove BOTH horizontal segments (-Y bottom, +Y top).
+      // Only the two vertical side rails (-X, +X) remain — they print
+      // perfectly when on edge (vertical walls, no overhang).
       if (printOrientation === 'on_edge') {
-        // Remove bottom (-Y) key segment
         const cutH = lipW + 4;
+        // Remove bottom (-Y) segment
         const bottomCut = mTranslate(mBox(outerX + 4, cutH, keyH + 4),
           cx, cy - outerY / 2 + lipW / 2, keyH / 2);
         frame = mSubtract(frame, bottomCut);
+        // Remove top (+Y) segment
+        const topCut = mTranslate(mBox(outerX + 4, cutH, keyH + 4),
+          cx, cy + outerY / 2 - lipW / 2, keyH / 2);
+        frame = mSubtract(frame, topCut);
 
-        // Chamfer top (+Y) key segment — 45° wedge removes unsupported overhang.
-        // The wedge is a box rotated 45° around X, positioned under the top lip.
-        // Approximation: subtract a triangular prism (half-box tilted).
-        // Simpler: subtract a box offset so only the lower-outer corner of the lip is removed,
-        // creating a 45° ramp. The lip tapers from full height at the inner edge to zero at outer.
-        const chamferSize = keyH; // 45° means chamfer depth = chamfer height
-        // Box that covers the overhang area, shifted to clip the bottom-outer portion
-        const topChamfer = mTranslate(
-          mBox(outerX - lipW * 2 - 2, chamferSize * 2, chamferSize * 2)
-            .rotate([45, 0, 0]),
-          cx, cy + outerY / 2 - lipW / 2, 0
-        );
-        frame = mSubtract(frame, topChamfer);
-
-        console.log('[AlignmentFeatures] On-edge: removed -Y key, chamfered +Y key');
+        console.log('[AlignmentFeatures] On-edge: 2-sided key (vertical rails only)');
       }
 
       // Cut clearance holes through the key frame at each pin/bolt position
@@ -166,12 +156,14 @@ export class AlignmentFeatures {
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
         let recess = mSubtract(rOuter, rInner);
 
-        // On-edge: remove bottom (-Y) segment of recess too
+        // On-edge: remove both horizontal segments of recess
         if (printOrientation === 'on_edge') {
           const cutH = lipW + 4;
           const bottomCut = mTranslate(mBox(outerX + 4, cutH, rH + 4),
             cx, cy - outerY / 2 + lipW / 2, rH / 2 - EPS / 2);
-          recess = mSubtract(recess, bottomCut);
+          const topCut = mTranslate(mBox(outerX + 4, cutH, rH + 4),
+            cx, cy + outerY / 2 - lipW / 2, rH / 2 - EPS / 2);
+          recess = mSubtract(recess, mBatchUnion([bottomCut, topCut]));
         }
 
         if (allHolePositions.length > 0) {
