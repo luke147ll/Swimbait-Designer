@@ -976,3 +976,4 @@ window.stashAndLogin = function(e) {
 window.profileState = profileState;
 
 init();
+window.addEventListener('load', () => window.scrollTo(0, 0));

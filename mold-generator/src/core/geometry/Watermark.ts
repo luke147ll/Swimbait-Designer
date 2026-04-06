@@ -2,8 +2,16 @@
  * Watermark — blocky pixel-font text subtracted as voids from mold outer faces.
  * Half A gets "SWIMBAIT", Half B gets "DESIGNER".
  * Letters scale to fit the mold face width with margin.
+ *
+ * Each stroke is extended 0.01mm past its grid bounds so adjacent bars
+ * genuinely overlap instead of sharing coplanar faces (eliminates T-junctions
+ * and non-manifold edges from the boolean union).
  */
 import { mBox, mTranslate, mBatchUnion, mSubtract, type ManifoldSolid } from '../csg';
+
+// Overlap: each stroke extends this far past its grid bounds on all sides.
+// Prevents coplanar T-junctions between touching bars.
+const OL = 0.01;
 
 // Each letter: array of [x, y, w, h] strokes on a 4×6 unit grid (1 unit stroke width)
 const PIXEL_FONT: Record<string, number[][]> = {
@@ -53,15 +61,18 @@ function buildTextSolid(
     if (!def) { cursorX += ((LETTER_WIDTHS[letter] || 4) + LETTER_SPACING) * unitSize; continue; }
 
     for (const [gx, gy, gw, gh] of def) {
-      const sx = cursorX + gx * unitSize;
-      // Flip Y: grid goes top-to-bottom, mold Y goes bottom-to-top
-      const sy = -startY - gy * unitSize;
-      strokes.push(mTranslate(mBox(gw * unitSize, gh * unitSize, depth), sx + gw * unitSize / 2, sy - gh * unitSize / 2, 0));
+      // Extend each stroke by OL on all sides so adjacent bars genuinely overlap
+      const sx = cursorX + (gx - OL) * unitSize;
+      const sy = -startY - (gy - OL) * unitSize;
+      const sw = (gw + OL * 2) * unitSize;
+      const sh = (gh + OL * 2) * unitSize;
+      strokes.push(mTranslate(mBox(sw, sh, depth), sx + sw / 2, sy - sh / 2, 0));
     }
 
     cursorX += ((LETTER_WIDTHS[letter] || 4) + LETTER_SPACING) * unitSize;
   }
 
+  // Union ALL strokes into one solid — single union, single subtraction
   return mBatchUnion(strokes);
 }
 
@@ -69,10 +80,6 @@ function buildTextSolid(
  * Subtract watermark text from mold halves.
  * Half A outer face is at -Z (text: "SWIMBAIT").
  * Half B outer face is at +Z (text: "DESIGNER").
- *
- * Mold coords: X=bait length, Y=bait height, Z=width (parting at Z=0).
- * Text runs along X, letters stack in Y.
- * Voids cut into Z from the outer face inward.
  */
 export function applyWatermarks(
   halfA: ManifoldSolid,
@@ -102,7 +109,6 @@ export function applyWatermarks(
     const { unitSize, totalW, totalH } = calculateScale('DESIGNER', availW, availH);
     console.log(`[Watermark] "DESIGNER" — unit: ${unitSize.toFixed(2)}mm, size: ${totalW.toFixed(1)}×${totalH.toFixed(1)}mm`);
     const text = buildTextSolid('DESIGNER', unitSize, totalW, totalH, depth);
-    // Position at +Z outer face, voids cut inward (-Z direction)
     const positioned = text.translate([0, 0, halfZ - depth / 2]);
     halfB = mSubtract(halfB, positioned);
   }

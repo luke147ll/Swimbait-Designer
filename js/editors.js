@@ -9,7 +9,7 @@ import { sampleProfile, insertProfilePoint, removeProfilePoint, STATION_LABELS }
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SAMPLES = 150;
 const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-const PT_HIT_R = IS_TOUCH ? 18 : 8; // larger invisible hit area on touch
+const PT_HIT_R = IS_TOUCH ? 24 : 8; // larger invisible hit area on touch
 
 function svgEl(tag, attrs = {}) {
   const e = document.createElementNS(SVG_NS, tag);
@@ -214,7 +214,7 @@ export function createSideEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotOverlay.innerHTML = '';
-    const DOT_PX = Math.min(70, Math.max(4, 5 * Math.sqrt(vp.zoom))); // fixed pixel size
+    const DOT_PX = Math.min(70, Math.max(IS_TOUCH ? 10 : 4, 5 * Math.sqrt(vp.zoom))); // fixed pixel size
     function addPts(profile, cls) {
       profile.forEach((p, i) => {
         const scr = dataToScreen(p.t, p.v);
@@ -651,7 +651,7 @@ export function createWidthEditor(container, state, onEdit) {
 
   function drawPoints() {
     dotOverlay.innerHTML = '';
-    const DOT_PX = Math.min(70, Math.max(4, 5 * Math.sqrt(vp.zoom)));
+    const DOT_PX = Math.min(70, Math.max(IS_TOUCH ? 10 : 4, 5 * Math.sqrt(vp.zoom)));
     state.width.forEach((p, i) => {
       const scr = dataToScreen(p.t, p.v);
       const dot = document.createElement('div');

@@ -216,7 +216,12 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
   /* XSec mobile: scrollable, larger touch targets for range bar */
   #mobXSec .mob-editor-wrap{overflow-y:auto}
   #mobXSec .mob-editor-wrap .pe-svg{flex:none;height:45dvh !important;min-height:200px}
-  .xsec-range-track{height:40px}
-  .xsec-range-thumb{width:20px}
-  .xsec-range-left,.xsec-range-right{font-size:16px;line-height:32px;padding:0 4px}
+  .xsec-range-track{height:44px}
+  .xsec-range-thumb{width:24px}
+  .xsec-range-left,.xsec-range-right{font-size:20px;line-height:40px;padding:0 8px;min-width:44px;text-align:center}
+  .xsec-btn{min-height:44px;min-width:44px;padding:8px 12px;font-size:12px}
+  .xsec-btns{gap:6px}
+
+  /* Profile editor dots — larger on touch */
+  .pe-html-dot{min-width:10px;min-height:10px}
 }
