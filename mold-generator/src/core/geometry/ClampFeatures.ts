@@ -47,7 +47,6 @@ export class ClampFeatures {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig, dims);
     const bs = config.boltSize;
-    const baitCx = (baitBounds.max.x + baitBounds.min.x) / 2;
     const BOLT_DROOP = 0.3; // mm extra diameter for top-edge bolt holes
 
     if (config.mode === 'heat_set_insert') {

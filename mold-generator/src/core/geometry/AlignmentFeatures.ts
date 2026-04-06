@@ -42,7 +42,6 @@ export class AlignmentFeatures {
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig);
-    const cx = (baitBounds.max.x + baitBounds.min.x) / 2;
 
     const socketDepth = config.pinLength / 2 + 1 + EPS;
 
