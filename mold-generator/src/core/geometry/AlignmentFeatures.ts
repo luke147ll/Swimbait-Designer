@@ -123,8 +123,10 @@ export class AlignmentFeatures {
 
       // On-edge: remove bottom (-X) segment of the key (sits on build plate)
       if (printOrientation === 'on_edge') {
-        const bottomCut = mTranslate(mBox(lipW + 1, outerY + 2, keyH + 2),
-          cx - outerX / 2 - 0.5, cy, keyH / 2);
+        // Cut a wide strip across the full bottom edge of the frame
+        const cutW = lipW + 4; // wide enough to fully remove the bottom lip
+        const bottomCut = mTranslate(mBox(cutW, outerY + 4, keyH + 4),
+          cx - outerX / 2 + lipW / 2, cy, keyH / 2);
         frame = mSubtract(frame, bottomCut);
         console.log('[AlignmentFeatures] Removed bottom key segment for on-edge printing');
       }
@@ -150,8 +152,9 @@ export class AlignmentFeatures {
 
         // On-edge: remove bottom (-X) segment of recess too
         if (printOrientation === 'on_edge') {
-          const bottomCut = mTranslate(mBox(lipW + 2, outerY + 4, rH + 2),
-            cx - outerX / 2 - 0.5, cy, rH / 2 - EPS / 2);
+          const cutW = lipW + 4;
+          const bottomCut = mTranslate(mBox(cutW, outerY + 4, rH + 4),
+            cx - outerX / 2 + lipW / 2, cy, rH / 2 - EPS / 2);
           recess = mSubtract(recess, bottomCut);
         }
 
