@@ -95,6 +95,8 @@ export interface PrinterProfile {
   isCustom: boolean;
 }
 
+export type PrintOrientation = 'on_edge' | 'flat_down' | 'flat_up';
+
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 
 export interface ValidationError {

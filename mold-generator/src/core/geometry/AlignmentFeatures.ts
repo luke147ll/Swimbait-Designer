@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
-import type { AlignmentConfig, MoldConfig, Vec3 } from '../types';
+import type { AlignmentConfig, MoldConfig, Vec3, PrintOrientation } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 
 const EPS = 0.01;
@@ -38,17 +38,24 @@ export class AlignmentFeatures {
     moldConfig: MoldConfig,
     _dims: MoldDimensions,
     clampPositions: Vec3[] = [],
+    printOrientation: PrintOrientation = 'on_edge',
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig);
+    const cx = (baitBounds.max.x + baitBounds.min.x) / 2;
 
     const socketDepth = config.pinLength / 2 + 1 + EPS;
 
     if (config.type === 'dowel_pin') {
+      // Droop compensation: oversize top-edge sockets when printing on edge
+      const PIN_DROOP = 0.2; // mm extra radius for top-edge pins
+
       // HalfA: press-fit sockets
       const cuttersA: ManifoldSolid[] = [];
       for (const pos of positions) {
-        const d = (config.pinDiameter + config.pressClearance) / 2;
+        const isTopEdge = printOrientation === 'on_edge' && pos.x > cx;
+        const d = (config.pinDiameter + config.pressClearance) / 2 + (isTopEdge ? PIN_DROOP : 0);
+        if (isTopEdge) console.log(`[AlignmentFeatures] Pin at X=${pos.x.toFixed(1)}: +${PIN_DROOP}mm droop compensation`);
         cuttersA.push(mTranslate(mCylZ(d, socketDepth), pos.x, pos.y, -socketDepth / 2 + EPS / 2));
       }
       if (cuttersA.length > 0) {
@@ -60,7 +67,8 @@ export class AlignmentFeatures {
       if (halfB) {
         const cuttersB: ManifoldSolid[] = [];
         for (const pos of positions) {
-          const d = (config.pinDiameter + config.slipClearance) / 2;
+          const isTopEdge = printOrientation === 'on_edge' && pos.x > cx;
+          const d = (config.pinDiameter + config.slipClearance) / 2 + (isTopEdge ? PIN_DROOP : 0);
           cuttersB.push(mTranslate(mCylZ(d, socketDepth), pos.x, pos.y, socketDepth / 2 - EPS / 2));
         }
         if (cuttersB.length > 0) {
@@ -113,6 +121,14 @@ export class AlignmentFeatures {
       const inner = mTranslate(mBox(outerX - lipW * 2, outerY - lipW * 2, keyH + EPS * 2), cx, cy, keyH / 2);
       let frame = mSubtract(outer, inner);
 
+      // On-edge: remove bottom (-X) segment of the key (sits on build plate)
+      if (printOrientation === 'on_edge') {
+        const bottomCut = mTranslate(mBox(lipW + 1, outerY + 2, keyH + 2),
+          cx - outerX / 2 - 0.5, cy, keyH / 2);
+        frame = mSubtract(frame, bottomCut);
+        console.log('[AlignmentFeatures] Removed bottom key segment for on-edge printing');
+      }
+
       // Cut clearance holes through the key frame at each pin/bolt position
       if (allHolePositions.length > 0) {
         const cutouts: ManifoldSolid[] = [];
@@ -131,6 +147,13 @@ export class AlignmentFeatures {
         const rOuter = mTranslate(mBox(outerX + 0.3, outerY + 0.3, rH), cx, cy, rH / 2 - EPS / 2);
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
         let recess = mSubtract(rOuter, rInner);
+
+        // On-edge: remove bottom (-X) segment of recess too
+        if (printOrientation === 'on_edge') {
+          const bottomCut = mTranslate(mBox(lipW + 2, outerY + 4, rH + 2),
+            cx - outerX / 2 - 0.5, cy, rH / 2 - EPS / 2);
+          recess = mSubtract(recess, bottomCut);
+        }
 
         if (allHolePositions.length > 0) {
           const cutouts: ManifoldSolid[] = [];

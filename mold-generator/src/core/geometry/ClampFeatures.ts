@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
-import type { ClampConfig, MoldConfig, Vec3 } from '../types';
+import type { ClampConfig, MoldConfig, Vec3, PrintOrientation } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 import { HEAT_SET_INSERT_HOLES, BOLT_CLEARANCE_HOLES } from '../constants';
 
@@ -35,6 +35,7 @@ export class ClampFeatures {
     baitBounds: THREE.Box3,
     moldConfig: MoldConfig,
     dims: MoldDimensions,
+    printOrientation: PrintOrientation = 'on_edge',
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
     console.log(`[ClampFeatures] mode=${config.mode}, boltCount=${config.boltCount}, boltSize=${config.boltSize}, manualPositions=${config.positions.length}`);
 
@@ -46,6 +47,8 @@ export class ClampFeatures {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig, dims);
     const bs = config.boltSize;
+    const baitCx = (baitBounds.max.x + baitBounds.min.x) / 2;
+    const BOLT_DROOP = 0.3; // mm extra diameter for top-edge bolt holes
 
     if (config.mode === 'heat_set_insert') {
       const ins = HEAT_SET_INSERT_HOLES[bs];
@@ -56,8 +59,10 @@ export class ClampFeatures {
       const cuttersA: ManifoldSolid[] = [];
       for (const pos of positions) {
         const depth = ins.depth + EPS;
-        // Cylinder centered at Z, extending from Z≈0 downward
-        cuttersA.push(mTranslate(mCylZ(ins.holeDiameter / 2, depth), pos.x, pos.y, -depth / 2 + EPS));
+        const isTopEdge = printOrientation === 'on_edge' && pos.x > baitCx;
+        const r = ins.holeDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
+        if (isTopEdge) console.log(`[ClampFeatures] Bolt at X=${pos.x.toFixed(1)}: +${BOLT_DROOP}mm droop compensation`);
+        cuttersA.push(mTranslate(mCylZ(r, depth), pos.x, pos.y, -depth / 2 + EPS));
       }
       if (cuttersA.length > 0) {
         const compound = mBatchUnion(cuttersA);
@@ -71,9 +76,9 @@ export class ClampFeatures {
         console.log(`[ClampFeatures] HalfB through-hole: cutterH=${cutterH.toFixed(1)}mm, moldHalfH=${dims.boxZ.toFixed(1)}mm`);
         const cuttersB: ManifoldSolid[] = [];
         for (const pos of positions) {
-          // Through-hole: exceeds mold half height by 2mm total
-          const through = mTranslate(mCylZ(clr.clearanceDiameter / 2, cutterH), pos.x, pos.y, dims.boxZ / 2);
-          // Countersink on outer face (top of halfB)
+          const isTopEdge = printOrientation === 'on_edge' && pos.x > baitCx;
+          const clrR = clr.clearanceDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
+          const through = mTranslate(mCylZ(clrR, cutterH), pos.x, pos.y, dims.boxZ / 2);
           const csink = mTranslate(mCylZ(clr.headDiameter / 2, clr.countersinkDepth + 1), pos.x, pos.y, dims.boxZ - clr.countersinkDepth / 2 + 0.5);
           cuttersB.push(mUnion(through, csink));
         }

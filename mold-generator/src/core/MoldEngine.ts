@@ -1,7 +1,8 @@
-import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
+import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3, PrintOrientation } from './types';
 import * as THREE from 'three';
 import { initCSG, manifoldToThree, mDispose } from './csg';
 import { useMoldStore } from '../store/moldStore';
+import { usePrinterStore } from '../store/printerStore';
 import { BaitSubtraction } from './geometry/BaitSubtraction';
 import { AlignmentFeatures } from './geometry/AlignmentFeatures';
 import { ClampFeatures } from './geometry/ClampFeatures';
@@ -87,19 +88,22 @@ export class MoldEngine {
     state.baitMesh.computeBoundingBox();
     const baitBounds = state.baitMesh.boundingBox!;
 
+    // Print orientation — affects droop compensation and perimeter key
+    const printOrientation = usePrinterStore.getState().printOrientation;
+
     // Pre-compute clamp bolt positions so alignment can add key clearance around them
     const clampPositions = this.computeClampPositions(state.clampConfig, baitBounds, effectiveMoldConfig, dims);
 
     // Step 5: Alignment — operates on Manifold objects directly
     console.log('[MoldEngine] Step 5: Alignment (Manifold-native)');
     ({ halfA, halfB } = this.alignmentGen.generateManifold(
-      halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions
+      halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions, printOrientation
     ));
 
     // Step 6: Clamps — Manifold-native
     console.log('[MoldEngine] Step 6: Clamps (Manifold-native)');
     ({ halfA, halfB } = this.clampGen.generateManifold(
-      halfA, halfB, state.clampConfig, baitBounds, effectiveMoldConfig, dims
+      halfA, halfB, state.clampConfig, baitBounds, effectiveMoldConfig, dims, printOrientation
     ));
 
     // Step 7: Sprue — Manifold-native
