@@ -164,6 +164,7 @@ export interface MoldState {
   moldHalfB: THREE.BufferGeometry | null;
   slotConfigs: SlotConfig[];
   insertCards: InsertCard[];
+  watermarkEnabled: boolean;
   validationResult: ValidationResult | null;
   isGenerating: boolean;
   lastGeneratedAt: number | null;
@@ -183,6 +184,7 @@ export interface MoldState {
   setTextureConfig: (config: TextureConfig | null) => void;
   setSlotConfigs: (configs: SlotConfig[]) => void;
   setInsertCards: (cards: InsertCard[]) => void;
+  setWatermarkEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
 

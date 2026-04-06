@@ -17,6 +17,7 @@ export function useMoldEngine() {
   const sprueConfig = useMoldStore(s => s.sprueConfig);
   const ventConfig = useMoldStore(s => s.ventConfig);
   const slotConfigs = useMoldStore(s => s.slotConfigs);
+  const watermarkEnabled = useMoldStore(s => s.watermarkEnabled);
   const setGeneratedMold = useMoldStore(s => s.setGeneratedMold);
   const setIsGenerating = useMoldStore(s => s.setIsGenerating);
   const setValidationResult = useMoldStore(s => s.setValidationResult);
@@ -43,6 +44,6 @@ export function useMoldEngine() {
 
     return () => clearTimeout(timerRef.current);
   }, [baitMesh, moldConfig, alignmentConfig, clampConfig, sprueConfig, ventConfig,
-    slotConfigs, printOrientation,
+    slotConfigs, watermarkEnabled, printOrientation,
     setGeneratedMold, setIsGenerating, setValidationResult]);
 }

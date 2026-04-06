@@ -20,6 +20,7 @@ export const useMoldStore = create<MoldState>((set) => ({
   moldHalfB: null,
   slotConfigs: [],
   insertCards: [],
+  watermarkEnabled: true,
   validationResult: null,
   isGenerating: false,
   lastGeneratedAt: null,
@@ -38,6 +39,7 @@ export const useMoldStore = create<MoldState>((set) => ({
   setTextureConfig: (config: TextureConfig | null) => set({ textureConfig: config }),
   setSlotConfigs: (configs) => set({ slotConfigs: configs }),
   setInsertCards: (cards) => set({ insertCards: cards }),
+  setWatermarkEnabled: (enabled) => set({ watermarkEnabled: enabled }),
   resetToDefaults: () => set({
     baitManifold: null,
     moldConfig: { ...DEFAULT_MOLD_CONFIG },
@@ -52,6 +54,7 @@ export const useMoldStore = create<MoldState>((set) => ({
     moldHalfB: null,
     slotConfigs: [],
     insertCards: [],
+    watermarkEnabled: true,
     validationResult: null,
     isGenerating: false,
     lastGeneratedAt: null,

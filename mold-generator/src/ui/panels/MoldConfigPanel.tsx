@@ -8,6 +8,8 @@ export function MoldConfigPanel() {
   const update = useMoldStore(s => s.updateMoldConfig);
   const baitMesh = useMoldStore(s => s.baitMesh);
   const clampMode = useMoldStore(s => s.clampConfig.mode);
+  const watermarkEnabled = useMoldStore(s => s.watermarkEnabled);
+  const setWatermarkEnabled = useMoldStore(s => s.setWatermarkEnabled);
 
   // Calculate mold dimensions
   let moldDims = null;
@@ -40,6 +42,23 @@ export function MoldConfigPanel() {
         onChange={v => update({ partingFaceDepth: v })} />
       <Slider label="Cavity Clearance" value={config.cavityClearance} min={0.05} max={0.40} step={0.05} unit="mm"
         onChange={v => update({ cavityClearance: v })} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: T.textMuted }}>Watermark</span>
+        <button
+          style={{ padding: '4px 10px', fontSize: 10, cursor: 'pointer', border: `1px solid ${T.border}`,
+            borderRadius: 3, fontFamily: 'inherit', textTransform: 'uppercase',
+            background: watermarkEnabled ? T.gold : T.bgSurface,
+            color: watermarkEnabled ? T.bgDeep : T.textMuted }}
+          onClick={() => setWatermarkEnabled(!watermarkEnabled)}>
+          {watermarkEnabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      {watermarkEnabled && (
+        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>
+          A: "SWIMBAIT" &middot; B: "DESIGNER" &middot; 1.5mm void depth
+        </div>
+      )}
+
       {clampMode === 'external_clamp' && (
         <div style={{ fontSize: 11, color: T.textMuted, fontStyle: 'italic', marginBottom: 8 }}>
           Clamp flange disabled — external clamp mode

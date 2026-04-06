@@ -136,6 +136,13 @@ export class MoldEngine {
       useMoldStore.getState().setInsertCards(cards);
     }
 
+    // Step 8.7: Watermark — subtract text voids from mold outer faces
+    if (state.watermarkEnabled) {
+      console.log('[MoldEngine] Step 8.7: Watermark');
+      const { applyWatermarks } = await import('./geometry/Watermark');
+      ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ));
+    }
+
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)
     console.log('[MoldEngine] Step 9: Convert to Three.js');
     let halfAGeo = manifoldToThree(halfA);
