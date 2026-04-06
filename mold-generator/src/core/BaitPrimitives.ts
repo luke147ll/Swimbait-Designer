@@ -2,7 +2,7 @@
  * BaitPrimitives — primitive-based bait design system.
  * Uses the SAME Manifold WASM instance as csg.ts (critical — can't mix instances).
  */
-import { initCSG, mSphere, mCylZ, mCone, mFromMesh, manifoldToThree, type ManifoldSolid } from './csg';
+import { initCSG, mSphere, mCylZ, mCone, mBox, mFromMesh, manifoldToThree, type ManifoldSolid } from './csg';
 import * as THREE from 'three';
 
 // ─── Data Model ─────────────────────────────────────────────

@@ -8,8 +8,8 @@
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
-import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, subtractSlots, generateInsertCard, type BaitPrimitive, type StationData } from './BaitPrimitives';
-import type { SlotConfig, InsertCard } from './types';
+import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, type BaitPrimitive, type StationData } from './BaitPrimitives';
+import type { SlotConfig } from './types';
 
 const INCHES_TO_MM = 25.4;
 const API_BASE = 'https://swimbaitdesigner.com';
