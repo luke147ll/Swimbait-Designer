@@ -53,7 +53,7 @@ export class AlignmentFeatures {
       // HalfA: press-fit sockets
       const cuttersA: ManifoldSolid[] = [];
       for (const pos of positions) {
-        const isTopEdge = printOrientation === 'on_edge' && pos.x > cx;
+        const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
         const d = (config.pinDiameter + config.pressClearance) / 2 + (isTopEdge ? PIN_DROOP : 0);
         if (isTopEdge) console.log(`[AlignmentFeatures] Pin at X=${pos.x.toFixed(1)}: +${PIN_DROOP}mm droop compensation`);
         cuttersA.push(mTranslate(mCylZ(d, socketDepth), pos.x, pos.y, -socketDepth / 2 + EPS / 2));
@@ -67,7 +67,7 @@ export class AlignmentFeatures {
       if (halfB) {
         const cuttersB: ManifoldSolid[] = [];
         for (const pos of positions) {
-          const isTopEdge = printOrientation === 'on_edge' && pos.x > cx;
+          const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
           const d = (config.pinDiameter + config.slipClearance) / 2 + (isTopEdge ? PIN_DROOP : 0);
           cuttersB.push(mTranslate(mCylZ(d, socketDepth), pos.x, pos.y, socketDepth / 2 - EPS / 2));
         }
@@ -121,14 +121,31 @@ export class AlignmentFeatures {
       const inner = mTranslate(mBox(outerX - lipW * 2, outerY - lipW * 2, keyH + EPS * 2), cx, cy, keyH / 2);
       let frame = mSubtract(outer, inner);
 
-      // On-edge: remove bottom (-X) segment of the key (sits on build plate)
+      // On-edge printing: mold sits on -Y face.
+      // Remove -Y key segment (on build plate).
+      // Chamfer +Y key segment (top, horizontal overhang would sag).
       if (printOrientation === 'on_edge') {
-        // Cut a wide strip across the full bottom edge of the frame
-        const cutW = lipW + 4; // wide enough to fully remove the bottom lip
-        const bottomCut = mTranslate(mBox(cutW, outerY + 4, keyH + 4),
-          cx - outerX / 2 + lipW / 2, cy, keyH / 2);
+        // Remove bottom (-Y) key segment
+        const cutH = lipW + 4;
+        const bottomCut = mTranslate(mBox(outerX + 4, cutH, keyH + 4),
+          cx, cy - outerY / 2 + lipW / 2, keyH / 2);
         frame = mSubtract(frame, bottomCut);
-        console.log('[AlignmentFeatures] Removed bottom key segment for on-edge printing');
+
+        // Chamfer top (+Y) key segment — 45° wedge removes unsupported overhang.
+        // The wedge is a box rotated 45° around X, positioned under the top lip.
+        // Approximation: subtract a triangular prism (half-box tilted).
+        // Simpler: subtract a box offset so only the lower-outer corner of the lip is removed,
+        // creating a 45° ramp. The lip tapers from full height at the inner edge to zero at outer.
+        const chamferSize = keyH; // 45° means chamfer depth = chamfer height
+        // Box that covers the overhang area, shifted to clip the bottom-outer portion
+        const topChamfer = mTranslate(
+          mBox(outerX - lipW * 2 - 2, chamferSize * 2, chamferSize * 2)
+            .rotate([45, 0, 0]),
+          cx, cy + outerY / 2 - lipW / 2, 0
+        );
+        frame = mSubtract(frame, topChamfer);
+
+        console.log('[AlignmentFeatures] On-edge: removed -Y key, chamfered +Y key');
       }
 
       // Cut clearance holes through the key frame at each pin/bolt position
@@ -150,11 +167,11 @@ export class AlignmentFeatures {
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
         let recess = mSubtract(rOuter, rInner);
 
-        // On-edge: remove bottom (-X) segment of recess too
+        // On-edge: remove bottom (-Y) segment of recess too
         if (printOrientation === 'on_edge') {
-          const cutW = lipW + 4;
-          const bottomCut = mTranslate(mBox(cutW, outerY + 4, rH + 4),
-            cx - outerX / 2 + lipW / 2, cy, rH / 2 - EPS / 2);
+          const cutH = lipW + 4;
+          const bottomCut = mTranslate(mBox(outerX + 4, cutH, rH + 4),
+            cx, cy - outerY / 2 + lipW / 2, rH / 2 - EPS / 2);
           recess = mSubtract(recess, bottomCut);
         }
 

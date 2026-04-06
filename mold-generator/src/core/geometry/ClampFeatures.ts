@@ -59,7 +59,7 @@ export class ClampFeatures {
       const cuttersA: ManifoldSolid[] = [];
       for (const pos of positions) {
         const depth = ins.depth + EPS;
-        const isTopEdge = printOrientation === 'on_edge' && pos.x > baitCx;
+        const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
         const r = ins.holeDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
         if (isTopEdge) console.log(`[ClampFeatures] Bolt at X=${pos.x.toFixed(1)}: +${BOLT_DROOP}mm droop compensation`);
         cuttersA.push(mTranslate(mCylZ(r, depth), pos.x, pos.y, -depth / 2 + EPS));
@@ -76,7 +76,7 @@ export class ClampFeatures {
         console.log(`[ClampFeatures] HalfB through-hole: cutterH=${cutterH.toFixed(1)}mm, moldHalfH=${dims.boxZ.toFixed(1)}mm`);
         const cuttersB: ManifoldSolid[] = [];
         for (const pos of positions) {
-          const isTopEdge = printOrientation === 'on_edge' && pos.x > baitCx;
+          const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
           const clrR = clr.clearanceDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
           const through = mTranslate(mCylZ(clrR, cutterH), pos.x, pos.y, dims.boxZ / 2);
           const csink = mTranslate(mCylZ(clr.headDiameter / 2, clr.countersinkDepth + 1), pos.x, pos.y, dims.boxZ - clr.countersinkDepth / 2 + 0.5);
