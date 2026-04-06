@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMoldStore } from '../store/moldStore';
+import { usePrinterStore } from '../store/printerStore';
 import { MoldEngine } from '../core/MoldEngine';
 
 const engine = new MoldEngine();
@@ -15,9 +16,11 @@ export function useMoldEngine() {
   const clampConfig = useMoldStore(s => s.clampConfig);
   const sprueConfig = useMoldStore(s => s.sprueConfig);
   const ventConfig = useMoldStore(s => s.ventConfig);
+  const slotConfigs = useMoldStore(s => s.slotConfigs);
   const setGeneratedMold = useMoldStore(s => s.setGeneratedMold);
   const setIsGenerating = useMoldStore(s => s.setIsGenerating);
   const setValidationResult = useMoldStore(s => s.setValidationResult);
+  const printOrientation = usePrinterStore(s => s.printOrientation);
 
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -40,5 +43,6 @@ export function useMoldEngine() {
 
     return () => clearTimeout(timerRef.current);
   }, [baitMesh, moldConfig, alignmentConfig, clampConfig, sprueConfig, ventConfig,
+    slotConfigs, printOrientation,
     setGeneratedMold, setIsGenerating, setValidationResult]);
 }
