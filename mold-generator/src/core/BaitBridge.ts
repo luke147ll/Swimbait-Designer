@@ -99,30 +99,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
       // Manifold mesh transfer (tube mesh from designer) — preferred path
       if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
         console.log(`[BaitBridge] Mesh transfer: ${data.vertProperties.length / 3} verts, ${data.triVerts.length / 3} tris`);
-        let { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
-
-        // Process slots: subtract from bait, generate insert cards
-        const slotsData: SlotConfig[] = data.slots || [];
-        if (slotsData.length > 0) {
-          console.log(`[BaitBridge] Processing ${slotsData.length} slot(s)`);
-
-          // Get bait height for insert card generation
-          geometry.computeBoundingBox();
-          const baitHeight = geometry.boundingBox!.max.y - geometry.boundingBox!.min.y;
-
-          manifold = subtractSlots(manifold, slotsData);
-          geometry = (await import('./csg')).manifoldToThree(manifold);
-
-          // Generate insert cards
-          const cards: InsertCard[] = [];
-          for (let i = 0; i < slotsData.length; i++) {
-            const { geometry: cardGeo } = generateInsertCard(slotsData[i], baitHeight);
-            cardGeo.computeVertexNormals();
-            cards.push({ label: `Insert Card ${i + 1}`, geometry: cardGeo });
-          }
-          store.setSlotConfigs(slotsData);
-          store.setInsertCards(cards);
-        }
+        const { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
 
         geometry.computeBoundingBox();
         const size = new THREE.Vector3();
@@ -131,6 +108,14 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
 
         store.setBaitMesh(geometry, data.name || 'designed_bait');
         store.setBaitManifold(manifold);
+
+        // Store slot configs — slots subtract from the MOLD (not the bait)
+        // during MoldEngine generation. Insert cards generated there too.
+        const slotsData: SlotConfig[] = data.slots || [];
+        if (slotsData.length > 0) {
+          console.log(`[BaitBridge] ${slotsData.length} slot config(s) stored for mold subtraction`);
+          store.setSlotConfigs(slotsData);
+        }
 
         window.history.replaceState({}, '', window.location.pathname);
         return { success: true };

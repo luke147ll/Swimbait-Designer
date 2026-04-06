@@ -296,3 +296,27 @@ export function generateInsertCard(
   const geometry = manifoldToThree(card);
   return { manifold: card, geometry };
 }
+
+/**
+ * Subtract slot boxes from MOLD halves (not from bait).
+ * The slot creates a pocket in the mold cavity that the insert card fills.
+ */
+export function subtractSlotsFromMold(
+  halfA: ManifoldSolid,
+  halfB: ManifoldSolid | null,
+  slotsData: SlotConfig[],
+): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
+  for (const slot of slotsData) {
+    // For 'through' depth, use a large value to cut through both halves
+    const depthMM = slot.depth === 'through' ? 200 : (slot.depth as number);
+
+    const slotBox = mBox(slot.length, depthMM, slot.width)
+      .translate([slot.positionY, slot.positionZ, slot.positionX]);
+
+    halfA = halfA.subtract(slotBox);
+    if (halfB) halfB = halfB.subtract(slotBox);
+
+    console.log(`[BaitPrimitives] Slot subtracted from mold: ${slot.width}×${slot.length}×${depthMM}mm`);
+  }
+  return { halfA, halfB };
+}

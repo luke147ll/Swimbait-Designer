@@ -1,6 +1,7 @@
 import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
 import * as THREE from 'three';
 import { initCSG, manifoldToThree, mDispose } from './csg';
+import { useMoldStore } from '../store/moldStore';
 import { BaitSubtraction } from './geometry/BaitSubtraction';
 import { AlignmentFeatures } from './geometry/AlignmentFeatures';
 import { ClampFeatures } from './geometry/ClampFeatures';
@@ -112,6 +113,24 @@ export class MoldEngine {
     ({ halfA, halfB } = this.ventGen.generateManifold(
       halfA, halfB, state.ventConfig, state.baitMesh, baitBounds, effectiveMoldConfig, state.sprueConfig, dims
     ));
+
+    // Step 8.5: Slot inserts — subtract slot boxes from mold halves, generate insert cards
+    if (state.slotConfigs && state.slotConfigs.length > 0) {
+      console.log(`[MoldEngine] Step 8.5: ${state.slotConfigs.length} slot insert(s)`);
+      const { subtractSlotsFromMold, generateInsertCard } = await import('./BaitPrimitives');
+      const baitHeight = baitBounds.max.y - baitBounds.min.y;
+
+      ({ halfA, halfB } = subtractSlotsFromMold(halfA, halfB, state.slotConfigs));
+
+      // Generate insert cards
+      const cards: import('./types').InsertCard[] = [];
+      for (let i = 0; i < state.slotConfigs.length; i++) {
+        const { geometry: cardGeo } = generateInsertCard(state.slotConfigs[i], baitHeight);
+        cardGeo.computeVertexNormals();
+        cards.push({ label: `Insert Card ${i + 1}`, geometry: cardGeo });
+      }
+      useMoldStore.getState().setInsertCards(cards);
+    }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)
     console.log('[MoldEngine] Step 9: Convert to Three.js');
