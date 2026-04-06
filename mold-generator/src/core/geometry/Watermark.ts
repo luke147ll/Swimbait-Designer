@@ -54,8 +54,9 @@ function buildTextSolid(
 
     for (const [gx, gy, gw, gh] of def) {
       const sx = cursorX + gx * unitSize;
-      const sy = startY + gy * unitSize;
-      strokes.push(mTranslate(mBox(gw * unitSize, gh * unitSize, depth), sx + gw * unitSize / 2, sy + gh * unitSize / 2, 0));
+      // Flip Y: grid goes top-to-bottom, mold Y goes bottom-to-top
+      const sy = -startY - gy * unitSize;
+      strokes.push(mTranslate(mBox(gw * unitSize, gh * unitSize, depth), sx + gw * unitSize / 2, sy - gh * unitSize / 2, 0));
     }
 
     cursorX += ((LETTER_WIDTHS[letter] || 4) + LETTER_SPACING) * unitSize;
