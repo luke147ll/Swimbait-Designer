@@ -178,7 +178,7 @@ export class MoldEngine {
     const baitHtY = bb.max.y - bb.min.y;
     const boxX = baitLenX + mc.wallMarginY * 2;
     const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
-    const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35;
+    const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35 - (config.boltInset || 0);
     const cornerInset = 12;
     const cornerX = boxX / 2 - cornerInset;
     const positions: Vec3[] = [];

@@ -52,6 +52,7 @@ export interface ClampConfig {
   mode: ClampMode;
   boltSize: BoltSize;
   boltCount: number;
+  boltInset: number; // mm — how far bolts sit from flange outer edge toward bait (0 = default position)
   positions: Vec3[];
 }
 

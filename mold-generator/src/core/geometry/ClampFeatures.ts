@@ -13,7 +13,7 @@ function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig,
   const baitHtY = bb.max.y - bb.min.y;
   const boxX = baitLenX + mc.wallMarginY * 2;
   const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
-  const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35;
+  const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35 - (config.boltInset || 0);
   const cornerInset = 12; // mm from the corner along X
   const positions: Vec3[] = [];
 

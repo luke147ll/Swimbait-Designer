@@ -1,4 +1,5 @@
 import { Dropdown } from '../shared/Dropdown';
+import { Slider } from '../shared/Slider';
 import { AccordionPanel } from '../shared/AccordionPanel';
 import { useMoldStore } from '../../store/moldStore';
 import type { ClampMode, BoltSize } from '../../core/types';
@@ -73,6 +74,9 @@ export function ClampPanel() {
               ))}
             </div>
           </div>
+
+          <Slider label="Bolt Inset" value={config.boltInset || 0} min={0} max={10} step={0.5} unit="mm"
+            onChange={v => update({ boltInset: v })} />
 
           {config.positions.length > 0 && (
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
