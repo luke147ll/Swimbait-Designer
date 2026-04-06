@@ -32,8 +32,8 @@ let slots = [
 ];
 let slotMeshes = []; // Three.js preview meshes
 
-const slotMat = new THREE.MeshStandardMaterial({
-  color: 0xcc6644, transparent: true, opacity: 0.4, depthWrite: false,
+const slotMat = new THREE.MeshBasicMaterial({
+  color: 0xcc6644, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false,
 });
 
 function rebuildSlotPreview() {
