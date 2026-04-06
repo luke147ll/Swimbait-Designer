@@ -55,7 +55,7 @@ export function SpruePanel() {
         <>
           <Slider label="Entry Diameter" value={config.entryDiameter} min={10} max={25} step={0.1} unit="mm"
             onChange={v => update({ entryDiameter: v })} />
-          <Slider label="Bore Diameter" value={config.boreDiameter} min={5} max={15} step={0.5} unit="mm"
+          <Slider label="Bore Diameter" value={config.boreDiameter} min={1} max={15} step={0.5} unit="mm"
             onChange={v => update({ boreDiameter: v })} />
 
           <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 6 }}>Gate Type</div>
@@ -78,6 +78,9 @@ export function SpruePanel() {
             onClick={() => update({ position: p })}>{p}</button>
         ))}
       </div>
+
+      <Slider label="Z Offset" value={config.offsetZ} min={-20} max={20} step={0.5} unit="mm"
+        onChange={v => update({ offsetZ: v })} />
     </AccordionPanel>
   );
 }

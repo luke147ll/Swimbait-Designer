@@ -46,7 +46,7 @@ export const DEFAULT_CLAMP_CONFIG: ClampConfig = {
 
 export const DEFAULT_SPRUE_CONFIG: SprueConfig = {
   preset: 'standard_5_8', entryDiameter: 16.2, boreDiameter: 10,
-  taper: 2, position: 'tail', positionVec: null, gateType: 'direct',
+  taper: 2, position: 'tail', positionVec: null, gateType: 'direct', offsetZ: 0,
 };
 
 export const DEFAULT_VENT_CONFIG: VentConfig = {

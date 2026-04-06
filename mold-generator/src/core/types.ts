@@ -67,6 +67,7 @@ export interface SprueConfig {
   position: SpruePosition;
   positionVec: Vec3 | null;
   gateType: GateType;
+  offsetZ: number;
 }
 
 export interface Vent {

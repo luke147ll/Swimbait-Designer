@@ -30,6 +30,9 @@ export class SprueCutter {
     const boreLen = wallThickness + OS;
     const gateLen = (config.gateType === 'pinch' ? 4 : config.gateType === 'fan' ? 5 : 3) + OS;
 
+    // Z offset — shifts the injection port vertically (Y in mold coords)
+    const oy = config.offsetZ || 0;
+
     // Build sprue parts and subtract from both halves
     // We need to build parts twice since Manifold subtract consumes context
     for (let pass = 0; pass < 2; pass++) {
@@ -40,20 +43,20 @@ export class SprueCutter {
 
       if (config.entryDiameter > 0) {
         parts.push(mTranslate(mCylX(config.entryDiameter / 2, entryLen),
-          edgeX + dirX * (entryLen / 2 - OS), 0, 0));
+          edgeX + dirX * (entryLen / 2 - OS), oy, 0));
       }
 
       parts.push(mTranslate(mCylX(config.boreDiameter / 2, boreLen),
-        edgeX + dirX * (entryLen - OS + boreLen / 2), 0, 0));
+        edgeX + dirX * (entryLen - OS + boreLen / 2), oy, 0));
 
       const gateTx = edgeX + dirX * (entryLen - OS + boreLen + gateLen / 2);
       if (config.gateType === 'pinch') {
-        parts.push(mTranslate(mBox(gateLen, 1.5, 3), gateTx, 0, 0));
+        parts.push(mTranslate(mBox(gateLen, 1.5, 3), gateTx, oy, 0));
       } else if (config.gateType === 'fan') {
         const fanH = Math.min(baitBounds.max.y - baitBounds.min.y, 25);
-        parts.push(mTranslate(mBox(gateLen, fanH, 1.5), gateTx, 0, 0));
+        parts.push(mTranslate(mBox(gateLen, fanH, 1.5), gateTx, oy, 0));
       } else {
-        parts.push(mTranslate(mCylX(config.boreDiameter / 2, gateLen), gateTx, 0, 0));
+        parts.push(mTranslate(mCylX(config.boreDiameter / 2, gateLen), gateTx, oy, 0));
       }
 
       const compound = mBatchUnion(parts);
