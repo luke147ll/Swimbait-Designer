@@ -43,6 +43,17 @@ const matB = new THREE.MeshStandardMaterial({
   polygonOffsetUnits: 1,
 });
 
+const matCard = new THREE.MeshStandardMaterial({
+  color: '#44aa66',
+  transparent: true,
+  opacity: 0.7,
+  roughness: 0.4,
+  metalness: 0.1,
+  flatShading: true,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
+
 const edgeMat = new THREE.LineBasicMaterial({
   color: T.bgDeep,
   opacity: 0.1,
@@ -85,6 +96,24 @@ function HalfMesh({ geometry, material, targetZ, clipPlanes }: {
   );
 }
 
+function InsertCardMeshes() {
+  const insertCards = useMoldStore(s => s.insertCards);
+
+  const geos = useMemo(() => {
+    return insertCards.map(card => prepareForDisplay(card.geometry));
+  }, [insertCards]);
+
+  if (geos.length === 0) return null;
+
+  return (
+    <>
+      {geos.map((geo, i) => (
+        <mesh key={`card-${i}`} geometry={geo} material={matCard} renderOrder={5} />
+      ))}
+    </>
+  );
+}
+
 export function MoldPreview() {
   const halfA = useMoldStore(s => s.moldHalfA);
   const halfB = useMoldStore(s => s.moldHalfB);
@@ -103,6 +132,7 @@ export function MoldPreview() {
     <>
       <HalfMesh geometry={halfA} material={matA} targetZ={offsetA} clipPlanes={clipPlanes} />
       <HalfMesh geometry={halfB} material={matB} targetZ={offsetB} clipPlanes={clipPlanes} />
+      <InsertCardMeshes />
     </>
   );
 }
