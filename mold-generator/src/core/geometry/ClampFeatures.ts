@@ -6,7 +6,7 @@ import { HEAT_SET_INSERT_HOLES, BOLT_CLEARANCE_HOLES } from '../constants';
 
 const EPS = 0.01;
 
-function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, dims: MoldDimensions): Vec3[] {
+function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, _dims: MoldDimensions): Vec3[] {
   const cx = (bb.max.x + bb.min.x) / 2;
   const cy = (bb.max.y + bb.min.y) / 2;
   const baitLenX = bb.max.x - bb.min.x;
