@@ -120,9 +120,9 @@ export class AlignmentFeatures {
       const inner = mTranslate(mBox(outerX - lipW * 2, outerY - lipW * 2, keyH + EPS * 2), cx, cy, keyH / 2);
       let frame = mSubtract(outer, inner);
 
-      // On-edge: remove BOTH horizontal segments (-Y bottom, +Y top).
-      // Only the two vertical side rails (-X, +X) remain — they print
-      // perfectly when on edge (vertical walls, no overhang).
+      // On-edge: remove horizontal segments, chamfer male key top faces.
+      // When on-edge, Z is the print depth axis — the key top face (at Z=keyH)
+      // is a horizontal shelf that sags. A 45° chamfer makes it self-supporting.
       if (printOrientation === 'on_edge') {
         const cutH = lipW + 4;
         // Remove bottom (-Y) segment
@@ -134,6 +134,8 @@ export class AlignmentFeatures {
           cx, cy + outerY / 2 - lipW / 2, keyH / 2);
         frame = mSubtract(frame, topCut);
 
+        // Male key top face is only lipW (2mm) wide — prints as a short bridge,
+        // no chamfer needed. The recess ceiling is the real sag issue (handled below).
         console.log('[AlignmentFeatures] On-edge: 2-sided key (vertical rails only)');
       }
 
@@ -149,9 +151,15 @@ export class AlignmentFeatures {
 
       halfA = mUnion(halfA, frame);
 
-      // HalfB: matching recess with same clearance cutouts
+      // HalfB: matching recess
       if (halfB) {
-        const rH = keyH + 0.15 + EPS;
+        // For on-edge: make recess open-topped (extend through the outer face)
+        // so there's no horizontal ceiling to sag during printing.
+        // The key only needs lateral registration, not vertical containment.
+        const rDepth = printOrientation === 'on_edge'
+          ? 50  // extend well past the outer face — open channel
+          : keyH + 0.15 + EPS;  // normal closed recess for flat printing
+        const rH = rDepth;
         const rOuter = mTranslate(mBox(outerX + 0.3, outerY + 0.3, rH), cx, cy, rH / 2 - EPS / 2);
         const rInner = mTranslate(mBox(outerX - (lipW + 0.15) * 2, outerY - (lipW + 0.15) * 2, rH + EPS * 2), cx, cy, rH / 2 - EPS / 2);
         let recess = mSubtract(rOuter, rInner);
@@ -164,6 +172,7 @@ export class AlignmentFeatures {
           const topCut = mTranslate(mBox(outerX + 4, cutH, rH + 4),
             cx, cy + outerY / 2 - lipW / 2, rH / 2 - EPS / 2);
           recess = mSubtract(recess, mBatchUnion([bottomCut, topCut]));
+          console.log('[AlignmentFeatures] On-edge: open-topped recess (no ceiling to sag)');
         }
 
         if (allHolePositions.length > 0) {
