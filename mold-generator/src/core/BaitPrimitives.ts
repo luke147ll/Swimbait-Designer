@@ -277,14 +277,16 @@ export function subtractSlots(bait: ManifoldSolid, slotsData: SlotConfig[]): Man
 
 /**
  * Generate a simple insert card for a slot.
- * Slightly smaller than the slot for friction fit (0.15mm clearance per side).
+ * Tight clearance along bait length (0.05mm/side) for snap fit.
+ * Standard clearance across width (0.15mm/side) for easy insertion.
  */
 export function generateInsertCard(
   slot: SlotConfig,
   baitHeightMM: number,
 ): { manifold: ManifoldSolid; geometry: THREE.BufferGeometry } {
   const clearance = 0.15;
-  const cardLength = slot.length - clearance * 2;
+  const snapClearance = 0.05; // tighter along bait body for snap fit
+  const cardLength = slot.length - snapClearance * 2;
   const cardWidth = slot.width - clearance * 2;
   const cardDepth = slot.depth === 'through'
     ? baitHeightMM - clearance
