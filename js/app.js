@@ -22,6 +22,7 @@ let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
 let importedFileName = '';
 let importedMeshActive = false; // true = viewport shows imported STL, not tube mesh
+let importOrientPhase = false;  // true = user is adjusting orientation, deformation disabled
 let meshAnalysis = null;       // reference profile from analyzeMesh
 let originalPositions = null;  // Float32Array of original vertex positions
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
@@ -207,8 +208,8 @@ function makeSplineSamplers() {
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
 function rebuildTubePreview(resolution) {
-  // Imported mesh mode: deform the imported geometry using spline ratios
-  if (importedMeshActive && meshAnalysis && originalPositions && bodyMesh) {
+  // Imported mesh mode: deform using spline ratios (skip during orientation phase)
+  if (importedMeshActive && !importOrientPhase && meshAnalysis && originalPositions && bodyMesh) {
     const p = getParams();
     deformMesh(bodyMesh.geometry, originalPositions, meshAnalysis, profileState, p.OL);
     // Update transfer data from deformed mesh
@@ -1004,13 +1005,9 @@ window.importSTLFile = function() {
     const file = e.target.files[0];
     if (!file) return;
     const buffer = await file.arrayBuffer();
-
-    // Extract spline profiles from STL (for the editors as secondary controls)
-    const result = importSTL(buffer, profileState, rebuildProfileCache, () => {});
-    importedRawVerts = result._rawVerts || [];
     importedFileName = file.name;
 
-    // Parse STL as Three.js geometry for the actual viewport mesh
+    // Parse STL as Three.js geometry
     const { STLLoader } = await import('https://esm.sh/three@0.162.0/examples/jsm/loaders/STLLoader.js');
     const geo = new STLLoader().parse(buffer);
     geo.computeBoundingBox();
@@ -1053,26 +1050,18 @@ window.importSTLFile = function() {
     scene.add(bodyMesh);
     window.bodyMesh = bodyMesh;
     importedMeshActive = true;
+    importOrientPhase = true; // deformation disabled until orientation confirmed
 
-    // Analyze mesh for deformation reference
-    meshAnalysis = analyzeMesh(displayGeo, 40);
-    originalPositions = new Float32Array(displayGeo.attributes.position.array);
-    console.log(`[STL Import] Analyzed: ${meshAnalysis ? meshAnalysis.stationCount + ' stations' : 'failed'}`);
-
-    // Set OL slider
-    const olSlider = document.getElementById('sOL');
-    if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
+    // DON'T extract splines or analyze yet — let the user fix orientation first
+    meshAnalysis = null;
+    originalPositions = null;
 
     const badge = document.getElementById('profileMode');
-    if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
+    if (badge) { badge.textContent = 'ORIENT'; badge.className = 'ed-mode sliders'; }
     const orientCtrl = document.getElementById('importOrientControls');
     if (orientCtrl) orientCtrl.style.display = 'block';
 
-    // Populate spline editors from the mesh analysis
-    rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-    if (sideEditor) sideEditor.refresh();
-    if (widthEditor) widthEditor.refresh();
-    console.log(`[STL Import] ${file.name} — ${pos.count/3} tris, spline deformation ready`);
+    console.log(`[STL Import] ${file.name} — ${pos.count/3} tris. Adjust orientation then confirm.`);
   };
   input.click();
 };
@@ -1162,6 +1151,35 @@ function transformImportedMesh(mat4) {
   // Re-extract splines
   reextractAndRebuild();
 }
+
+window.confirmOrientation = function() {
+  if (!bodyMesh || !importedMeshActive) return;
+  importOrientPhase = false;
+
+  // Now analyze the oriented mesh and extract splines
+  const displayGeo = bodyMesh.geometry;
+  meshAnalysis = analyzeMesh(displayGeo, 40);
+  originalPositions = new Float32Array(displayGeo.attributes.position.array);
+
+  // Extract spline profiles from the oriented raw verts
+  // Use the display geometry positions (already in inches)
+  const pos = displayGeo.attributes.position;
+  importedRawVerts = [];
+  for (let i = 0; i < pos.count; i++) {
+    importedRawVerts.push({ x: pos.getX(i), y: pos.getY(i), z: pos.getZ(i) });
+  }
+
+  // Slice and populate splines
+  reextractAndRebuild();
+
+  // Hide orient controls, show editing badge
+  const orientCtrl = document.getElementById('importOrientControls');
+  if (orientCtrl) orientCtrl.style.display = 'none';
+  const badge = document.getElementById('profileMode');
+  if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
+
+  console.log('[STL Import] Orientation confirmed — spline deformation active');
+};
 
 window.resetToTubeMode = function() {
   importedMeshActive = false;
