@@ -1154,31 +1154,44 @@ function transformImportedMesh(mat4) {
 
 window.confirmOrientation = function() {
   if (!bodyMesh || !importedMeshActive) return;
-  importOrientPhase = false;
 
-  // Now analyze the oriented mesh and extract splines
   const displayGeo = bodyMesh.geometry;
+
+  // Analyze the oriented mesh — this is the deformation reference
   meshAnalysis = analyzeMesh(displayGeo, 40);
   originalPositions = new Float32Array(displayGeo.attributes.position.array);
+  if (!meshAnalysis) { console.error('[STL Import] Analysis failed'); return; }
 
-  // Extract spline profiles from the oriented raw verts
-  // Use the display geometry positions (already in inches)
-  const pos = displayGeo.attributes.position;
-  importedRawVerts = [];
-  for (let i = 0; i < pos.count; i++) {
-    importedRawVerts.push({ x: pos.getX(i), y: pos.getY(i), z: pos.getZ(i) });
-  }
+  // Build spline control points DIRECTLY from the analysis reference profile.
+  // This guarantees initial ratios are exactly 1.0 — no deformation until user edits.
+  const ref = meshAnalysis.referenceProfile;
+  const len = meshAnalysis.length; // in viewport units (inches)
 
-  // Slice and populate splines
-  reextractAndRebuild();
+  profileState.dorsal = ref.map(r => ({ t: r.t, v: r.dorsalH / len, locked: r.t === 0 || r.t === 1 }));
+  profileState.ventral = ref.map(r => ({ t: r.t, v: -r.ventralD / len, locked: r.t === 0 || r.t === 1 }));
+  profileState.width = ref.map(r => ({ t: r.t, v: r.halfW / len, locked: r.t === 0 || r.t === 1 }));
+  profileState.dDelta = [];
+  profileState.vDelta = [];
+  profileState.wDelta = [];
 
-  // Hide orient controls, show editing badge
+  // Set OL from the mesh length
+  const olSlider = document.getElementById('sOL');
+  if (olSlider) olSlider.value = Math.min(14, Math.max(3, len)).toFixed(2);
+
+  // Enable deformation
+  importOrientPhase = false;
+
+  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
+
+  // Hide orient controls
   const orientCtrl = document.getElementById('importOrientControls');
   if (orientCtrl) orientCtrl.style.display = 'none';
   const badge = document.getElementById('profileMode');
   if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
 
-  console.log('[STL Import] Orientation confirmed — spline deformation active');
+  console.log('[STL Import] Orientation confirmed — spline deformation active, ratios=1.0');
 };
 
 window.resetToTubeMode = function() {
