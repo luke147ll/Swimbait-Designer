@@ -18,10 +18,8 @@ import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js
 import { importSTL } from './stl-import.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
-let ghostMesh = null;
-let importedMeshData = null;
-let importedFileName = '';
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
+let importedFileName = '';
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -962,23 +960,50 @@ window.removeSlot = function(idx) {
   rebuildSlotPreview();
 };
 
-// ── STL import — unified: extract splines + ghost overlay ──
+// ── STL import — replaces tube mesh, extracts spline controls ──
 
-/** Run spline extraction on importedRawVerts and rebuild everything. */
-function runSplineExtraction() {
-  if (!importedRawVerts || importedRawVerts.length === 0) return;
+window.importSTLFile = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.stl';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
 
-  // Build a buffer from the raw verts for importSTL
-  // importSTL expects an ArrayBuffer (STL file), but we already have parsed verts.
-  // Call the extraction logic directly instead.
+    // Extract splines from STL (auto-orients, auto-scales, populates profileState)
+    const result = importSTL(buffer, profileState, rebuildProfileCache, () => {});
+    importedRawVerts = result._rawVerts || [];
+    importedFileName = file.name;
+
+    // Set OL slider
+    const olSlider = document.getElementById('sOL');
+    if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
+
+    const badge = document.getElementById('profileMode');
+    if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
+    const orientCtrl = document.getElementById('importOrientControls');
+    if (orientCtrl) orientCtrl.style.display = 'block';
+
+    // Rebuild tube mesh from extracted splines — this IS the viewport mesh
+    update();
+    if (sideEditor) sideEditor.refresh();
+    if (widthEditor) widthEditor.refresh();
+    console.log(`[STL Import] ${result.lengthInches.toFixed(1)}" — splines extracted, tube mesh rebuilt from ${file.name}`);
+  };
+  input.click();
+};
+
+/** Re-extract splines after flip/rotate and rebuild tube mesh. */
+function reextractAndRebuild() {
+  if (!importedRawVerts || !importedRawVerts.length) return;
   const verts = importedRawVerts;
 
-  // Find bounds (verts are already in inches, remapped)
   let minX = Infinity, maxX = -Infinity;
   for (const v of verts) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; }
   const lengthInches = maxX - minX;
+  if (lengthInches < 0.01) return;
 
-  // Slice at stations
   const stationCount = 24;
   const tol = lengthInches / stationCount * 0.5;
   const stations = [];
@@ -987,12 +1012,11 @@ function runSplineExtraction() {
     const sx = minX + t * lengthInches;
     const nearby = verts.filter(v => Math.abs(v.x - sx) < tol);
     if (nearby.length < 3) { stations.push({ t, dH: 0, vD: 0, hW: 0, n: 0 }); continue; }
-    let maxY = -Infinity, minY = Infinity, maxZ = -Infinity, minZ = Infinity;
-    for (const v of nearby) { if (v.y > maxY) maxY = v.y; if (v.y < minY) minY = v.y; if (v.z > maxZ) maxZ = v.z; if (v.z < minZ) minZ = v.z; }
-    const cy = (maxY + minY) / 2;
-    stations.push({ t, dH: maxY - cy, vD: cy - minY, hW: (maxZ - minZ) / 2, n: nearby.length });
+    let myMax = -Infinity, myMin = Infinity, mzMax = -Infinity, mzMin = Infinity;
+    for (const v of nearby) { if (v.y > myMax) myMax = v.y; if (v.y < myMin) myMin = v.y; if (v.z > mzMax) mzMax = v.z; if (v.z < mzMin) mzMin = v.z; }
+    const cy = (myMax + myMin) / 2;
+    stations.push({ t, dH: myMax - cy, vD: cy - myMin, hW: (mzMax - mzMin) / 2, n: nearby.length });
   }
-  // Interpolate gaps
   for (let i = 0; i < stations.length; i++) {
     if (stations[i].n > 0) continue;
     let prev = null, next = null;
@@ -1003,7 +1027,6 @@ function runSplineExtraction() {
     else if (next) { stations[i].dH = next.dH; stations[i].vD = next.vD; stations[i].hW = next.hW; }
   }
 
-  // Build control points (reduce by curvature)
   function reduce(samples, maxPts) {
     if (samples.length <= maxPts) return samples;
     const result = [samples[0]];
@@ -1029,75 +1052,14 @@ function runSplineExtraction() {
   profileState.vDelta = [];
   profileState.wDelta = [];
 
-  // Set OL slider
   const olSlider = document.getElementById('sOL');
   if (olSlider) olSlider.value = Math.min(14, Math.max(3, lengthInches)).toFixed(2);
-
-  // Ghost overlay from raw verts
-  if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); }
-  const ghostVerts = new Float32Array(verts.length * 3);
-  for (let i = 0; i < verts.length; i++) { ghostVerts[i * 3] = verts[i].x; ghostVerts[i * 3 + 1] = verts[i].y; ghostVerts[i * 3 + 2] = verts[i].z; }
-  const ghostGeo = new THREE.BufferGeometry();
-  ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(ghostVerts, 3));
-  ghostGeo.computeVertexNormals();
-  ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshStandardMaterial({
-    color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide,
-  }));
-  scene.add(ghostMesh);
-
-  const ghostBtn = document.getElementById('ghostToggle');
-  if (ghostBtn) { ghostBtn.style.display = 'inline-block'; ghostBtn.textContent = 'Ghost: On'; ghostBtn.classList.add('on'); }
-  const badge = document.getElementById('profileMode');
-  if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
 
   rebuildProfileCache(profileState, 2.2, 0.24);
   update();
   if (sideEditor) sideEditor.refresh();
   if (widthEditor) widthEditor.refresh();
 }
-
-window.importSTLFile = function() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.stl';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const buffer = await file.arrayBuffer();
-    const result = importSTL(buffer, profileState, rebuildProfileCache, rebuildScene);
-
-    // Store raw verts for flip/rotate re-extraction
-    importedRawVerts = result._rawVerts || [];
-    importedFileName = file.name;
-
-    // Set OL slider
-    const olSlider = document.getElementById('sOL');
-    if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
-
-    // Ghost overlay
-    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); }
-    const ghostGeo = new THREE.BufferGeometry();
-    ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(result.ghostVerts, 3));
-    ghostGeo.computeVertexNormals();
-    ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshStandardMaterial({
-      color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide,
-    }));
-    scene.add(ghostMesh);
-
-    const badge = document.getElementById('profileMode');
-    if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
-    const ghostBtn = document.getElementById('ghostToggle');
-    if (ghostBtn) { ghostBtn.style.display = 'inline-block'; ghostBtn.textContent = 'Ghost: On'; ghostBtn.classList.add('on'); }
-    const orientCtrl = document.getElementById('importOrientControls');
-    if (orientCtrl) orientCtrl.style.display = 'block';
-
-    update();
-    if (sideEditor) sideEditor.refresh();
-    if (widthEditor) widthEditor.refresh();
-    console.log(`[STL Import] Done — ${result.lengthInches.toFixed(1)}" bait from ${file.name}`);
-  };
-  input.click();
-};
 
 window.flipImport = function(axis) {
   if (!importedRawVerts) return;
@@ -1106,7 +1068,7 @@ window.flipImport = function(axis) {
     else if (axis === 'y') v.y = -v.y;
     else v.z = -v.z;
   }
-  runSplineExtraction();
+  reextractAndRebuild();
 };
 
 window.rotateImport = function(axis) {
@@ -1117,14 +1079,7 @@ window.rotateImport = function(axis) {
     else if (axis === 'y') { t = v.x; v.x = v.z; v.z = -t; }
     else { t = v.x; v.x = -v.y; v.y = t; }
   }
-  runSplineExtraction();
-};
-
-window.toggleGhost = function(btn) {
-  if (!ghostMesh) return;
-  ghostMesh.visible = !ghostMesh.visible;
-  btn.textContent = ghostMesh.visible ? 'Ghost: On' : 'Ghost: Off';
-  btn.classList.toggle('on', ghostMesh.visible);
+  reextractAndRebuild();
 };
 
 // ── Expose to HTML ──
