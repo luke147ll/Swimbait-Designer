@@ -4,12 +4,12 @@ import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
 import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
 
-type ImportOrientation = 'x_length' | 'y_length' | 'z_length';
+type LengthAxis = 'x' | 'y' | 'z';
 
-const ROTATIONS: Record<ImportOrientation, [number, number, number]> = {
-  x_length: [0, 0, 0],            // X=length already — no rotation
-  y_length: [0, 0, Math.PI / 2],  // Y=length → rotate 90° around Z so Y→X
-  z_length: [0, -Math.PI / 2, 0], // Z=length → rotate -90° around Y so Z→X
+const AXIS_ROTATIONS: Record<LengthAxis, [number, number, number]> = {
+  x: [0, 0, 0],
+  y: [0, 0, Math.PI / 2],
+  z: [0, -Math.PI / 2, 0],
 };
 
 export function BaitLoader() {
@@ -20,7 +20,13 @@ export function BaitLoader() {
   const [status, setStatus] = useState<string | null>(null);
   const [rawGeo, setRawGeo] = useState<THREE.BufferGeometry | null>(null);
   const [rawName, setRawName] = useState<string>('');
-  const [orientation, setOrientation] = useState<ImportOrientation>('x_length');
+
+  // Transform state
+  const [lengthAxis, setLengthAxis] = useState<LengthAxis>('x');
+  const [rotX, setRotX] = useState(0);
+  const [rotY, setRotY] = useState(0);
+  const [rotZ, setRotZ] = useState(0);
+  const [scale, setScale] = useState(1.0);
 
   // Auto-load from transfer token on mount
   useEffect(() => {
@@ -38,11 +44,26 @@ export function BaitLoader() {
     }
   }, []);
 
-  const applyOrientation = useCallback((geo: THREE.BufferGeometry, orient: ImportOrientation, name: string) => {
+  const applyTransform = useCallback((geo: THREE.BufferGeometry, axis: LengthAxis, rx: number, ry: number, rz: number, s: number, name: string) => {
     const clone = geo.clone();
-    const rot = ROTATIONS[orient];
-    const mat = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+    const mat = new THREE.Matrix4();
+
+    // 1. Axis alignment rotation
+    const ar = AXIS_ROTATIONS[axis];
+    mat.makeRotationFromEuler(new THREE.Euler(ar[0], ar[1], ar[2]));
     clone.applyMatrix4(mat);
+
+    // 2. Custom rotation (degrees → radians)
+    if (rx || ry || rz) {
+      mat.makeRotationFromEuler(new THREE.Euler(rx * Math.PI / 180, ry * Math.PI / 180, rz * Math.PI / 180));
+      clone.applyMatrix4(mat);
+    }
+
+    // 3. Scale
+    if (s !== 1.0) {
+      clone.scale(s, s, s);
+    }
+
     clone.computeBoundingBox();
     clone.center();
     clone.computeVertexNormals();
@@ -50,10 +71,10 @@ export function BaitLoader() {
     setBaitManifold(null);
   }, [setBaitMesh, setBaitManifold]);
 
-  const handleOrientChange = useCallback((orient: ImportOrientation) => {
-    setOrientation(orient);
-    if (rawGeo) applyOrientation(rawGeo, orient, rawName);
-  }, [rawGeo, rawName, applyOrientation]);
+  const refresh = useCallback((axis?: LengthAxis, rx?: number, ry?: number, rz?: number, s?: number) => {
+    if (!rawGeo) return;
+    applyTransform(rawGeo, axis ?? lengthAxis, rx ?? rotX, ry ?? rotY, rz ?? rotZ, s ?? scale, rawName);
+  }, [rawGeo, rawName, lengthAxis, rotX, rotY, rotZ, scale, applyTransform]);
 
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,10 +86,11 @@ export function BaitLoader() {
       const geo = new STLLoader().parse(buffer);
       setRawGeo(geo);
       setRawName(file.name);
-      applyOrientation(geo, orientation, file.name);
+      setRotX(0); setRotY(0); setRotZ(0); setScale(1.0);
+      applyTransform(geo, lengthAxis, 0, 0, 0, 1.0, file.name);
     }
     e.target.value = '';
-  }, [orientation, applyOrientation]);
+  }, [lengthAxis, applyTransform]);
 
   const btnBase: React.CSSProperties = {
     width: '100%', padding: '8px 0', marginBottom: 6,
@@ -76,6 +98,24 @@ export function BaitLoader() {
     fontFamily: T.font, textTransform: 'uppercase', letterSpacing: 1,
     fontWeight: 600, transition: 'background 0.15s',
   };
+
+  const segBtn = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: '5px 0', fontSize: 11, cursor: 'pointer', border: 'none', borderRadius: 3,
+    fontFamily: T.font, fontWeight: active ? 700 : 400,
+    background: active ? T.gold : T.bgSurface,
+    color: active ? T.bgDeep : T.textMuted,
+  });
+
+  const sliderRow = (label: string, value: number, min: number, max: number, step: number, unit: string, onChange: (v: number) => void) => (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textMuted, marginBottom: 2 }}>
+        <span>{label}</span><span style={{ fontFamily: 'monospace' }}>{value}{unit}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        style={{ width: '100%' }}
+        onInput={(e) => onChange(parseFloat((e.target as HTMLInputElement).value))} />
+    </div>
+  );
 
   return (
     <div style={{ padding: '12px 16px', borderBottom: `1px solid ${T.border}` }}>
@@ -99,22 +139,25 @@ export function BaitLoader() {
       <input ref={fileRef} type="file" accept=".stl" style={{ display: 'none' }} onChange={handleFile} />
 
       {rawGeo && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
           <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Length axis in STL
+            Length axis
           </div>
-          <div style={{ display: 'flex', gap: 2, marginBottom: 6 }}>
-            {([['x_length', 'X'], ['y_length', 'Y'], ['z_length', 'Z']] as [ImportOrientation, string][]).map(([o, label]) => (
-              <button key={o} onClick={() => handleOrientChange(o)}
-                style={{ flex: 1, padding: '5px 0', fontSize: 11, cursor: 'pointer', border: 'none', borderRadius: 3,
-                  fontFamily: T.font, fontWeight: orientation === o ? 700 : 400,
-                  background: orientation === o ? T.gold : T.bgSurface,
-                  color: orientation === o ? T.bgDeep : T.textMuted }}>
-                {label}
+          <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
+            {(['x', 'y', 'z'] as LengthAxis[]).map(a => (
+              <button key={a} style={segBtn(lengthAxis === a)}
+                onClick={() => { setLengthAxis(a); refresh(a); }}>
+                {a.toUpperCase()}
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 10, color: T.textDim }}>
+
+          {sliderRow('Rotate X', rotX, -180, 180, 5, '°', v => { setRotX(v); refresh(undefined, v); })}
+          {sliderRow('Rotate Y', rotY, -180, 180, 5, '°', v => { setRotY(v); refresh(undefined, undefined, v); })}
+          {sliderRow('Rotate Z', rotZ, -180, 180, 5, '°', v => { setRotZ(v); refresh(undefined, undefined, undefined, v); })}
+          {sliderRow('Scale', scale, 0.1, 10.0, 0.1, '×', v => { setScale(v); refresh(undefined, undefined, undefined, undefined, v); })}
+
+          <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>
             Mold expects: X=length, Y=height, Z=width
           </div>
         </div>
