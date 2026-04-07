@@ -126,26 +126,33 @@ export function selectComponent(id) {
 
 function rebuildDisplayMesh(comp) {
   if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
-  if (!comp.meshData) return;
+  if (!comp.meshData) { console.warn('[Components] No meshData for', comp.label); return; }
+
+  const vp = comp.meshData.vertProperties;
+  const tv = comp.meshData.triVerts;
+  console.log(`[Components] Building mesh for ${comp.label}: ${vp.length / 3} verts, ${tv.length / 3} tris`);
 
   const geo = new THREE.BufferGeometry();
-  const verts = new Float32Array(comp.meshData.vertProperties);
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  if (comp.meshData.triVerts) {
-    geo.setIndex(new THREE.BufferAttribute(new Uint32Array(comp.meshData.triVerts), 1));
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(vp), 3));
+  if (tv && tv.length > 0) {
+    geo.setIndex(new THREE.BufferAttribute(new Uint32Array(tv), 1));
   }
   geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  console.log(`[Components] Bounds before center: ${bb.min.x.toFixed(1)},${bb.min.y.toFixed(1)},${bb.min.z.toFixed(1)} → ${bb.max.x.toFixed(1)},${bb.max.y.toFixed(1)},${bb.max.z.toFixed(1)}`);
   geo.center();
 
   // Auto-detect mm vs inches and scale to viewport inches
-  const bb = geo.boundingBox;
-  const maxDim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
-  if (maxDim > 30) geo.scale(1 / 25.4, 1 / 25.4, 1 / 25.4); // mm → inches
+  geo.computeBoundingBox();
+  const bb2 = geo.boundingBox;
+  const maxDim = Math.max(bb2.max.x - bb2.min.x, bb2.max.y - bb2.min.y, bb2.max.z - bb2.min.z);
+  if (maxDim > 30) { geo.scale(1 / 25.4, 1 / 25.4, 1 / 25.4); console.log('[Components] Scaled mm → inches'); }
   geo.computeVertexNormals();
 
   comp.displayMesh = new THREE.Mesh(geo, createMaterial(comp.category));
   updateDisplayTransform(comp);
   if (comp.visible) scene.add(comp.displayMesh);
+  console.log(`[Components] Mesh added to scene for ${comp.label}, visible=${comp.visible}`);
 }
 
 function updateDisplayTransform(comp) {
