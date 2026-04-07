@@ -17,7 +17,7 @@ import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 import { importSTL } from './stl-import.js';
 import { analyzeMesh, deformMesh } from './mesh-deform.js';
-import { initComponents, renderComponentList, buildComponentTransferData } from './components.js';
+import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp } from './components.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
@@ -748,6 +748,15 @@ async function logoutDesigner() {
 
 function getDesignState() {
   const p = getParams();
+
+  // Save components (partId for library parts to reload, no raw mesh data)
+  const savedComps = getComponents().map(c => ({
+    partId: c.partId, label: c.label, category: c.category,
+    position: { ...c.position }, rotation: { ...c.rotation }, scale: { ...c.scale },
+    mirrorX: c.mirrorX, mirrorY: c.mirrorY, mirrorZ: c.mirrorZ,
+    autoMirror: c.autoMirror, visible: c.visible, enabled: c.enabled,
+  }));
+
   return JSON.stringify({
     sliders: p,
     dorsal: profileState.dorsal,
@@ -761,6 +770,8 @@ function getDesignState() {
     tailType,
     baitColor,
     slots,
+    components: savedComps,
+    importedMeshActive,
   });
 }
 
@@ -773,13 +784,61 @@ function loadDesignState(state) {
   }
   if (state.tailType) tailType = state.tailType;
   if (state.baitColor) baitColor = state.baitColor;
-  if (state.dDelta) profileState.dDelta = state.dDelta;
-  if (state.vDelta) profileState.vDelta = state.vDelta;
-  if (state.wDelta) profileState.wDelta = state.wDelta;
   if (state.xsecKeyframes) profileState.xsecKeyframes = state.xsecKeyframes;
   if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
   if (state.slots) { slots = state.slots; renderSlotUI(); }
-  update();
+
+  // Restore profiles — if dorsal/ventral/width were saved directly (imported mesh),
+  // set them and rebuild cache WITHOUT calling update() (which would overwrite from sliders)
+  if (state.dorsal && state.dorsal.length > 13) {
+    // Imported profile (more than the default 13 control points)
+    profileState.dorsal = state.dorsal;
+    profileState.ventral = state.ventral || profileState.ventral;
+    profileState.width = state.width || profileState.width;
+    profileState.dDelta = [];
+    profileState.vDelta = [];
+    profileState.wDelta = [];
+    rebuildProfileCache(profileState, 2.2, +(document.getElementById('sHL')?.value || 0.24));
+    rebuildScene();
+  } else {
+    // Normal slider-driven profile — use deltas
+    if (state.dDelta) profileState.dDelta = state.dDelta;
+    if (state.vDelta) profileState.vDelta = state.vDelta;
+    if (state.wDelta) profileState.wDelta = state.wDelta;
+    update();
+  }
+
+  // Restore components from library (reload mesh data by partId)
+  if (state.components && state.components.length > 0) {
+    for (const saved of state.components) {
+      if (saved.partId) {
+        // Library part — find URL from part ID pattern
+        const fileUrl = `/parts/${saved.category}s/${saved.partId}.json`;
+        window.loadLibraryPart(saved.partId, fileUrl, saved.category || 'custom')
+          .then(() => {
+            // Apply saved transforms after loading
+            const comps = getComponents();
+            const last = comps[comps.length - 1];
+            if (last) {
+              updateComp(last.id, {
+                position: saved.position,
+                rotation: saved.rotation,
+                scale: saved.scale,
+                mirrorX: saved.mirrorX,
+                mirrorY: saved.mirrorY,
+                mirrorZ: saved.mirrorZ,
+                autoMirror: saved.autoMirror,
+                visible: saved.visible,
+                enabled: saved.enabled,
+              });
+            }
+          }).catch(e => console.warn('[Load] Component restore failed:', e));
+      }
+    }
+  }
+
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
 }
 
 async function initAuth() {
