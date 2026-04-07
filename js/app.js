@@ -15,8 +15,10 @@ import { createProfileState, buildProfilesFromSliders, rebuildProfileCache } fro
 import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
+import { importSTL } from './stl-import.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
+let ghostMesh = null;
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -955,6 +957,57 @@ window.removeSlot = function(idx) {
   slots.forEach((s, i) => s.label = 'Slot ' + (i + 1));
   renderSlotUI();
   rebuildSlotPreview();
+};
+
+// ── STL import handler ──
+
+window.importSTLFile = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.stl';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
+    const result = importSTL(buffer, profileState, rebuildProfileCache, rebuildScene);
+
+    // Set OL slider
+    const olSlider = document.getElementById('sOL');
+    if (olSlider) { olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2); }
+
+    // Show ghost overlay
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(result.ghostVerts, 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8,
+      depthWrite: false, side: THREE.DoubleSide,
+    });
+    ghostMesh = new THREE.Mesh(geo, mat);
+    scene.add(ghostMesh);
+
+    // Update badge
+    const badge = document.getElementById('profileMode');
+    if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
+
+    // Show ghost toggle button
+    const ghostBtn = document.getElementById('ghostToggle');
+    if (ghostBtn) { ghostBtn.style.display = 'inline-block'; ghostBtn.textContent = 'Ghost: On'; ghostBtn.classList.add('on'); }
+
+    update();
+    if (sideEditor) sideEditor.refresh();
+    if (widthEditor) widthEditor.refresh();
+    console.log(`[STL Import] Done — ${result.lengthInches.toFixed(1)}" bait from ${file.name}`);
+  };
+  input.click();
+};
+
+window.toggleGhost = function(btn) {
+  if (!ghostMesh) return;
+  ghostMesh.visible = !ghostMesh.visible;
+  btn.textContent = ghostMesh.visible ? 'Ghost: On' : 'Ghost: Off';
+  btn.classList.toggle('on', ghostMesh.visible);
 };
 
 // ── Expose to HTML ──

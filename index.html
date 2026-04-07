@@ -29,6 +29,11 @@
     <button class="eb" style="padding:6px 12px;font-size:9px;margin-left:auto" onclick="forkDesign()">Fork to edit</button>
   </div>
 
+  <div class="sec" style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="tb" onclick="importSTLFile()" style="padding:6px 10px">Import STL</button>
+    <button class="tb" id="ghostToggle" onclick="toggleGhost(this)" style="padding:6px 10px;display:none">Ghost: On</button>
+  </div>
+
   <div class="sec">
     <div class="st ed-toggle-row" onclick="toggleEditors()">
       <span><span id="edToggleArrow">▾</span> Profile editors</span>
