@@ -30,8 +30,10 @@
   </div>
 
   <div class="sec" style="display:flex;gap:6px;flex-wrap:wrap">
-    <button class="tb" onclick="importSTLFile()" style="padding:6px 10px">Import STL</button>
+    <button class="tb" onclick="importSTLFile()" style="padding:6px 10px" title="Extract spline profiles from an STL">Import to Splines</button>
+    <button class="tb" onclick="importSTLAsBait()" style="padding:6px 10px" title="Use STL directly as the bait geometry">Import as Bait</button>
     <button class="tb" id="ghostToggle" onclick="toggleGhost(this)" style="padding:6px 10px;display:none">Ghost: On</button>
+    <button class="tb" id="clearImport" onclick="clearImportedMesh()" style="padding:6px 10px;display:none;color:var(--mu)">Clear Import</button>
   </div>
 
   <div class="sec">

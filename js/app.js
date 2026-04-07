@@ -19,6 +19,8 @@ import { importSTL } from './stl-import.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let ghostMesh = null;
+let importedMeshData = null; // when set, overrides tube mesh for viewport + transfer
+let importedFileName = '';
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -202,6 +204,13 @@ function makeSplineSamplers() {
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
 function rebuildTubePreview(resolution) {
+  // If an imported mesh is active, use it instead of building a tube
+  if (importedMeshData) {
+    currentMeshData = importedMeshData;
+    // Viewport mesh is already set by the import handler
+    return;
+  }
+
   const res = RESOLUTION_PRESETS[resolution || currentResolution] || RESOLUTION_PRESETS.high;
   const tubeNS = res.NS;
   const tubeRS = res.RS;
@@ -1001,6 +1010,68 @@ window.importSTLFile = function() {
     console.log(`[STL Import] Done — ${result.lengthInches.toFixed(1)}" bait from ${file.name}`);
   };
   input.click();
+};
+
+window.importSTLAsBait = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.stl';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
+
+    // Parse STL into Three.js geometry
+    const { STLLoader } = await import('https://esm.sh/three@0.162.0/examples/jsm/loaders/STLLoader.js');
+    const geo = new STLLoader().parse(buffer);
+    geo.computeBoundingBox();
+    geo.center();
+    geo.computeVertexNormals();
+
+    // Extract raw arrays for Manifold transfer (mm units)
+    const nonIndexed = geo.index ? geo.toNonIndexed() : geo;
+    const pos = nonIndexed.attributes.position;
+    const vp = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      vp[i * 3] = pos.getX(i);
+      vp[i * 3 + 1] = pos.getY(i);
+      vp[i * 3 + 2] = pos.getZ(i);
+    }
+    const tv = new Uint32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) tv[i] = i;
+
+    importedMeshData = { vertProperties: vp, triVerts: tv, vertCount: pos.count, triCount: pos.count / 3 };
+    importedFileName = file.name;
+
+    // Display in viewport (scale to inches for viewport)
+    if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
+    // Auto-detect if mesh is in mm (bounds > 30) and scale to inches
+    const bb = geo.boundingBox;
+    const maxDim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+    const viewScale = maxDim > 30 ? 1 / 25.4 : 1;
+    const displayGeo = geo.clone();
+    displayGeo.scale(viewScale, viewScale, viewScale);
+
+    bodyMat.color.set(baitColor);
+    bodyMesh = new THREE.Mesh(displayGeo, bodyMat);
+    scene.add(bodyMesh);
+    window.bodyMesh = bodyMesh;
+
+    // Show clear button
+    const clearBtn = document.getElementById('clearImport');
+    if (clearBtn) clearBtn.style.display = 'inline-block';
+
+    console.log(`[STL Import] Using as bait: ${file.name} (${pos.count / 3} tris, ${maxDim > 30 ? 'mm' : 'inches'})`);
+  };
+  input.click();
+};
+
+window.clearImportedMesh = function() {
+  importedMeshData = null;
+  importedFileName = '';
+  const clearBtn = document.getElementById('clearImport');
+  if (clearBtn) clearBtn.style.display = 'none';
+  rebuildScene();
 };
 
 window.toggleGhost = function(btn) {
