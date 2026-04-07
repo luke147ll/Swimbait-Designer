@@ -7,12 +7,10 @@
  */
 
 import { sampleProfile } from './splines.js';
+import { getXSecAtRing, defaultXSecPoly, NS } from './engine.js';
 
 /**
  * Analyze an imported mesh to extract the reference profile at each station.
- * @param {THREE.BufferGeometry} geometry - centered, oriented geometry
- * @param {number} stationCount - how many stations to slice at
- * @returns {object} analysis with referenceProfile, stationCount, length, etc.
  */
 export function analyzeMesh(geometry, stationCount = 40) {
   const pos = geometry.attributes.position;
@@ -33,15 +31,15 @@ export function analyzeMesh(geometry, stationCount = 40) {
   for (let s = 0; s <= stationCount; s++) {
     const t = s / stationCount;
     const sliceX = minX + t * length;
-    const tol = length / stationCount * 0.5;
+    const tol = length / stationCount * 0.6;
 
     let maxY = -Infinity, minY = Infinity;
     let maxZ = -Infinity, minZ = Infinity;
-    const indices = [];
+    let count = 0;
 
     for (let i = 0; i < vertCount; i++) {
       if (Math.abs(pos.getX(i) - sliceX) < tol) {
-        indices.push(i);
+        count++;
         const y = pos.getY(i);
         const z = pos.getZ(i);
         if (y > maxY) maxY = y;
@@ -51,7 +49,7 @@ export function analyzeMesh(geometry, stationCount = 40) {
       }
     }
 
-    if (indices.length < 3) {
+    if (count < 3) {
       referenceProfile.push({ t, dorsalH: 0, ventralD: 0, halfW: 0, centerY: 0, count: 0 });
       continue;
     }
@@ -63,7 +61,7 @@ export function analyzeMesh(geometry, stationCount = 40) {
       ventralD: centerY - minY,
       halfW: (maxZ - minZ) / 2,
       centerY,
-      count: indices.length,
+      count,
     });
   }
 
@@ -88,67 +86,90 @@ export function analyzeMesh(geometry, stationCount = 40) {
 
 /**
  * Deform mesh vertices based on ratio of current spline values to reference profile.
- * @param {THREE.BufferGeometry} geometry - the geometry to deform (modified in place)
- * @param {Float32Array} originalPositions - original undeformed positions
- * @param {object} analysis - from analyzeMesh
- * @param {object} profileState - current spline profile state
- * @param {number} OL - overall length in inches (from the OL slider)
+ * All values are in the same units (inches — the viewport display units).
+ *
+ * Cross-section deformation: if xsec keyframes exist, the angular position of
+ * each vertex around the cross-section is also scaled by the keyframe polygon.
  */
 export function deformMesh(geometry, originalPositions, analysis, profileState, OL) {
   const pos = geometry.attributes.position;
   const vertCount = pos.count;
   const ref = analysis.referenceProfile;
   const sc = analysis.stationCount;
-  const origLen = analysis.length;
-
-  // Length scale (if OL changed)
-  const lengthMM = OL * 25.4;
-  const isMM = origLen > 30;
-  const origLenNorm = isMM ? origLen : origLen * 25.4;
-  const lenScale = lengthMM / origLenNorm;
+  const len = analysis.length; // inches
 
   for (let i = 0; i < vertCount; i++) {
     const ox = originalPositions[i * 3];
     const oy = originalPositions[i * 3 + 1];
     const oz = originalPositions[i * 3 + 2];
 
-    // Find station (interpolated)
-    const t = Math.max(0, Math.min(1, (ox - analysis.minX) / analysis.length));
+    // Smooth t value (0-1 along body)
+    const t = Math.max(0, Math.min(1, (ox - analysis.minX) / len));
+
+    // Interpolate reference values using smooth t (not station-snapped)
     const sf = t * sc;
     const sLow = Math.min(Math.floor(sf), sc - 1);
     const sHigh = Math.min(sLow + 1, sc);
     const blend = sf - sLow;
 
-    // Interpolate reference values at this vertex's position
     const rL = ref[sLow], rH = ref[sHigh];
     const origDorsal = rL.dorsalH + (rH.dorsalH - rL.dorsalH) * blend;
     const origVentral = rL.ventralD + (rH.ventralD - rL.ventralD) * blend;
     const origHalfW = rL.halfW + (rH.halfW - rL.halfW) * blend;
     const origCenterY = rL.centerY + (rH.centerY - rL.centerY) * blend;
 
-    // Get NEW spline values at this t
-    // Spline values are normalized to OL (fraction of body length)
-    // Multiply by OL to get inches, then by 25.4 if mesh is in mm
-    const unitScale = isMM ? OL * 25.4 : OL;
-    const newDorsal = sampleProfile(profileState.dorsal, t) * unitScale;
-    const newVentral = Math.abs(sampleProfile(profileState.ventral, t)) * unitScale;
-    const newHalfW = sampleProfile(profileState.width, t) * unitScale;
+    // Get NEW spline values at this t (spline values normalized to OL, multiply by OL to get inches)
+    const newDorsal = sampleProfile(profileState.dorsal, t) * OL;
+    const newVentral = Math.abs(sampleProfile(profileState.ventral, t)) * OL;
+    const newHalfW = sampleProfile(profileState.width, t) * OL;
 
-    // Compute scale ratios
-    const MIN = 0.01;
-    const scaleY_dorsal = origDorsal > MIN ? newDorsal / origDorsal : 1;
-    const scaleY_ventral = origVentral > MIN ? newVentral / origVentral : 1;
-    const scaleZ = origHalfW > MIN ? newHalfW / origHalfW : 1;
+    // Scale ratios
+    const MIN = 0.001;
+    let scaleY_d = origDorsal > MIN ? newDorsal / origDorsal : 1;
+    let scaleY_v = origVentral > MIN ? newVentral / origVentral : 1;
+    let scaleZ = origHalfW > MIN ? newHalfW / origHalfW : 1;
 
-    // Apply
+    // Cross-section deformation: check for xsec keyframe influence
+    const ringIdx = Math.round(t * NS);
+    const xsec = getXSecAtRing(ringIdx, profileState);
+    if (xsec && xsec.length > 4) {
+      // Vertex's angle around the cross-section
+      const relY = oy - origCenterY;
+      const angle = Math.atan2(oz, relY); // angle from dorsal axis
+      const normalizedAngle = ((angle / (Math.PI * 2)) + 1) % 1; // 0-1
+
+      // Sample the xsec polygon at this angle
+      const polyLen = xsec.length - 1;
+      const rawIdx = normalizedAngle * polyLen;
+      const idx0 = Math.floor(rawIdx) % xsec.length;
+      const idx1 = (idx0 + 1) % xsec.length;
+      const frac = rawIdx - Math.floor(rawIdx);
+      const polyY = xsec[idx0].y + (xsec[idx1].y - xsec[idx0].y) * frac;
+      const polyZ = xsec[idx0].z + (xsec[idx1].z - xsec[idx0].z) * frac;
+
+      // Default polygon at same angle (for ratio)
+      const n = profileState.nCache ? (profileState.nCache[ringIdx] || 2.2) : 2.2;
+      const defPoly = defaultXSecPoly(n);
+      const dIdx0 = Math.floor(rawIdx) % defPoly.length;
+      const dIdx1 = (dIdx0 + 1) % defPoly.length;
+      const defY = defPoly[dIdx0].y + (defPoly[dIdx1].y - defPoly[dIdx0].y) * frac;
+      const defZ = defPoly[dIdx0].z + (defPoly[dIdx1].z - defPoly[dIdx0].z) * frac;
+
+      // Apply xsec ratio on top of the profile scaling
+      if (Math.abs(defY) > 0.01) scaleY_d *= polyY / defY;
+      if (Math.abs(defY) > 0.01) scaleY_v *= Math.abs(polyY / defY);
+      if (Math.abs(defZ) > 0.01) scaleZ *= polyZ / defZ;
+    }
+
+    // Apply deformation
     const relY = oy - origCenterY;
-    const scaleY = relY >= 0 ? scaleY_dorsal : scaleY_ventral;
+    const scaleY = relY >= 0 ? scaleY_d : scaleY_v;
     const newCenterShift = ((newDorsal - newVentral) - (origDorsal - origVentral)) / 2;
 
     pos.setXYZ(i,
-      ox,                                        // X unchanged (length)
-      origCenterY + relY * scaleY + newCenterShift,  // Y scaled from center
-      oz * scaleZ                                    // Z scaled symmetrically
+      ox,
+      origCenterY + relY * scaleY + newCenterShift,
+      oz * scaleZ
     );
   }
 
