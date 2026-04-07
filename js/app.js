@@ -26,7 +26,7 @@ let importedMeshActive = false; // true = viewport shows imported STL, not tube 
 let importOrientPhase = false;  // true = user is adjusting orientation, deformation disabled
 let meshAnalysis = null;       // reference profile from analyzeMesh
 let originalPositions = null;  // Float32Array of original vertex positions
-let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
+let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = false;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
 let hiResTimer = null;
