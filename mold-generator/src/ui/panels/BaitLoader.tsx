@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
+import { initCSG, mFromMesh } from '../../core/csg';
 import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
 
 type LengthAxis = 'x' | 'y' | 'z';
@@ -68,7 +69,30 @@ export function BaitLoader() {
     clone.center();
     clone.computeVertexNormals();
     setBaitMesh(clone, name);
-    setBaitManifold(null);
+
+    // Build Manifold from the geometry so BaitSubtraction uses the native path
+    // (avoids threeToManifold which produces corrugated results)
+    (async () => {
+      try {
+        await initCSG();
+        const nonIndexed = clone.index ? clone.toNonIndexed() : clone;
+        const pos = nonIndexed.attributes.position;
+        const vp = new Float32Array(pos.count * 3);
+        for (let i = 0; i < pos.count; i++) {
+          vp[i * 3] = pos.getX(i);
+          vp[i * 3 + 1] = pos.getY(i);
+          vp[i * 3 + 2] = pos.getZ(i);
+        }
+        const tv = new Uint32Array(pos.count);
+        for (let i = 0; i < pos.count; i++) tv[i] = i;
+        const manifold = mFromMesh(vp, tv);
+        setBaitManifold(manifold);
+        console.log(`[BaitLoader] Built Manifold from STL: ${pos.count / 3} tris`);
+      } catch (e) {
+        console.warn('[BaitLoader] Manifold build failed, will use threeToManifold fallback:', e);
+        setBaitManifold(null);
+      }
+    })();
   }, [setBaitMesh, setBaitManifold]);
 
   const refresh = useCallback((axis?: LengthAxis, rx?: number, ry?: number, rz?: number, s?: number) => {
