@@ -922,12 +922,25 @@ window.toggleSlot = function(idx) {
   rebuildSlotPreview();
 };
 window.updateSlot = function(idx, key, val) {
-  if (key === 'depth') {
-    slots[idx].depth = val === 'through' ? 'through' : parseFloat(val);
+  if (key === 'depth' && val === 'through') {
+    slots[idx].depth = 'through';
+    renderSlotUI(); // structural change — rebuild DOM
+  } else if (key === 'depth' && slots[idx].depth === 'through') {
+    slots[idx].depth = parseFloat(val) || 5;
+    renderSlotUI(); // switching from through to custom — rebuild DOM
   } else {
-    slots[idx][key] = parseFloat(val);
+    if (key === 'depth') {
+      slots[idx].depth = parseFloat(val);
+    } else {
+      slots[idx][key] = parseFloat(val);
+    }
+    // Update display span without rebuilding DOM (preserves slider drag)
+    const input = event && event.target;
+    if (input && input.parentElement) {
+      const span = input.parentElement.querySelector('.v');
+      if (span) span.textContent = key === 'depth' ? parseFloat(val).toFixed(1) : parseFloat(val).toFixed(1);
+    }
   }
-  renderSlotUI();
   rebuildSlotPreview();
 };
 window.addSlot = function() {
