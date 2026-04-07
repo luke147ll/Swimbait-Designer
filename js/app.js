@@ -16,11 +16,14 @@ import { createSideEditor, createWidthEditor } from './editors.js';
 import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 import { importSTL } from './stl-import.js';
+import { analyzeMesh, deformMesh } from './mesh-deform.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
 let importedFileName = '';
 let importedMeshActive = false; // true = viewport shows imported STL, not tube mesh
+let meshAnalysis = null;       // reference profile from analyzeMesh
+let originalPositions = null;  // Float32Array of original vertex positions
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -204,8 +207,21 @@ function makeSplineSamplers() {
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
 function rebuildTubePreview(resolution) {
-  // Imported STL is the active mesh — don't rebuild tube
-  if (importedMeshActive) return;
+  // Imported mesh mode: deform the imported geometry using spline ratios
+  if (importedMeshActive && meshAnalysis && originalPositions && bodyMesh) {
+    const p = getParams();
+    deformMesh(bodyMesh.geometry, originalPositions, meshAnalysis, profileState, p.OL);
+    // Update transfer data from deformed mesh
+    const pos = bodyMesh.geometry.attributes.position;
+    const nonIndexed = bodyMesh.geometry.index ? bodyMesh.geometry.toNonIndexed() : bodyMesh.geometry;
+    const nPos = nonIndexed.attributes.position;
+    const vp = new Float32Array(nPos.count * 3);
+    for (let i = 0; i < nPos.count; i++) { vp[i*3] = nPos.getX(i); vp[i*3+1] = nPos.getY(i); vp[i*3+2] = nPos.getZ(i); }
+    const tv = new Uint32Array(nPos.count);
+    for (let i = 0; i < nPos.count; i++) tv[i] = i;
+    currentMeshData = { vertProperties: vp, triVerts: tv, vertCount: nPos.count, triCount: nPos.count / 3 };
+    return;
+  }
 
   const res = RESOLUTION_PRESETS[resolution || currentResolution] || RESOLUTION_PRESETS.high;
   const tubeNS = res.NS;
@@ -379,7 +395,14 @@ function rebuildDraftThenUpgrade() {
 }
 
 function onSliderInput() {
-  update('draft');
+  if (importedMeshActive) {
+    // In import mode, sliders don't regenerate splines — just rebuild scene
+    // which triggers deformMesh with the current spline values
+    rebuildScene('draft');
+    rebuildDraftThenUpgrade();
+  } else {
+    update('draft');
+  }
 }
 
 function onXSecEdit() {
@@ -421,6 +444,13 @@ function showStationRing(stationIdx) {
 }
 
 function onProfileEdit() {
+  if (importedMeshActive) {
+    // Import mode: splines directly drive mesh deformation, no delta tracking needed
+    rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
+    rebuildScene('draft');
+    rebuildDraftThenUpgrade();
+    return;
+  }
   const base = buildProfilesFromSliders(getParams());
   for (let i = 0; i < base.dorsal.length; i++) {
     profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
@@ -1024,6 +1054,11 @@ window.importSTLFile = function() {
     window.bodyMesh = bodyMesh;
     importedMeshActive = true;
 
+    // Analyze mesh for deformation reference
+    meshAnalysis = analyzeMesh(displayGeo, 40);
+    originalPositions = new Float32Array(displayGeo.attributes.position.array);
+    console.log(`[STL Import] Analyzed: ${meshAnalysis ? meshAnalysis.stationCount + ' stations' : 'failed'}`);
+
     // Set OL slider
     const olSlider = document.getElementById('sOL');
     if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
@@ -1033,11 +1068,11 @@ window.importSTLFile = function() {
     const orientCtrl = document.getElementById('importOrientControls');
     if (orientCtrl) orientCtrl.style.display = 'block';
 
-    // Populate spline editors (secondary — for when user wants to edit)
+    // Populate spline editors from the mesh analysis
     rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
     if (sideEditor) sideEditor.refresh();
     if (widthEditor) widthEditor.refresh();
-    console.log(`[STL Import] ${file.name} — ${pos.count/3} tris, splines extracted as secondary controls`);
+    console.log(`[STL Import] ${file.name} — ${pos.count/3} tris, spline deformation ready`);
   };
   input.click();
 };
@@ -1128,15 +1163,17 @@ function transformImportedMesh(mat4) {
   reextractAndRebuild();
 }
 
-window.switchToSplineMode = function() {
+window.resetToTubeMode = function() {
   importedMeshActive = false;
+  meshAnalysis = null;
+  originalPositions = null;
+  importedRawVerts = null;
   const orientCtrl = document.getElementById('importOrientControls');
   if (orientCtrl) orientCtrl.style.display = 'none';
-  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-  rebuildScene();
+  update();
   if (sideEditor) sideEditor.refresh();
   if (widthEditor) widthEditor.refresh();
-  console.log('[STL Import] Switched to spline editing mode');
+  console.log('[STL Import] Reset to tube mode');
 };
 
 window.flipImport = function(axis) {
