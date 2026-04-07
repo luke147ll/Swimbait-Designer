@@ -335,6 +335,7 @@ export function buildComponentTransferData() {
 }
 
 function applyTransform(meshData, comp) {
+  // Build transform: position (inches) + rotation + scale + mirror
   const mat = new THREE.Matrix4();
   const euler = new THREE.Euler(
     comp.rotation.x * Math.PI / 180,
@@ -346,6 +347,7 @@ function applyTransform(meshData, comp) {
     comp.scale.y * (comp.mirrorY ? -1 : 1),
     comp.scale.z * (comp.mirrorZ ? -1 : 1)
   );
+  // Position in inches — same coordinate space as viewport
   mat.compose(
     new THREE.Vector3(comp.position.x, comp.position.y, comp.position.z),
     new THREE.Quaternion().setFromEuler(euler),
@@ -356,7 +358,8 @@ function applyTransform(meshData, comp) {
   const v = new THREE.Vector3();
   for (let i = 0; i < vp.length; i += 3) {
     v.set(vp[i], vp[i + 1], vp[i + 2]).applyMatrix4(mat);
-    vp[i] = v.x; vp[i + 1] = v.y; vp[i + 2] = v.z;
+    // Convert from viewport inches to mm (bait mesh is in mm)
+    vp[i] = v.x * 25.4; vp[i + 1] = v.y * 25.4; vp[i + 2] = v.z * 25.4;
   }
 
   const tv = Array.from(meshData.triVerts);
