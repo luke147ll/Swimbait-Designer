@@ -180,19 +180,12 @@ export function importSTL(buffer, profileState, rebuildProfileCache, rebuildScen
   const { stations, length: lengthInches } = sliceMesh(scaled, 24);
   console.log(`[STL Import] ${stations.length} stations, length: ${lengthInches.toFixed(2)}"`);
 
-  // Build spline control point arrays (normalized to OL)
-  const dorsalSamples = stations.map(s => ({ t: s.t, v: s.dH / lengthInches }));
-  const ventralSamples = stations.map(s => ({ t: s.t, v: -s.vD / lengthInches })); // negative
-  const widthSamples = stations.map(s => ({ t: s.t, v: s.hW / lengthInches }));
-
-  const dorsalPts = reduceToControlPoints(dorsalSamples, 13);
-  const ventralPts = reduceToControlPoints(ventralSamples, 13);
-  const widthPts = reduceToControlPoints(widthSamples, 13);
-
-  // Lock endpoints
-  dorsalPts[0].locked = true; dorsalPts[dorsalPts.length - 1].locked = true;
-  ventralPts[0].locked = true; ventralPts[ventralPts.length - 1].locked = true;
-  widthPts[0].locked = true; widthPts[widthPts.length - 1].locked = true;
+  // Build spline control points directly from all stations (normalized to OL).
+  // Use all samples — no reduction. Catmull-Rom with evenly-spaced points
+  // reproduces the shape faithfully without overshoot.
+  const dorsalPts = stations.map(s => ({ t: s.t, v: s.dH / lengthInches, locked: s.t === 0 || s.t === 1 }));
+  const ventralPts = stations.map(s => ({ t: s.t, v: -s.vD / lengthInches, locked: s.t === 0 || s.t === 1 }));
+  const widthPts = stations.map(s => ({ t: s.t, v: s.hW / lengthInches, locked: s.t === 0 || s.t === 1 }));
 
   // Set spline control points
   profileState.dorsal = dorsalPts;

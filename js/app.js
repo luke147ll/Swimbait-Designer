@@ -1030,23 +1030,9 @@ function reextractAndRebuild() {
     else if (next) { stations[i].dH = next.dH; stations[i].vD = next.vD; stations[i].hW = next.hW; }
   }
 
-  function reduce(samples, maxPts) {
-    if (samples.length <= maxPts) return samples;
-    const result = [samples[0]];
-    const curvatures = [];
-    for (let i = 1; i < samples.length - 1; i++) curvatures.push({ i, c: Math.abs(samples[i - 1].v - 2 * samples[i].v + samples[i + 1].v) });
-    curvatures.sort((a, b) => b.c - a.c);
-    for (const idx of curvatures.slice(0, maxPts - 2).map(c => c.i).sort((a, b) => a - b)) result.push(samples[idx]);
-    result.push(samples[samples.length - 1]);
-    return result;
-  }
-
-  const dPts = reduce(stations.map(s => ({ t: s.t, v: s.dH / lengthInches })), 13);
-  const vPts = reduce(stations.map(s => ({ t: s.t, v: -s.vD / lengthInches })), 13);
-  const wPts = reduce(stations.map(s => ({ t: s.t, v: s.hW / lengthInches })), 13);
-  dPts[0].locked = true; dPts[dPts.length - 1].locked = true;
-  vPts[0].locked = true; vPts[vPts.length - 1].locked = true;
-  wPts[0].locked = true; wPts[wPts.length - 1].locked = true;
+  const dPts = stations.map(s => ({ t: s.t, v: s.dH / lengthInches, locked: s.t === 0 || s.t === 1 }));
+  const vPts = stations.map(s => ({ t: s.t, v: -s.vD / lengthInches, locked: s.t === 0 || s.t === 1 }));
+  const wPts = stations.map(s => ({ t: s.t, v: s.hW / lengthInches, locked: s.t === 0 || s.t === 1 }));
 
   profileState.dorsal = dPts;
   profileState.ventral = vPts;
