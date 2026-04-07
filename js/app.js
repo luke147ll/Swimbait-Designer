@@ -1158,7 +1158,7 @@ window.confirmOrientation = function() {
   const displayGeo = bodyMesh.geometry;
 
   // Analyze the oriented mesh — this is the deformation reference
-  meshAnalysis = analyzeMesh(displayGeo, 40);
+  meshAnalysis = analyzeMesh(displayGeo, 80);
   originalPositions = new Float32Array(displayGeo.attributes.position.array);
   if (!meshAnalysis) { console.error('[STL Import] Analysis failed'); return; }
 

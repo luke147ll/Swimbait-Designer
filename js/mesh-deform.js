@@ -12,7 +12,7 @@ import { getXSecAtRing, defaultXSecPoly, NS } from './engine.js';
 /**
  * Analyze an imported mesh to extract the reference profile at each station.
  */
-export function analyzeMesh(geometry, stationCount = 40) {
+export function analyzeMesh(geometry, stationCount = 80) {
   const pos = geometry.attributes.position;
   const vertCount = pos.count;
 
@@ -79,6 +79,19 @@ export function analyzeMesh(geometry, stationCount = 40) {
       referenceProfile[s].centerY = prev.centerY + (next.centerY - prev.centerY) * b;
     } else if (prev) { referenceProfile[s].dorsalH = prev.dorsalH; referenceProfile[s].ventralD = prev.ventralD; referenceProfile[s].halfW = prev.halfW; referenceProfile[s].centerY = prev.centerY; }
     else if (next) { referenceProfile[s].dorsalH = next.dorsalH; referenceProfile[s].ventralD = next.ventralD; referenceProfile[s].halfW = next.halfW; referenceProfile[s].centerY = next.centerY; }
+  }
+
+  // Smooth the reference profile to eliminate measurement noise.
+  // 3-pass Gaussian-like smoothing (kernel [0.25, 0.5, 0.25]) preserves
+  // overall shape while removing jagged station-to-station jumps.
+  for (let pass = 0; pass < 3; pass++) {
+    for (let s = 1; s < stationCount; s++) {
+      const p = referenceProfile[s - 1], c = referenceProfile[s], n = referenceProfile[s + 1];
+      c.dorsalH = p.dorsalH * 0.25 + c.dorsalH * 0.5 + n.dorsalH * 0.25;
+      c.ventralD = p.ventralD * 0.25 + c.ventralD * 0.5 + n.ventralD * 0.25;
+      c.halfW = p.halfW * 0.25 + c.halfW * 0.5 + n.halfW * 0.25;
+      c.centerY = p.centerY * 0.25 + c.centerY * 0.5 + n.centerY * 0.25;
+    }
   }
 
   return { referenceProfile, stationCount, length, minX, maxX };
