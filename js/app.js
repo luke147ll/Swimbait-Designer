@@ -976,7 +976,7 @@ window.importSTLFile = function() {
     importedRawVerts = result._rawVerts || [];
     importedFileName = file.name;
 
-    // Set OL slider
+    // Set OL slider — must happen BEFORE rebuildScene reads it
     const olSlider = document.getElementById('sOL');
     if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
 
@@ -985,8 +985,11 @@ window.importSTLFile = function() {
     const orientCtrl = document.getElementById('importOrientControls');
     if (orientCtrl) orientCtrl.style.display = 'block';
 
-    // Rebuild tube mesh from extracted splines — this IS the viewport mesh
-    update();
+    // Rebuild cache + scene from the imported splines directly
+    // Do NOT call update() — it regenerates splines from slider values,
+    // overwriting what importSTL just set.
+    rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
+    rebuildScene();
     if (sideEditor) sideEditor.refresh();
     if (widthEditor) widthEditor.refresh();
     console.log(`[STL Import] ${result.lengthInches.toFixed(1)}" — splines extracted, tube mesh rebuilt from ${file.name}`);
