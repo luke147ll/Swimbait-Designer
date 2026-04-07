@@ -344,7 +344,7 @@ window.deleteComponent = function(id) {
   }
 };
 
-window.addComponentFromSTL = function() {
+window.addComponentFromSTL = function(category) {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.stl';
   input.onchange = async (e) => {
@@ -363,7 +363,7 @@ window.addComponentFromSTL = function() {
 
     addComponent({
       label: file.name.replace('.stl', ''),
-      category: 'custom',
+      category: category || 'custom',
       meshData: { numProp: 3, vertProperties: vp, triVerts: tv },
     });
   };

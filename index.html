@@ -117,7 +117,14 @@
   <div class="sec">
     <div class="st">Components</div>
     <div id="componentList"></div>
-    <button class="tb" onclick="addComponentFromSTL()" style="padding:6px;margin-top:6px">+ Import Component STL</button>
+    <div style="margin-top:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <button class="tb" onclick="addComponentFromSTL('head')" style="padding:6px;font-size:9px">+ Head</button>
+        <button class="tb" onclick="addComponentFromSTL('tail')" style="padding:6px;font-size:9px">+ Tail</button>
+        <button class="tb" onclick="addComponentFromSTL('fin')" style="padding:6px;font-size:9px">+ Fin</button>
+        <button class="tb" onclick="addComponentFromSTL('feature')" style="padding:6px;font-size:9px">+ Feature</button>
+      </div>
+    </div>
   </div>
 
   <div class="sec">

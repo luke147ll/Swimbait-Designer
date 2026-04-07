@@ -99,7 +99,29 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
       // Manifold mesh transfer (tube mesh from designer) — preferred path
       if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
         console.log(`[BaitBridge] Mesh transfer: ${data.vertProperties.length / 3} verts, ${data.triVerts.length / 3} tris`);
-        const { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
+        let { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
+
+        // Union components with the bait so they all subtract from the mold together
+        const comps = data.components || [];
+        if (comps.length > 0) {
+          console.log(`[BaitBridge] Processing ${comps.length} component(s)`);
+          const { mFromMesh: mfm } = await import('./csg');
+          for (const comp of comps) {
+            try {
+              const compManifold = mfm(
+                new Float32Array(comp.vertProperties),
+                new Uint32Array(comp.triVerts)
+              );
+              manifold = manifold.add(compManifold);
+              console.log(`[BaitBridge] Unioned component: ${comp.label}`);
+            } catch (e) {
+              console.warn(`[BaitBridge] Component ${comp.label} failed Manifold union:`, e);
+            }
+          }
+          // Rebuild display geometry from the combined manifold
+          const { manifoldToThree: m2t } = await import('./csg');
+          geometry = m2t(manifold);
+        }
 
         geometry.computeBoundingBox();
         const size = new THREE.Vector3();
@@ -109,8 +131,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
         store.setBaitMesh(geometry, data.name || 'designed_bait');
         store.setBaitManifold(manifold);
 
-        // Store slot configs — slots subtract from the MOLD (not the bait)
-        // during MoldEngine generation. Insert cards generated there too.
+        // Store slot configs
         const slotsData: SlotConfig[] = data.slots || [];
         if (slotsData.length > 0) {
           console.log(`[BaitBridge] ${slotsData.length} slot config(s) stored for mold subtraction`);
