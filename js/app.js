@@ -19,8 +19,9 @@ import { importSTL } from './stl-import.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let ghostMesh = null;
-let importedMeshData = null; // when set, overrides tube mesh for viewport + transfer
+let importedMeshData = null;
 let importedFileName = '';
+let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -204,13 +205,6 @@ function makeSplineSamplers() {
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
 function rebuildTubePreview(resolution) {
-  // If an imported mesh is active, use it instead of building a tube
-  if (importedMeshData) {
-    currentMeshData = importedMeshData;
-    // Viewport mesh is already set by the import handler
-    return;
-  }
-
   const res = RESOLUTION_PRESETS[resolution || currentResolution] || RESOLUTION_PRESETS.high;
   const tubeNS = res.NS;
   const tubeRS = res.RS;
@@ -968,7 +962,99 @@ window.removeSlot = function(idx) {
   rebuildSlotPreview();
 };
 
-// ── STL import handler ──
+// ── STL import — unified: extract splines + ghost overlay ──
+
+/** Run spline extraction on importedRawVerts and rebuild everything. */
+function runSplineExtraction() {
+  if (!importedRawVerts || importedRawVerts.length === 0) return;
+
+  // Build a buffer from the raw verts for importSTL
+  // importSTL expects an ArrayBuffer (STL file), but we already have parsed verts.
+  // Call the extraction logic directly instead.
+  const verts = importedRawVerts;
+
+  // Find bounds (verts are already in inches, remapped)
+  let minX = Infinity, maxX = -Infinity;
+  for (const v of verts) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; }
+  const lengthInches = maxX - minX;
+
+  // Slice at stations
+  const stationCount = 24;
+  const tol = lengthInches / stationCount * 0.5;
+  const stations = [];
+  for (let i = 0; i <= stationCount; i++) {
+    const t = i / stationCount;
+    const sx = minX + t * lengthInches;
+    const nearby = verts.filter(v => Math.abs(v.x - sx) < tol);
+    if (nearby.length < 3) { stations.push({ t, dH: 0, vD: 0, hW: 0, n: 0 }); continue; }
+    let maxY = -Infinity, minY = Infinity, maxZ = -Infinity, minZ = Infinity;
+    for (const v of nearby) { if (v.y > maxY) maxY = v.y; if (v.y < minY) minY = v.y; if (v.z > maxZ) maxZ = v.z; if (v.z < minZ) minZ = v.z; }
+    const cy = (maxY + minY) / 2;
+    stations.push({ t, dH: maxY - cy, vD: cy - minY, hW: (maxZ - minZ) / 2, n: nearby.length });
+  }
+  // Interpolate gaps
+  for (let i = 0; i < stations.length; i++) {
+    if (stations[i].n > 0) continue;
+    let prev = null, next = null;
+    for (let j = i - 1; j >= 0; j--) { if (stations[j].n > 0) { prev = stations[j]; break; } }
+    for (let j = i + 1; j < stations.length; j++) { if (stations[j].n > 0) { next = stations[j]; break; } }
+    if (prev && next) { const b = (stations[i].t - prev.t) / (next.t - prev.t); stations[i].dH = prev.dH + (next.dH - prev.dH) * b; stations[i].vD = prev.vD + (next.vD - prev.vD) * b; stations[i].hW = prev.hW + (next.hW - prev.hW) * b; }
+    else if (prev) { stations[i].dH = prev.dH; stations[i].vD = prev.vD; stations[i].hW = prev.hW; }
+    else if (next) { stations[i].dH = next.dH; stations[i].vD = next.vD; stations[i].hW = next.hW; }
+  }
+
+  // Build control points (reduce by curvature)
+  function reduce(samples, maxPts) {
+    if (samples.length <= maxPts) return samples;
+    const result = [samples[0]];
+    const curvatures = [];
+    for (let i = 1; i < samples.length - 1; i++) curvatures.push({ i, c: Math.abs(samples[i - 1].v - 2 * samples[i].v + samples[i + 1].v) });
+    curvatures.sort((a, b) => b.c - a.c);
+    for (const idx of curvatures.slice(0, maxPts - 2).map(c => c.i).sort((a, b) => a - b)) result.push(samples[idx]);
+    result.push(samples[samples.length - 1]);
+    return result;
+  }
+
+  const dPts = reduce(stations.map(s => ({ t: s.t, v: s.dH / lengthInches })), 13);
+  const vPts = reduce(stations.map(s => ({ t: s.t, v: -s.vD / lengthInches })), 13);
+  const wPts = reduce(stations.map(s => ({ t: s.t, v: s.hW / lengthInches })), 13);
+  dPts[0].locked = true; dPts[dPts.length - 1].locked = true;
+  vPts[0].locked = true; vPts[vPts.length - 1].locked = true;
+  wPts[0].locked = true; wPts[wPts.length - 1].locked = true;
+
+  profileState.dorsal = dPts;
+  profileState.ventral = vPts;
+  profileState.width = wPts;
+  profileState.dDelta = [];
+  profileState.vDelta = [];
+  profileState.wDelta = [];
+
+  // Set OL slider
+  const olSlider = document.getElementById('sOL');
+  if (olSlider) olSlider.value = Math.min(14, Math.max(3, lengthInches)).toFixed(2);
+
+  // Ghost overlay from raw verts
+  if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); }
+  const ghostVerts = new Float32Array(verts.length * 3);
+  for (let i = 0; i < verts.length; i++) { ghostVerts[i * 3] = verts[i].x; ghostVerts[i * 3 + 1] = verts[i].y; ghostVerts[i * 3 + 2] = verts[i].z; }
+  const ghostGeo = new THREE.BufferGeometry();
+  ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(ghostVerts, 3));
+  ghostGeo.computeVertexNormals();
+  ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshStandardMaterial({
+    color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  scene.add(ghostMesh);
+
+  const ghostBtn = document.getElementById('ghostToggle');
+  if (ghostBtn) { ghostBtn.style.display = 'inline-block'; ghostBtn.textContent = 'Ghost: On'; ghostBtn.classList.add('on'); }
+  const badge = document.getElementById('profileMode');
+  if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
+
+  rebuildProfileCache(profileState, 2.2, 0.24);
+  update();
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
+}
 
 window.importSTLFile = function() {
   const input = document.createElement('input');
@@ -980,29 +1066,30 @@ window.importSTLFile = function() {
     const buffer = await file.arrayBuffer();
     const result = importSTL(buffer, profileState, rebuildProfileCache, rebuildScene);
 
+    // Store raw verts for flip/rotate re-extraction
+    importedRawVerts = result._rawVerts || [];
+    importedFileName = file.name;
+
     // Set OL slider
     const olSlider = document.getElementById('sOL');
-    if (olSlider) { olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2); }
+    if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
 
-    // Show ghost overlay
+    // Ghost overlay
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(result.ghostVerts, 3));
-    geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8,
-      depthWrite: false, side: THREE.DoubleSide,
-    });
-    ghostMesh = new THREE.Mesh(geo, mat);
+    const ghostGeo = new THREE.BufferGeometry();
+    ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(result.ghostVerts, 3));
+    ghostGeo.computeVertexNormals();
+    ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshStandardMaterial({
+      color: 0xcc6644, transparent: true, opacity: 0.2, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide,
+    }));
     scene.add(ghostMesh);
 
-    // Update badge
     const badge = document.getElementById('profileMode');
     if (badge) { badge.textContent = 'IMPORTED'; badge.className = 'ed-mode manual'; }
-
-    // Show ghost toggle button
     const ghostBtn = document.getElementById('ghostToggle');
     if (ghostBtn) { ghostBtn.style.display = 'inline-block'; ghostBtn.textContent = 'Ghost: On'; ghostBtn.classList.add('on'); }
+    const orientCtrl = document.getElementById('importOrientControls');
+    if (orientCtrl) orientCtrl.style.display = 'block';
 
     update();
     if (sideEditor) sideEditor.refresh();
@@ -1012,154 +1099,25 @@ window.importSTLFile = function() {
   input.click();
 };
 
-window.importSTLAsBait = function() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.stl';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const buffer = await file.arrayBuffer();
-
-    // Parse STL into Three.js geometry
-    const { STLLoader } = await import('https://esm.sh/three@0.162.0/examples/jsm/loaders/STLLoader.js');
-    const geo = new STLLoader().parse(buffer);
-    geo.computeBoundingBox();
-
-    // Auto-detect length axis and remap to designer convention (X=length, Y=height, Z=width)
-    const bb = geo.boundingBox;
-    const extX = bb.max.x - bb.min.x;
-    const extY = bb.max.y - bb.min.y;
-    const extZ = bb.max.z - bb.min.z;
-    const maxExt = Math.max(extX, extY, extZ);
-
-    // Rotate so longest axis → X (body length)
-    if (maxExt === extY) {
-      geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI / 2));
-    } else if (maxExt === extZ) {
-      geo.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
-    }
-    // After rotation, find second longest for height → Y
-    geo.computeBoundingBox();
-    const bb2 = geo.boundingBox;
-    const eY2 = bb2.max.y - bb2.min.y;
-    const eZ2 = bb2.max.z - bb2.min.z;
-    if (eZ2 > eY2) {
-      // Z is taller than Y — swap so height is on Y
-      geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
-    }
-
-    geo.computeBoundingBox();
-    geo.center();
-    geo.computeVertexNormals();
-
-    // Auto-detect units (mm vs inches) from bounding box
-    geo.computeBoundingBox();
-    const finalBB = geo.boundingBox;
-    const finalMaxDim = Math.max(
-      finalBB.max.x - finalBB.min.x,
-      finalBB.max.y - finalBB.min.y,
-      finalBB.max.z - finalBB.min.z
-    );
-    const isMM = finalMaxDim > 30;
-    const viewScale = isMM ? 1 / 25.4 : 1;
-
-    // Extract raw arrays for Manifold transfer (keep in original units — mm or inches)
-    const nonIndexed = geo.index ? geo.toNonIndexed() : geo;
-    const pos = nonIndexed.attributes.position;
-    const vp = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      vp[i * 3] = pos.getX(i);
-      vp[i * 3 + 1] = pos.getY(i);
-      vp[i * 3 + 2] = pos.getZ(i);
-    }
-    const tv = new Uint32Array(pos.count);
-    for (let i = 0; i < pos.count; i++) tv[i] = i;
-
-    importedMeshData = { vertProperties: vp, triVerts: tv, vertCount: pos.count, triCount: pos.count / 3 };
-    importedFileName = file.name;
-
-    // Display in viewport (scale to inches for viewport)
-    if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
-    const displayGeo = geo.clone();
-    displayGeo.scale(viewScale, viewScale, viewScale);
-
-    bodyMat.color.set(baitColor);
-    bodyMesh = new THREE.Mesh(displayGeo, bodyMat);
-    scene.add(bodyMesh);
-    window.bodyMesh = bodyMesh;
-
-    // Show orientation controls and clear button
-    const clearBtn = document.getElementById('clearImport');
-    if (clearBtn) clearBtn.style.display = 'inline-block';
-    const orientCtrl = document.getElementById('importOrientControls');
-    if (orientCtrl) orientCtrl.style.display = 'block';
-
-    console.log(`[STL Import] Using as bait: ${file.name} (${pos.count / 3} tris, ${maxDim > 30 ? 'mm' : 'inches'})`);
-  };
-  input.click();
-};
-
-/** Apply a 4x4 matrix to importedMeshData arrays and rebuild viewport mesh. */
-function transformImportedMesh(mat4) {
-  if (!importedMeshData) return;
-  const vp = importedMeshData.vertProperties;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < vp.length; i += 3) {
-    v.set(vp[i], vp[i + 1], vp[i + 2]).applyMatrix4(mat4);
-    vp[i] = v.x; vp[i + 1] = v.y; vp[i + 2] = v.z;
-  }
-  // Recenter
-  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
-  for (let i = 0; i < vp.length; i += 3) {
-    if(vp[i]<minX)minX=vp[i]; if(vp[i]>maxX)maxX=vp[i];
-    if(vp[i+1]<minY)minY=vp[i+1]; if(vp[i+1]>maxY)maxY=vp[i+1];
-    if(vp[i+2]<minZ)minZ=vp[i+2]; if(vp[i+2]>maxZ)maxZ=vp[i+2];
-  }
-  const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
-  for (let i = 0; i < vp.length; i += 3) { vp[i]-=cx; vp[i+1]-=cy; vp[i+2]-=cz; }
-
-  // Rebuild viewport mesh
-  if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
-  const maxDim = Math.max(maxX-minX, maxY-minY, maxZ-minZ);
-  const viewScale = maxDim > 30 ? 1 / 25.4 : 1;
-  const positions = new Float32Array(vp.length);
-  for (let i = 0; i < vp.length; i++) positions[i] = vp[i] * viewScale;
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  bodyMat.color.set(baitColor);
-  bodyMesh = new THREE.Mesh(geo, bodyMat);
-  scene.add(bodyMesh);
-  window.bodyMesh = bodyMesh;
-}
-
 window.flipImport = function(axis) {
-  const s = {x:[1,1,1], y:[1,1,1], z:[1,1,1]};
-  s[axis] = s[axis].map(() => 1);
-  const mat = new THREE.Matrix4();
-  if (axis === 'x') mat.makeScale(-1, 1, 1);
-  else if (axis === 'y') mat.makeScale(1, -1, 1);
-  else mat.makeScale(1, 1, -1);
-  transformImportedMesh(mat);
+  if (!importedRawVerts) return;
+  for (const v of importedRawVerts) {
+    if (axis === 'x') v.x = -v.x;
+    else if (axis === 'y') v.y = -v.y;
+    else v.z = -v.z;
+  }
+  runSplineExtraction();
 };
 
 window.rotateImport = function(axis) {
-  const mat = new THREE.Matrix4();
-  if (axis === 'x') mat.makeRotationX(Math.PI / 2);
-  else if (axis === 'y') mat.makeRotationY(Math.PI / 2);
-  else mat.makeRotationZ(Math.PI / 2);
-  transformImportedMesh(mat);
-};
-
-window.clearImportedMesh = function() {
-  importedMeshData = null;
-  importedFileName = '';
-  const clearBtn = document.getElementById('clearImport');
-  if (clearBtn) clearBtn.style.display = 'none';
-  const orientCtrl = document.getElementById('importOrientControls');
-  if (orientCtrl) orientCtrl.style.display = 'none';
-  rebuildScene();
+  if (!importedRawVerts) return;
+  for (const v of importedRawVerts) {
+    let t;
+    if (axis === 'x') { t = v.y; v.y = -v.z; v.z = t; }
+    else if (axis === 'y') { t = v.x; v.x = v.z; v.z = -t; }
+    else { t = v.x; v.x = -v.y; v.y = t; }
+  }
+  runSplineExtraction();
 };
 
 window.toggleGhost = function(btn) {

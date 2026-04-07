@@ -214,5 +214,5 @@ export function importSTL(buffer, profileState, rebuildProfileCache, rebuildScen
     ghostVerts[i * 3 + 2] = scaled[i].z;
   }
 
-  return { lengthInches, ghostVerts, stationCount: stations.length };
+  return { lengthInches, ghostVerts, stationCount: stations.length, _rawVerts: scaled };
 }
