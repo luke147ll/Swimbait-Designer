@@ -20,6 +20,7 @@ import { importSTL } from './stl-import.js';
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
 let importedFileName = '';
+let importedMeshActive = false; // true = viewport shows imported STL, not tube mesh
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = true;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let currentResolution = 'high';
@@ -203,6 +204,9 @@ function makeSplineSamplers() {
  * Single watertight mesh — no ellipsoid union, no seam, no collapsed caps.
  */
 function rebuildTubePreview(resolution) {
+  // Imported STL is the active mesh — don't rebuild tube
+  if (importedMeshActive) return;
+
   const res = RESOLUTION_PRESETS[resolution || currentResolution] || RESOLUTION_PRESETS.high;
   const tubeNS = res.NS;
   const tubeRS = res.RS;
@@ -379,6 +383,7 @@ function onSliderInput() {
 }
 
 function onXSecEdit() {
+  importedMeshActive = false; // switch to tube mesh on edit
   rebuildScene('draft');
   rebuildDraftThenUpgrade();
 }
@@ -417,6 +422,7 @@ function showStationRing(stationIdx) {
 }
 
 function onProfileEdit() {
+  importedMeshActive = false; // switch to tube mesh on edit
   const base = buildProfilesFromSliders(getParams());
   for (let i = 0; i < base.dorsal.length; i++) {
     profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
@@ -960,7 +966,7 @@ window.removeSlot = function(idx) {
   rebuildSlotPreview();
 };
 
-// ── STL import — replaces tube mesh, extracts spline controls ──
+// ── STL import — imported STL IS the viewport mesh, splines are secondary ──
 
 window.importSTLFile = function() {
   const input = document.createElement('input');
@@ -971,12 +977,56 @@ window.importSTLFile = function() {
     if (!file) return;
     const buffer = await file.arrayBuffer();
 
-    // Extract splines from STL (auto-orients, auto-scales, populates profileState)
+    // Extract spline profiles from STL (for the editors as secondary controls)
     const result = importSTL(buffer, profileState, rebuildProfileCache, () => {});
     importedRawVerts = result._rawVerts || [];
     importedFileName = file.name;
 
-    // Set OL slider — must happen BEFORE rebuildScene reads it
+    // Parse STL as Three.js geometry for the actual viewport mesh
+    const { STLLoader } = await import('https://esm.sh/three@0.162.0/examples/jsm/loaders/STLLoader.js');
+    const geo = new STLLoader().parse(buffer);
+    geo.computeBoundingBox();
+
+    // Auto-orient: longest → X, second → Y
+    const bb = geo.boundingBox;
+    const exts = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+    const maxExt = Math.max(...exts);
+    if (maxExt === exts[1]) geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI / 2));
+    else if (maxExt === exts[2]) geo.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
+    geo.computeBoundingBox();
+    const bb2 = geo.boundingBox;
+    if ((bb2.max.z - bb2.min.z) > (bb2.max.y - bb2.min.y))
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    geo.computeBoundingBox();
+    geo.center();
+    geo.computeVertexNormals();
+
+    // Auto-detect mm vs inches, scale viewport to inches
+    const finalBB = geo.boundingBox;
+    const finalMax = Math.max(finalBB.max.x - finalBB.min.x, finalBB.max.y - finalBB.min.y, finalBB.max.z - finalBB.min.z);
+    const isMM = finalMax > 30;
+    const viewScale = isMM ? 1 / 25.4 : 1;
+    const displayGeo = geo.clone();
+    displayGeo.scale(viewScale, viewScale, viewScale);
+
+    // Extract raw arrays for mold transfer
+    const nonIndexed = geo.index ? geo.toNonIndexed() : geo;
+    const pos = nonIndexed.attributes.position;
+    const vp = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) { vp[i*3] = pos.getX(i); vp[i*3+1] = pos.getY(i); vp[i*3+2] = pos.getZ(i); }
+    const tv = new Uint32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) tv[i] = i;
+    currentMeshData = { vertProperties: vp, triVerts: tv, vertCount: pos.count, triCount: pos.count / 3 };
+
+    // Replace viewport mesh with the actual imported STL
+    if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
+    bodyMat.color.set(baitColor);
+    bodyMesh = new THREE.Mesh(displayGeo, bodyMat);
+    scene.add(bodyMesh);
+    window.bodyMesh = bodyMesh;
+    importedMeshActive = true;
+
+    // Set OL slider
     const olSlider = document.getElementById('sOL');
     if (olSlider) olSlider.value = Math.min(14, Math.max(3, result.lengthInches)).toFixed(2);
 
@@ -985,14 +1035,11 @@ window.importSTLFile = function() {
     const orientCtrl = document.getElementById('importOrientControls');
     if (orientCtrl) orientCtrl.style.display = 'block';
 
-    // Rebuild cache + scene from the imported splines directly
-    // Do NOT call update() — it regenerates splines from slider values,
-    // overwriting what importSTL just set.
+    // Populate spline editors (secondary — for when user wants to edit)
     rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-    rebuildScene();
     if (sideEditor) sideEditor.refresh();
     if (widthEditor) widthEditor.refresh();
-    console.log(`[STL Import] ${result.lengthInches.toFixed(1)}" — splines extracted, tube mesh rebuilt from ${file.name}`);
+    console.log(`[STL Import] ${file.name} — ${pos.count/3} tris, splines extracted as secondary controls`);
   };
   input.click();
 };
@@ -1050,25 +1097,53 @@ function reextractAndRebuild() {
   if (widthEditor) widthEditor.refresh();
 }
 
-window.flipImport = function(axis) {
-  if (!importedRawVerts) return;
-  for (const v of importedRawVerts) {
-    if (axis === 'x') v.x = -v.x;
-    else if (axis === 'y') v.y = -v.y;
-    else v.z = -v.z;
+function transformImportedMesh(mat4) {
+  // Transform raw verts for spline re-extraction
+  if (importedRawVerts) {
+    const v3 = new THREE.Vector3();
+    for (const v of importedRawVerts) {
+      v3.set(v.x, v.y, v.z).applyMatrix4(mat4);
+      v.x = v3.x; v.y = v3.y; v.z = v3.z;
+    }
   }
+  // Transform transfer mesh data
+  if (currentMeshData) {
+    const vp = currentMeshData.vertProperties;
+    const v3 = new THREE.Vector3();
+    for (let i = 0; i < vp.length; i += 3) {
+      v3.set(vp[i], vp[i+1], vp[i+2]).applyMatrix4(mat4);
+      vp[i] = v3.x; vp[i+1] = v3.y; vp[i+2] = v3.z;
+    }
+    // Recenter
+    let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity,mnZ=Infinity,mxZ=-Infinity;
+    for (let i = 0; i < vp.length; i += 3) { if(vp[i]<mnX)mnX=vp[i]; if(vp[i]>mxX)mxX=vp[i]; if(vp[i+1]<mnY)mnY=vp[i+1]; if(vp[i+1]>mxY)mxY=vp[i+1]; if(vp[i+2]<mnZ)mnZ=vp[i+2]; if(vp[i+2]>mxZ)mxZ=vp[i+2]; }
+    const cx=(mnX+mxX)/2, cy=(mnY+mxY)/2, cz=(mnZ+mxZ)/2;
+    for (let i = 0; i < vp.length; i += 3) { vp[i]-=cx; vp[i+1]-=cy; vp[i+2]-=cz; }
+  }
+  // Transform viewport mesh
+  if (bodyMesh) {
+    bodyMesh.geometry.applyMatrix4(mat4);
+    bodyMesh.geometry.center();
+    bodyMesh.geometry.computeVertexNormals();
+  }
+  // Re-extract splines
   reextractAndRebuild();
+}
+
+window.flipImport = function(axis) {
+  const mat = new THREE.Matrix4();
+  if (axis === 'x') mat.makeScale(-1, 1, 1);
+  else if (axis === 'y') mat.makeScale(1, -1, 1);
+  else mat.makeScale(1, 1, -1);
+  transformImportedMesh(mat);
 };
 
 window.rotateImport = function(axis) {
-  if (!importedRawVerts) return;
-  for (const v of importedRawVerts) {
-    let t;
-    if (axis === 'x') { t = v.y; v.y = -v.z; v.z = t; }
-    else if (axis === 'y') { t = v.x; v.x = v.z; v.z = -t; }
-    else { t = v.x; v.x = -v.y; v.y = t; }
-  }
-  reextractAndRebuild();
+  const mat = new THREE.Matrix4();
+  if (axis === 'x') mat.makeRotationX(Math.PI / 2);
+  else if (axis === 'y') mat.makeRotationY(Math.PI / 2);
+  else mat.makeRotationZ(Math.PI / 2);
+  transformImportedMesh(mat);
 };
 
 // ── Expose to HTML ──
