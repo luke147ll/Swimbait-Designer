@@ -35,6 +35,17 @@
     <button class="tb" id="ghostToggle" onclick="toggleGhost(this)" style="padding:6px 10px;display:none">Ghost: On</button>
     <button class="tb" id="clearImport" onclick="clearImportedMesh()" style="padding:6px 10px;display:none;color:var(--mu)">Clear Import</button>
   </div>
+  <div class="sec" id="importOrientControls" style="display:none">
+    <div class="st">Adjust import orientation</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="tb" onclick="flipImport('x')" style="padding:5px 8px;font-size:9px">Flip Head/Tail</button>
+      <button class="tb" onclick="flipImport('y')" style="padding:5px 8px;font-size:9px">Flip Up/Down</button>
+      <button class="tb" onclick="flipImport('z')" style="padding:5px 8px;font-size:9px">Flip Left/Right</button>
+      <button class="tb" onclick="rotateImport('x')" style="padding:5px 8px;font-size:9px">Rot X 90°</button>
+      <button class="tb" onclick="rotateImport('y')" style="padding:5px 8px;font-size:9px">Rot Y 90°</button>
+      <button class="tb" onclick="rotateImport('z')" style="padding:5px 8px;font-size:9px">Rot Z 90°</button>
+    </div>
+  </div>
 
   <div class="sec">
     <div class="st ed-toggle-row" onclick="toggleEditors()">

@@ -1089,13 +1089,67 @@ window.importSTLAsBait = function() {
     scene.add(bodyMesh);
     window.bodyMesh = bodyMesh;
 
-    // Show clear button
+    // Show orientation controls and clear button
     const clearBtn = document.getElementById('clearImport');
     if (clearBtn) clearBtn.style.display = 'inline-block';
+    const orientCtrl = document.getElementById('importOrientControls');
+    if (orientCtrl) orientCtrl.style.display = 'block';
 
     console.log(`[STL Import] Using as bait: ${file.name} (${pos.count / 3} tris, ${maxDim > 30 ? 'mm' : 'inches'})`);
   };
   input.click();
+};
+
+/** Apply a 4x4 matrix to importedMeshData arrays and rebuild viewport mesh. */
+function transformImportedMesh(mat4) {
+  if (!importedMeshData) return;
+  const vp = importedMeshData.vertProperties;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < vp.length; i += 3) {
+    v.set(vp[i], vp[i + 1], vp[i + 2]).applyMatrix4(mat4);
+    vp[i] = v.x; vp[i + 1] = v.y; vp[i + 2] = v.z;
+  }
+  // Recenter
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  for (let i = 0; i < vp.length; i += 3) {
+    if(vp[i]<minX)minX=vp[i]; if(vp[i]>maxX)maxX=vp[i];
+    if(vp[i+1]<minY)minY=vp[i+1]; if(vp[i+1]>maxY)maxY=vp[i+1];
+    if(vp[i+2]<minZ)minZ=vp[i+2]; if(vp[i+2]>maxZ)maxZ=vp[i+2];
+  }
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
+  for (let i = 0; i < vp.length; i += 3) { vp[i]-=cx; vp[i+1]-=cy; vp[i+2]-=cz; }
+
+  // Rebuild viewport mesh
+  if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
+  const maxDim = Math.max(maxX-minX, maxY-minY, maxZ-minZ);
+  const viewScale = maxDim > 30 ? 1 / 25.4 : 1;
+  const positions = new Float32Array(vp.length);
+  for (let i = 0; i < vp.length; i++) positions[i] = vp[i] * viewScale;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.computeVertexNormals();
+  bodyMat.color.set(baitColor);
+  bodyMesh = new THREE.Mesh(geo, bodyMat);
+  scene.add(bodyMesh);
+  window.bodyMesh = bodyMesh;
+}
+
+window.flipImport = function(axis) {
+  const s = {x:[1,1,1], y:[1,1,1], z:[1,1,1]};
+  s[axis] = s[axis].map(() => 1);
+  const mat = new THREE.Matrix4();
+  if (axis === 'x') mat.makeScale(-1, 1, 1);
+  else if (axis === 'y') mat.makeScale(1, -1, 1);
+  else mat.makeScale(1, 1, -1);
+  transformImportedMesh(mat);
+};
+
+window.rotateImport = function(axis) {
+  const mat = new THREE.Matrix4();
+  if (axis === 'x') mat.makeRotationX(Math.PI / 2);
+  else if (axis === 'y') mat.makeRotationY(Math.PI / 2);
+  else mat.makeRotationZ(Math.PI / 2);
+  transformImportedMesh(mat);
 };
 
 window.clearImportedMesh = function() {
@@ -1103,6 +1157,8 @@ window.clearImportedMesh = function() {
   importedFileName = '';
   const clearBtn = document.getElementById('clearImport');
   if (clearBtn) clearBtn.style.display = 'none';
+  const orientCtrl = document.getElementById('importOrientControls');
+  if (orientCtrl) orientCtrl.style.display = 'none';
   rebuildScene();
 };
 
