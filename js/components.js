@@ -76,10 +76,10 @@ export function addComponent(partData) {
     _mirrorMesh: null,
   };
 
-  // Auto-position based on category
-  if (partData.autoPosition) {
-    Object.assign(comp.position, partData.autoPosition);
-  }
+  // Apply defaults from part data
+  if (partData.autoPosition) Object.assign(comp.position, partData.autoPosition);
+  if (partData.autoRotation) Object.assign(comp.rotation, partData.autoRotation);
+  if (partData.autoScale) Object.assign(comp.scale, partData.autoScale);
 
   components.push(comp);
   rebuildDisplayMesh(comp);
@@ -414,6 +414,7 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
 
     console.log('[Parts] Loaded:', partData.name, '— verts:', partData.mesh.vertProperties.length / 3);
 
+    const s = partData.sizing.defaultScale || 1;
     addComponent({
       partId: partId,
       label: partData.name,
@@ -424,6 +425,12 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
         y: partData.defaults.positionY || 0,
         z: partData.defaults.positionZ || 0,
       },
+      autoRotation: {
+        x: partData.defaults.rotationX || 0,
+        y: partData.defaults.rotationY || 0,
+        z: partData.defaults.rotationZ || 0,
+      },
+      autoScale: { x: s, y: s, z: s },
     });
   } catch (e) {
     console.error('[Parts] Load failed:', e);
