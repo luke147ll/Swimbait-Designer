@@ -383,7 +383,6 @@ function onSliderInput() {
 }
 
 function onXSecEdit() {
-  importedMeshActive = false; // switch to tube mesh on edit
   rebuildScene('draft');
   rebuildDraftThenUpgrade();
 }
@@ -422,7 +421,6 @@ function showStationRing(stationIdx) {
 }
 
 function onProfileEdit() {
-  importedMeshActive = false; // switch to tube mesh on edit
   const base = buildProfilesFromSliders(getParams());
   for (let i = 0; i < base.dorsal.length; i++) {
     profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
@@ -1129,6 +1127,17 @@ function transformImportedMesh(mat4) {
   // Re-extract splines
   reextractAndRebuild();
 }
+
+window.switchToSplineMode = function() {
+  importedMeshActive = false;
+  const orientCtrl = document.getElementById('importOrientControls');
+  if (orientCtrl) orientCtrl.style.display = 'none';
+  rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
+  rebuildScene();
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
+  console.log('[STL Import] Switched to spline editing mode');
+};
 
 window.flipImport = function(axis) {
   const mat = new THREE.Matrix4();
