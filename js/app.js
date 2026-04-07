@@ -17,6 +17,7 @@ import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 import { importSTL } from './stl-import.js';
 import { analyzeMesh, deformMesh } from './mesh-deform.js';
+import { initComponents, renderComponentList, buildComponentTransferData } from './components.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
@@ -652,6 +653,9 @@ function init() {
     initPanelResize();
   }
 
+  initComponents(scene, () => {});
+  renderComponentList();
+
   // Phone: create editors lazily
   let mobEditorsCreated = false;
   window._initMobEditors = function() {
@@ -924,6 +928,7 @@ async function sendToMoldGenerator() {
     vertProperties: Array.from(currentMeshData.vertProperties),
     triVerts: Array.from(currentMeshData.triVerts),
     slots: enabledSlots,
+    components: buildComponentTransferData(),
   });
 
   // Open window immediately (before async fetch) to satisfy mobile popup blocker
