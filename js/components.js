@@ -20,10 +20,24 @@ const MAX_COMPONENTS = 12;
 let components = [];
 let scene = null;
 let onChangeCallback = null;
+let partsIndex = null;
+const partCache = {};
 
 export function initComponents(sceneRef, onChange) {
   scene = sceneRef;
   onChangeCallback = onChange;
+  loadPartsIndex();
+}
+
+async function loadPartsIndex() {
+  try {
+    const res = await fetch('/parts/index.json');
+    if (!res.ok) { console.warn('[Parts] Index not found'); return; }
+    partsIndex = await res.json();
+    console.log('[Parts] Library loaded:', partsIndex.parts.length, 'parts');
+  } catch (e) {
+    console.warn('[Parts] Failed to load index:', e);
+  }
 }
 
 export function getComponents() { return components; }
@@ -344,7 +358,81 @@ window.deleteComponent = function(id) {
   }
 };
 
+// Show part picker dialog for a category
 window.addComponentFromSTL = function(category) {
+  // Check if library has parts for this category
+  const libraryParts = partsIndex ? partsIndex.parts.filter(p => p.category === category) : [];
+
+  if (libraryParts.length === 0) {
+    // No library parts — go straight to file import
+    importComponentSTL(category);
+    return;
+  }
+
+  // Show picker dialog
+  const existing = document.getElementById('partPickerDialog');
+  if (existing) existing.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'partPickerDialog';
+  dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:12px;width:280px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)';
+
+  let html = `<div style="font-size:11px;color:var(--ac);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">${category} parts</div>`;
+
+  for (const entry of libraryParts) {
+    html += `<div class="tb" style="display:block;padding:8px;margin-bottom:4px;cursor:pointer;text-align:left" onclick="loadLibraryPart('${entry.id}','${entry.fileUrl}','${category}')">
+      <div style="font-size:11px;color:var(--tx)">${entry.name}</div>
+      <div style="font-size:9px;color:var(--mu)">${entry.description || ''} · ${entry.fileSizeKB}KB</div>
+    </div>`;
+  }
+
+  html += `<div class="tb" style="display:block;padding:8px;margin-bottom:4px;cursor:pointer;text-align:left;border-style:dashed" onclick="importComponentSTL('${category}');document.getElementById('partPickerDialog').remove()">
+    <div style="font-size:11px;color:var(--mu)">+ Import custom STL</div>
+  </div>`;
+
+  html += `<div style="text-align:right;margin-top:8px"><button class="tb" style="padding:4px 10px;font-size:9px" onclick="document.getElementById('partPickerDialog').remove()">Cancel</button></div>`;
+
+  dialog.innerHTML = html;
+  document.body.appendChild(dialog);
+};
+
+// Load a part from the library
+window.loadLibraryPart = async function(partId, fileUrl, category) {
+  const dialog = document.getElementById('partPickerDialog');
+  if (dialog) dialog.remove();
+
+  try {
+    let partData;
+    if (partCache[partId]) {
+      partData = partCache[partId];
+    } else {
+      const res = await fetch(fileUrl);
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+      partData = await res.json();
+      partCache[partId] = partData;
+    }
+
+    console.log('[Parts] Loaded:', partData.name, '— verts:', partData.mesh.vertProperties.length / 3);
+
+    addComponent({
+      partId: partId,
+      label: partData.name,
+      category: category || partData.category || 'custom',
+      meshData: partData.mesh,
+      autoPosition: {
+        x: partData.defaults.positionX || 0,
+        y: partData.defaults.positionY || 0,
+        z: partData.defaults.positionZ || 0,
+      },
+    });
+  } catch (e) {
+    console.error('[Parts] Load failed:', e);
+    alert('Failed to load part: ' + e.message);
+  }
+};
+
+// Import STL as component (direct file picker)
+window.importComponentSTL = function(category) {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.stl';
   input.onchange = async (e) => {

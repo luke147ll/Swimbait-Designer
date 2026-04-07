@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "parts": [
+    {
+      "id": "head-1-v1",
+      "name": "Head 1",
+      "category": "head",
+      "description": "Shad head",
+      "fileUrl": "/parts/heads/head-1-v1.json",
+      "thumbnail": "/parts/thumbs/head-1-v1.png",
+      "fileSizeKB": 574
+    }
+  ]
+}
