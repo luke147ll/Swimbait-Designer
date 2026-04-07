@@ -115,10 +115,18 @@ function rebuildDisplayMesh(comp) {
   if (!comp.meshData) return;
 
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(comp.meshData.vertProperties), 3));
+  const verts = new Float32Array(comp.meshData.vertProperties);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   if (comp.meshData.triVerts) {
     geo.setIndex(new THREE.BufferAttribute(new Uint32Array(comp.meshData.triVerts), 1));
   }
+  geo.computeBoundingBox();
+  geo.center();
+
+  // Auto-detect mm vs inches and scale to viewport inches
+  const bb = geo.boundingBox;
+  const maxDim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+  if (maxDim > 30) geo.scale(1 / 25.4, 1 / 25.4, 1 / 25.4); // mm → inches
   geo.computeVertexNormals();
 
   comp.displayMesh = new THREE.Mesh(geo, createMaterial(comp.category));
@@ -210,18 +218,18 @@ export function renderComponentList() {
 
       const lbl = (t) => { const d = document.createElement('div'); d.style.cssText = 'font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);margin:8px 0 4px'; d.textContent = t; return d; };
 
-      body.appendChild(lbl('Position'));
-      body.appendChild(makeSlider('X', comp.position.x, -100, 100, 0.5, v => updateComponent(comp.id, { position: { x: v } })));
-      body.appendChild(makeSlider('Y', comp.position.y, -200, 200, 0.5, v => updateComponent(comp.id, { position: { y: v } })));
-      body.appendChild(makeSlider('Z', comp.position.z, -50, 50, 0.5, v => updateComponent(comp.id, { position: { z: v } })));
+      body.appendChild(lbl('Position (inches)'));
+      body.appendChild(makeSlider('X', comp.position.x, -4, 4, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
+      body.appendChild(makeSlider('Y', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
+      body.appendChild(makeSlider('Z', comp.position.z, -3, 3, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
 
       body.appendChild(lbl('Scale'));
       body.appendChild(makeSlider('Uniform', comp.scale.x, 0.1, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v, y: v, z: v } })));
 
       body.appendChild(lbl('Rotation'));
-      body.appendChild(makeSlider('X°', comp.rotation.x, -180, 180, 5, v => updateComponent(comp.id, { rotation: { x: v } })));
-      body.appendChild(makeSlider('Y°', comp.rotation.y, -180, 180, 5, v => updateComponent(comp.id, { rotation: { y: v } })));
-      body.appendChild(makeSlider('Z°', comp.rotation.z, -180, 180, 5, v => updateComponent(comp.id, { rotation: { z: v } })));
+      body.appendChild(makeSlider('X°', comp.rotation.x, -180, 180, 1, v => updateComponent(comp.id, { rotation: { x: v } })));
+      body.appendChild(makeSlider('Y°', comp.rotation.y, -180, 180, 1, v => updateComponent(comp.id, { rotation: { y: v } })));
+      body.appendChild(makeSlider('Z°', comp.rotation.z, -180, 180, 1, v => updateComponent(comp.id, { rotation: { z: v } })));
 
       // Mirror + auto-pair
       const mirrorDiv = document.createElement('div');
