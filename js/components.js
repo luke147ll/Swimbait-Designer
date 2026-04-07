@@ -230,20 +230,53 @@ export function renderComponentList() {
       const body = document.createElement('div');
       body.style.cssText = 'padding:6px 10px 10px';
 
-      const lbl = (t) => { const d = document.createElement('div'); d.style.cssText = 'font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);margin:8px 0 4px'; d.textContent = t; return d; };
+      // Track which sub-sections are open per component
+      if (!comp._openSections) comp._openSections = { scale: true };
 
-      body.appendChild(lbl('Position (inches)'));
-      body.appendChild(makeSlider('X', comp.position.x, -4, 4, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
-      body.appendChild(makeSlider('Y', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
-      body.appendChild(makeSlider('Z', comp.position.z, -3, 3, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
+      function collapsibleSection(title, key, content) {
+        const isOpen = comp._openSections[key];
+        const wrap = document.createElement('div');
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);margin:6px 0 4px;cursor:pointer;user-select:none';
+        hdr.textContent = (isOpen ? '▾ ' : '▸ ') + title;
+        hdr.onclick = (e) => { e.stopPropagation(); comp._openSections[key] = !comp._openSections[key]; renderComponentList(); };
+        wrap.appendChild(hdr);
+        if (isOpen) {
+          const inner = document.createElement('div');
+          content(inner);
+          wrap.appendChild(inner);
+        }
+        return wrap;
+      }
 
-      body.appendChild(lbl('Scale'));
-      body.appendChild(makeSlider('Uniform', comp.scale.x, 0.1, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v, y: v, z: v } })));
+      // Scale (always visible — most used)
+      body.appendChild(collapsibleSection('Scale', 'scale', inner => {
+        inner.appendChild(makeSlider('Uniform', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v, y: v, z: v } })));
+        // Non-uniform toggle
+        const nuBtn = document.createElement('div');
+        nuBtn.style.cssText = 'margin-top:2px';
+        nuBtn.innerHTML = `<span style="font-size:8px;color:var(--mu);cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();toggleComponentSection('${comp.id}','scaleXYZ')">${comp._openSections.scaleXYZ ? '▾ Per-axis' : '▸ Per-axis'}</span>`;
+        inner.appendChild(nuBtn);
+        if (comp._openSections.scaleXYZ) {
+          inner.appendChild(makeSlider('X', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v } })));
+          inner.appendChild(makeSlider('Y', comp.scale.y, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { y: v } })));
+          inner.appendChild(makeSlider('Z', comp.scale.z, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { z: v } })));
+        }
+      }));
 
-      body.appendChild(lbl('Rotation'));
-      body.appendChild(makeSlider('X°', comp.rotation.x, -180, 180, 1, v => updateComponent(comp.id, { rotation: { x: v } })));
-      body.appendChild(makeSlider('Y°', comp.rotation.y, -180, 180, 1, v => updateComponent(comp.id, { rotation: { y: v } })));
-      body.appendChild(makeSlider('Z°', comp.rotation.z, -180, 180, 1, v => updateComponent(comp.id, { rotation: { z: v } })));
+      // Position (collapsed by default)
+      body.appendChild(collapsibleSection('Position', 'position', inner => {
+        inner.appendChild(makeSlider('X', comp.position.x, -4, 4, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
+        inner.appendChild(makeSlider('Y', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
+        inner.appendChild(makeSlider('Z', comp.position.z, -3, 3, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
+      }));
+
+      // Rotation (collapsed by default)
+      body.appendChild(collapsibleSection('Rotation', 'rotation', inner => {
+        inner.appendChild(makeSlider('X°', comp.rotation.x, -180, 180, 1, v => updateComponent(comp.id, { rotation: { x: v } })));
+        inner.appendChild(makeSlider('Y°', comp.rotation.y, -180, 180, 1, v => updateComponent(comp.id, { rotation: { y: v } })));
+        inner.appendChild(makeSlider('Z°', comp.rotation.z, -180, 180, 1, v => updateComponent(comp.id, { rotation: { z: v } })));
+      }));
 
       // Mirror + auto-pair
       const mirrorDiv = document.createElement('div');
@@ -343,6 +376,14 @@ window.toggleComponentMirror = function(id, key) {
   if (!comp) return;
   comp[key] = !comp[key];
   updateDisplayTransform(comp);
+  renderComponentList();
+};
+
+window.toggleComponentSection = function(id, key) {
+  const comp = components.find(c => c.id === id);
+  if (!comp) return;
+  if (!comp._openSections) comp._openSections = {};
+  comp._openSections[key] = !comp._openSections[key];
   renderComponentList();
 };
 
