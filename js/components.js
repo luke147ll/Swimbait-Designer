@@ -124,7 +124,7 @@ export function selectComponent(id) {
 
 // ── Display ──
 
-function rebuildDisplayMesh(comp) {
+async function rebuildDisplayMesh(comp) {
   if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
   if (!comp.meshData) { console.warn('[Components] No meshData for', comp.label); return; }
 
@@ -132,14 +132,23 @@ function rebuildDisplayMesh(comp) {
   const tv = comp.meshData.triVerts;
   console.log(`[Components] Building mesh for ${comp.label}: ${vp.length / 3} verts, ${tv.length / 3} tris`);
 
-  const geo = new THREE.BufferGeometry();
+  let geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(vp), 3));
   if (tv && tv.length > 0) {
     geo.setIndex(new THREE.BufferAttribute(new Uint32Array(tv), 1));
   }
+
+  // Merge nearby vertices for smooth normals — STL meshes often have
+  // duplicated vertices at shared edges, causing faceted appearance
+  try {
+    const { mergeVertices } = await import('https://esm.sh/three@0.162.0/examples/jsm/utils/BufferGeometryUtils.js');
+    const before = geo.attributes.position.count;
+    geo = mergeVertices(geo, 0.01);
+    const after = geo.attributes.position.count;
+    if (after < before) console.log(`[Components] Merged vertices: ${before} → ${after}`);
+  } catch (e) { /* mergeVertices not available — use as-is */ }
+
   geo.computeBoundingBox();
-  const bb = geo.boundingBox;
-  console.log(`[Components] Bounds before center: ${bb.min.x.toFixed(1)},${bb.min.y.toFixed(1)},${bb.min.z.toFixed(1)} → ${bb.max.x.toFixed(1)},${bb.max.y.toFixed(1)},${bb.max.z.toFixed(1)}`);
   geo.center();
 
   // Auto-detect mm vs inches and scale to viewport inches
