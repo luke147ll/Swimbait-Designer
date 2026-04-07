@@ -1025,10 +1025,46 @@ window.importSTLAsBait = function() {
     const { STLLoader } = await import('https://esm.sh/three@0.162.0/examples/jsm/loaders/STLLoader.js');
     const geo = new STLLoader().parse(buffer);
     geo.computeBoundingBox();
+
+    // Auto-detect length axis and remap to designer convention (X=length, Y=height, Z=width)
+    const bb = geo.boundingBox;
+    const extX = bb.max.x - bb.min.x;
+    const extY = bb.max.y - bb.min.y;
+    const extZ = bb.max.z - bb.min.z;
+    const maxExt = Math.max(extX, extY, extZ);
+
+    // Rotate so longest axis → X (body length)
+    if (maxExt === extY) {
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI / 2));
+    } else if (maxExt === extZ) {
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
+    }
+    // After rotation, find second longest for height → Y
+    geo.computeBoundingBox();
+    const bb2 = geo.boundingBox;
+    const eY2 = bb2.max.y - bb2.min.y;
+    const eZ2 = bb2.max.z - bb2.min.z;
+    if (eZ2 > eY2) {
+      // Z is taller than Y — swap so height is on Y
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    }
+
+    geo.computeBoundingBox();
     geo.center();
     geo.computeVertexNormals();
 
-    // Extract raw arrays for Manifold transfer (mm units)
+    // Auto-detect units (mm vs inches) from bounding box
+    geo.computeBoundingBox();
+    const finalBB = geo.boundingBox;
+    const finalMaxDim = Math.max(
+      finalBB.max.x - finalBB.min.x,
+      finalBB.max.y - finalBB.min.y,
+      finalBB.max.z - finalBB.min.z
+    );
+    const isMM = finalMaxDim > 30;
+    const viewScale = isMM ? 1 / 25.4 : 1;
+
+    // Extract raw arrays for Manifold transfer (keep in original units — mm or inches)
     const nonIndexed = geo.index ? geo.toNonIndexed() : geo;
     const pos = nonIndexed.attributes.position;
     const vp = new Float32Array(pos.count * 3);
@@ -1045,10 +1081,6 @@ window.importSTLAsBait = function() {
 
     // Display in viewport (scale to inches for viewport)
     if (bodyMesh) { scene.remove(bodyMesh); if (bodyMesh.geometry) bodyMesh.geometry.dispose(); }
-    // Auto-detect if mesh is in mm (bounds > 30) and scale to inches
-    const bb = geo.boundingBox;
-    const maxDim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
-    const viewScale = maxDim > 30 ? 1 / 25.4 : 1;
     const displayGeo = geo.clone();
     displayGeo.scale(viewScale, viewScale, viewScale);
 
