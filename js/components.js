@@ -282,9 +282,9 @@ export function renderComponentList() {
 
       // Position (collapsed by default)
       body.appendChild(collapsibleSection('Position', 'position', inner => {
-        inner.appendChild(makeSlider('X', comp.position.x, -4, 4, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
+        inner.appendChild(makeSlider('X', comp.position.x, -8, 8, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
         inner.appendChild(makeSlider('Y', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
-        inner.appendChild(makeSlider('Z', comp.position.z, -3, 3, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
+        inner.appendChild(makeSlider('Z', comp.position.z, -4, 4, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
       }));
 
       // Rotation (collapsed by default) with 90° snap buttons
