@@ -185,26 +185,34 @@ function updateDisplayTransform(comp) {
 
   // Auto-mirror
   if (comp.autoMirror) {
-    // True mirror: clone geometry and flip all Z vertex positions,
-    // then reverse winding order. This produces an actual mirror image.
+    // True mirror in WORLD space: transform vertices to world coords,
+    // negate Z, create new mesh at identity. This handles any rotation.
     if (comp._mirrorMesh) { scene.remove(comp._mirrorMesh); comp._mirrorMesh.geometry.dispose(); }
+
+    m.updateMatrixWorld(true);
+    const srcPos = m.geometry.attributes.position;
     const mirrorGeo = m.geometry.clone();
-    const pos = mirrorGeo.attributes.position;
-    for (let vi = 0; vi < pos.count; vi++) pos.setZ(vi, -pos.getZ(vi));
-    pos.needsUpdate = true;
-    // Flip winding
+    const dstPos = mirrorGeo.attributes.position;
+    const v = new THREE.Vector3();
+
+    for (let vi = 0; vi < srcPos.count; vi++) {
+      v.set(srcPos.getX(vi), srcPos.getY(vi), srcPos.getZ(vi));
+      v.applyMatrix4(m.matrixWorld); // local → world
+      v.z = -v.z; // mirror across Z=0 in world space
+      dstPos.setXYZ(vi, v.x, v.y, v.z);
+    }
+    dstPos.needsUpdate = true;
+
+    // Flip winding order (mirror reverses face orientation)
     if (mirrorGeo.index) {
       const idx = mirrorGeo.index.array;
       for (let fi = 0; fi < idx.length; fi += 3) { const tmp = idx[fi + 1]; idx[fi + 1] = idx[fi + 2]; idx[fi + 2] = tmp; }
       mirrorGeo.index.needsUpdate = true;
     }
     mirrorGeo.computeVertexNormals();
+
     comp._mirrorMesh = new THREE.Mesh(mirrorGeo, m.material);
-    // Same position/rotation/scale — the geometry itself is mirrored
-    comp._mirrorMesh.position.copy(m.position);
-    comp._mirrorMesh.position.z = -m.position.z;
-    comp._mirrorMesh.rotation.copy(m.rotation);
-    comp._mirrorMesh.scale.copy(m.scale);
+    // Identity transform — vertices are already in world space
     comp._mirrorMesh.visible = comp.visible;
     scene.add(comp._mirrorMesh);
   } else if (comp._mirrorMesh) {
