@@ -239,7 +239,14 @@ export function renderComponentList() {
       <span style="font-size:12px;cursor:pointer;color:${comp.visible ? 'var(--ac)' : 'var(--mu)'}; padding:2px 4px" onclick="event.stopPropagation();toggleComponentVisibility('${comp.id}')" title="Toggle visibility">${comp.visible ? '👁' : '◌'}</span>
       <span style="font-size:12px;cursor:pointer;color:${comp._deleteConfirm ? '#e55' : 'var(--mu)'};padding:2px 4px" onclick="event.stopPropagation();deleteComponent('${comp.id}')" title="Delete component">🗑</span>
     `;
-    header.onclick = () => { selectComponent(comp.id); renderComponentList(); };
+    header.onclick = () => {
+      if (comp.selected) {
+        comp.collapsed = !comp.collapsed;
+      } else {
+        selectComponent(comp.id);
+      }
+      renderComponentList();
+    };
     section.appendChild(header);
 
     // Expanded controls
