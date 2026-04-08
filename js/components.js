@@ -189,9 +189,9 @@ function updateDisplayTransform(comp) {
       comp._mirrorMesh = m.clone();
       scene.add(comp._mirrorMesh);
     }
-    comp._mirrorMesh.position.set(-comp.position.x, comp.position.y, comp.position.z);
+    comp._mirrorMesh.position.set(comp.position.x, comp.position.y, -comp.position.z);
     comp._mirrorMesh.rotation.copy(m.rotation);
-    comp._mirrorMesh.scale.set(-m.scale.x, m.scale.y, m.scale.z);
+    comp._mirrorMesh.scale.set(m.scale.x, m.scale.y, -m.scale.z);
     comp._mirrorMesh.visible = comp.visible;
   } else if (comp._mirrorMesh) {
     scene.remove(comp._mirrorMesh);
@@ -381,7 +381,7 @@ export function buildComponentTransferData() {
     });
 
     if (comp.autoMirror) {
-      const mirror = { ...comp, position: { x: -comp.position.x, y: comp.position.y, z: comp.position.z }, mirrorX: !comp.mirrorX };
+      const mirror = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z }, mirrorZ: !comp.mirrorZ };
       const mirrored = applyTransform(comp.meshData, mirror);
       result.push({
         id: comp.id + '_mirror', label: comp.label + ' (mirror)',
