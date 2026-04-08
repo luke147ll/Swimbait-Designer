@@ -185,16 +185,28 @@ function updateDisplayTransform(comp) {
 
   // Auto-mirror
   if (comp.autoMirror) {
-    if (!comp._mirrorMesh) {
-      comp._mirrorMesh = m.clone();
-      scene.add(comp._mirrorMesh);
+    // True mirror: clone geometry and flip all Z vertex positions,
+    // then reverse winding order. This produces an actual mirror image.
+    if (comp._mirrorMesh) { scene.remove(comp._mirrorMesh); comp._mirrorMesh.geometry.dispose(); }
+    const mirrorGeo = m.geometry.clone();
+    const pos = mirrorGeo.attributes.position;
+    for (let vi = 0; vi < pos.count; vi++) pos.setZ(vi, -pos.getZ(vi));
+    pos.needsUpdate = true;
+    // Flip winding
+    if (mirrorGeo.index) {
+      const idx = mirrorGeo.index.array;
+      for (let fi = 0; fi < idx.length; fi += 3) { const tmp = idx[fi + 1]; idx[fi + 1] = idx[fi + 2]; idx[fi + 2] = tmp; }
+      mirrorGeo.index.needsUpdate = true;
     }
-    // True mirror across Z=0: negate Z position, negate Z scale (flips geometry).
-    // Rotation stays the same — the flipped scale produces the mirror image.
-    comp._mirrorMesh.position.set(comp.position.x, comp.position.y, -comp.position.z);
+    mirrorGeo.computeVertexNormals();
+    comp._mirrorMesh = new THREE.Mesh(mirrorGeo, m.material);
+    // Same position/rotation/scale — the geometry itself is mirrored
+    comp._mirrorMesh.position.copy(m.position);
+    comp._mirrorMesh.position.z = -m.position.z;
     comp._mirrorMesh.rotation.copy(m.rotation);
-    comp._mirrorMesh.scale.set(m.scale.x, m.scale.y, -m.scale.z);
+    comp._mirrorMesh.scale.copy(m.scale);
     comp._mirrorMesh.visible = comp.visible;
+    scene.add(comp._mirrorMesh);
   } else if (comp._mirrorMesh) {
     scene.remove(comp._mirrorMesh);
     comp._mirrorMesh.geometry.dispose();
@@ -383,10 +395,23 @@ export function buildComponentTransferData() {
     });
 
     if (comp.autoMirror) {
-      // True mirror: negate Z position, toggle mirrorZ (flips geometry via -1 scale)
-      // Rotation stays the same — the negative Z scale handles the mirror
-      const mirror = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z }, rotation: { ...comp.rotation }, mirrorZ: !comp.mirrorZ };
-      const mirrored = applyTransform(comp.meshData, mirror);
+      // True mirror: flip Z in the mesh data, then apply same transform with negated Z position
+      const mirroredMeshData = {
+        vertProperties: Array.from(comp.meshData.vertProperties),
+        triVerts: Array.from(comp.meshData.triVerts),
+      };
+      // Flip Z on all vertices
+      for (let vi = 2; vi < mirroredMeshData.vertProperties.length; vi += 3) {
+        mirroredMeshData.vertProperties[vi] = -mirroredMeshData.vertProperties[vi];
+      }
+      // Flip winding
+      for (let fi = 0; fi < mirroredMeshData.triVerts.length; fi += 3) {
+        const tmp = mirroredMeshData.triVerts[fi + 1];
+        mirroredMeshData.triVerts[fi + 1] = mirroredMeshData.triVerts[fi + 2];
+        mirroredMeshData.triVerts[fi + 2] = tmp;
+      }
+      const mirrorComp = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z } };
+      const mirrored = applyTransform(mirroredMeshData, mirrorComp);
       result.push({
         id: comp.id + '_mirror', label: comp.label + ' (mirror)',
         numProp: 3,
