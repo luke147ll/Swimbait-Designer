@@ -17,7 +17,7 @@ import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 import { importSTL } from './stl-import.js';
 import { analyzeMesh, deformMesh } from './mesh-deform.js';
-import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp } from './components.js';
+import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp, onViewportClick } from './components.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
@@ -565,7 +565,7 @@ function init() {
     if (e.pointerType !== 'touch') drag = false;
   });
   vp.addEventListener('pointermove', e => {
-    if (!drag || e.pointerType === 'touch') return;
+    if (!drag || e.pointerType === 'touch' || window._sbd_orbitEnabled === false) return;
     ot -= (e.clientX - px) * .005;
     op = Math.max(.1, Math.min(3.0, op - (e.clientY - py) * .005));
     px = e.clientX; py = e.clientY;
@@ -653,7 +653,20 @@ function init() {
     initPanelResize();
   }
 
-  initComponents(scene, () => {});
+  initComponents(scene, () => {}, cam, ren.domElement);
+
+  // Viewport click → select component (single click, not drag)
+  let vpClickStart = null;
+  vp.addEventListener('pointerdown', e => { vpClickStart = { x: e.clientX, y: e.clientY }; });
+  vp.addEventListener('pointerup', e => {
+    if (!vpClickStart) return;
+    const dx = e.clientX - vpClickStart.x, dy = e.clientY - vpClickStart.y;
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) onViewportClick(e);
+    vpClickStart = null;
+  });
+
+  // Expose orbit enable flag for gizmo drag suppression
+  window._sbd_orbitEnabled = true;
   renderComponentList();
 
   // Phone: create editors lazily

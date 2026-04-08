@@ -79,6 +79,8 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 /* Hidden by default on desktop/tablet */
 .mob-view{display:none}
 .tab-bar{display:none}
+.gizmo-btn.on{background:var(--ac) !important;color:var(--bg) !important}
+.gizmo-btn:hover{background:var(--sf2);color:var(--tx)}
 
 /* ── Profile editor styles ────────────────────────────────────────── */
 .ed-toggle-row{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}

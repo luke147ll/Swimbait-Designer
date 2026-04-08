@@ -180,6 +180,13 @@
     <button class="vb" onclick="snapView('front')">Front</button>
     <button class="vb" onclick="resetOrbit()" title="Reset orbit center">⊙</button>
   </div>
+  <div id="gizmoToolbar" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:none;gap:2px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;padding:3px;z-index:20">
+    <button class="gizmo-btn on" data-mode="translate" onclick="setGizmoMode('translate')" title="Move (G)" style="width:32px;height:32px;border:none;border-radius:3px;background:var(--ac);color:var(--bg);cursor:pointer;font-size:14px">⊞</button>
+    <button class="gizmo-btn" data-mode="rotate" onclick="setGizmoMode('rotate')" title="Rotate (R)" style="width:32px;height:32px;border:none;border-radius:3px;background:transparent;color:var(--mu);cursor:pointer;font-size:14px">↻</button>
+    <button class="gizmo-btn" data-mode="scale" onclick="setGizmoMode('scale')" title="Scale (S)" style="width:32px;height:32px;border:none;border-radius:3px;background:transparent;color:var(--mu);cursor:pointer;font-size:14px">⤢</button>
+    <div style="width:1px;background:var(--bd);margin:4px 2px"></div>
+    <button class="gizmo-btn" data-mode="snap" onclick="setGizmoMode('snap')" title="Toggle Snap" style="width:32px;height:32px;border:none;border-radius:3px;background:transparent;color:var(--mu);cursor:pointer;font-size:14px">⊡</button>
+  </div>
   <div class="rh" id="rhHint">Drag to orbit / scroll to zoom / double-click to focus</div>
 </div>
 </div>

@@ -20,14 +20,133 @@ const MAX_COMPONENTS = 12;
 
 let components = [];
 let scene = null;
+let cam = null;
+let domElement = null;
 let onChangeCallback = null;
 let partsIndex = null;
 const partCache = {};
+let gizmo = null;
+let gizmoTarget = null;
 
-export function initComponents(sceneRef, onChange) {
+export function initComponents(sceneRef, onChange, cameraRef, rendererDom) {
   scene = sceneRef;
+  cam = cameraRef;
+  domElement = rendererDom;
   onChangeCallback = onChange;
   loadPartsIndex();
+  initGizmo();
+}
+
+// ── Gizmo ──
+
+async function initGizmo() {
+  if (!cam || !domElement) return;
+  try {
+    const { TransformControls } = await import('https://esm.sh/three@0.162.0/examples/jsm/controls/TransformControls.js');
+    gizmo = new TransformControls(cam, domElement);
+    gizmo.setMode('translate');
+    gizmo.setSize(('ontouchstart' in window) ? 1.2 : 0.8);
+    gizmo.setSpace('local');
+
+    // Disable orbit while dragging gizmo
+    gizmo.addEventListener('dragging-changed', e => {
+      if (window._sbd_orbitEnabled !== undefined) window._sbd_orbitEnabled = !e.value;
+    });
+
+    // Sync gizmo → component state on drag
+    gizmo.addEventListener('change', () => {
+      if (!gizmoTarget || !gizmoTarget.displayMesh) return;
+      const m = gizmoTarget.displayMesh;
+      gizmoTarget.position.x = +m.position.x.toFixed(3);
+      gizmoTarget.position.y = +m.position.y.toFixed(3);
+      gizmoTarget.position.z = +m.position.z.toFixed(3);
+      gizmoTarget.rotation.x = +(m.rotation.x * 180 / Math.PI).toFixed(1);
+      gizmoTarget.rotation.y = +(m.rotation.y * 180 / Math.PI).toFixed(1);
+      gizmoTarget.rotation.z = +(m.rotation.z * 180 / Math.PI).toFixed(1);
+      gizmoTarget.scale.x = +Math.abs(m.scale.x).toFixed(3);
+      gizmoTarget.scale.y = +Math.abs(m.scale.y).toFixed(3);
+      gizmoTarget.scale.z = +Math.abs(m.scale.z).toFixed(3);
+      updateDisplayTransform(gizmoTarget); // update mirror
+    });
+
+    gizmo.addEventListener('mouseUp', () => renderComponentList());
+
+    scene.add(gizmo);
+    gizmo.visible = false;
+    gizmo.enabled = false;
+    console.log('[Gizmo] Initialized');
+  } catch (e) {
+    console.warn('[Gizmo] Failed to load TransformControls:', e);
+  }
+}
+
+function attachGizmo(comp) {
+  if (!gizmo || !comp.displayMesh) return;
+  gizmoTarget = comp;
+  gizmo.attach(comp.displayMesh);
+  gizmo.visible = true;
+  gizmo.enabled = true;
+  const tb = document.getElementById('gizmoToolbar');
+  if (tb) tb.style.display = 'flex';
+}
+
+function detachGizmo() {
+  if (!gizmo) return;
+  gizmo.detach();
+  gizmo.visible = false;
+  gizmo.enabled = false;
+  gizmoTarget = null;
+  const tb = document.getElementById('gizmoToolbar');
+  if (tb) tb.style.display = 'none';
+}
+
+// Expose for keyboard shortcuts + toolbar
+window.setGizmoMode = function(mode) {
+  if (!gizmo) return;
+  if (mode === 'snap') {
+    const on = !gizmo.translationSnap;
+    gizmo.setTranslationSnap(on ? 0.05 : null); // ~1.3mm in inches
+    gizmo.setRotationSnap(on ? Math.PI / 12 : null); // 15°
+    gizmo.setScaleSnap(on ? 0.1 : null);
+    document.querySelectorAll('.gizmo-btn[data-mode="snap"]').forEach(b => b.classList.toggle('on', on));
+    return;
+  }
+  gizmo.setMode(mode);
+  document.querySelectorAll('.gizmo-btn').forEach(b => {
+    if (b.dataset.mode !== 'snap') b.classList.toggle('on', b.dataset.mode === mode);
+  });
+};
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (!gizmoTarget || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'g' || e.key === 'G') window.setGizmoMode('translate');
+  if (e.key === 'r' || e.key === 'R') window.setGizmoMode('rotate');
+  if (e.key === 's' || e.key === 'S') window.setGizmoMode('scale');
+  if (e.key === 'Escape') { selectComponent(null); detachGizmo(); renderComponentList(); }
+});
+
+// Click viewport → select component
+export function onViewportClick(event) {
+  if (gizmo && gizmo.dragging) return;
+  if (!cam) return;
+  const rect = domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(mouse, cam);
+  const meshes = components.filter(c => c.visible && c.displayMesh).map(c => c.displayMesh);
+  const hits = ray.intersectObjects(meshes);
+  if (hits.length > 0) {
+    const comp = components.find(c => c.displayMesh === hits[0].object);
+    if (comp) { selectComponent(comp.id); attachGizmo(comp); renderComponentList(); return; }
+  }
+  // Clicked empty space
+  selectComponent(null);
+  detachGizmo();
+  renderComponentList();
 }
 
 async function loadPartsIndex() {
@@ -119,7 +238,13 @@ export function updateComponent(id, changes) {
 export function selectComponent(id) {
   components.forEach(c => { c.selected = false; c.collapsed = true; });
   const comp = components.find(c => c.id === id);
-  if (comp) { comp.selected = true; comp.collapsed = false; }
+  if (comp) {
+    comp.selected = true;
+    comp.collapsed = false;
+    attachGizmo(comp);
+  } else {
+    detachGizmo();
+  }
   renderComponentList();
 }
 
