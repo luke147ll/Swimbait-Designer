@@ -393,7 +393,14 @@ export function createSideEditor(container, state, onEdit) {
       return;
     }
     const data = screenToData(mouseX, mouseY);
-    drag.profile[drag.idx].v = data.v;
+    // Clamp: dorsal stays positive, ventral stays negative (can't cross centerline)
+    if (drag.cls === 'dorsal') {
+      drag.profile[drag.idx].v = Math.max(0.001, data.v);
+    } else if (drag.cls === 'ventral') {
+      drag.profile[drag.idx].v = Math.min(-0.001, data.v);
+    } else {
+      drag.profile[drag.idx].v = data.v;
+    }
     // Always allow horizontal movement (clamped between neighbors)
     const prev = drag.idx > 0 ? drag.profile[drag.idx - 1].t + 0.002 : 0;
     const next = drag.idx < drag.profile.length - 1 ? drag.profile[drag.idx + 1].t - 0.002 : 1;
