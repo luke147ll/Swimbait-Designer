@@ -289,11 +289,33 @@ export function renderComponentList() {
         }
       }));
 
-      // Position (collapsed by default)
+      // Position (collapsed by default, Z locked by default)
       body.appendChild(collapsibleSection('Position', 'position', inner => {
-        inner.appendChild(makeSlider('X', comp.position.x, -8, 8, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
-        inner.appendChild(makeSlider('Y', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
-        inner.appendChild(makeSlider('Z', comp.position.z, -4, 4, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
+        inner.appendChild(makeSlider('X (length)', comp.position.x, -8, 8, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
+        inner.appendChild(makeSlider('Y (height)', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
+        // Z locked by default — unlock to adjust
+        if (!comp._openSections) comp._openSections = { scale: true };
+        const zLocked = !comp._openSections.zUnlocked;
+        const zRow = document.createElement('div');
+        zRow.style.cssText = 'display:flex;align-items:center;gap:4px';
+        const lockBtn = document.createElement('button');
+        lockBtn.className = 'tb' + (zLocked ? '' : ' on');
+        lockBtn.style.cssText = 'padding:2px 6px;font-size:9px;flex-shrink:0';
+        lockBtn.textContent = zLocked ? '🔒 Z' : '🔓 Z';
+        lockBtn.title = zLocked ? 'Z locked at center — click to unlock' : 'Z unlocked — click to lock';
+        lockBtn.onclick = (e) => { e.stopPropagation(); comp._openSections.zUnlocked = !comp._openSections.zUnlocked; renderComponentList(); };
+        zRow.appendChild(lockBtn);
+        if (!zLocked) {
+          const zSlider = makeSlider('Z (width)', comp.position.z, -4, 4, 0.02, v => updateComponent(comp.id, { position: { z: v } }));
+          zSlider.style.flex = '1';
+          zRow.appendChild(zSlider);
+        } else {
+          const zLabel = document.createElement('span');
+          zLabel.style.cssText = 'font-size:9px;color:var(--mu)';
+          zLabel.textContent = 'Z locked at 0 (center)';
+          zRow.appendChild(zLabel);
+        }
+        inner.appendChild(zRow);
       }));
 
       // Rotation (collapsed by default) with 90° snap buttons
