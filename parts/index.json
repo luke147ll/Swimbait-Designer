@@ -8,7 +8,16 @@
       "description": "Shad head",
       "fileUrl": "/parts/heads/head-1-v1.json",
       "thumbnail": "/parts/thumbs/head-1-v1.png",
-      "fileSizeKB": 574
+      "fileSizeKB": 2968
+    },
+    {
+      "id": "tail-1-v1",
+      "name": "Paddle Tail 1",
+      "category": "tail",
+      "description": "Paddle tail",
+      "fileUrl": "/parts/tails/tail-1-v1.json",
+      "thumbnail": "",
+      "fileSizeKB": 5620
     }
   ]
 }
