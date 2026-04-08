@@ -53,10 +53,18 @@ async function initGizmo() {
       if (window._sbd_orbitEnabled !== undefined) window._sbd_orbitEnabled = !e.value;
     });
 
-    // Sync gizmo → component state on drag
+    // Sync gizmo → state on drag
     gizmo.addEventListener('change', () => {
       if (!gizmoTarget || !gizmoTarget.displayMesh) return;
       const m = gizmoTarget.displayMesh;
+
+      // Slot sync
+      if (gizmoTarget._isSlot) {
+        if (window._sbd_syncSlotFromGizmo) window._sbd_syncSlotFromGizmo(m);
+        return;
+      }
+
+      // Component sync
       gizmoTarget.position.x = +m.position.x.toFixed(3);
       gizmoTarget.position.y = +m.position.y.toFixed(3);
       gizmoTarget.position.z = +m.position.z.toFixed(3);
@@ -137,11 +145,32 @@ export function onViewportClick(event) {
   );
   const ray = new THREE.Raycaster();
   ray.setFromCamera(mouse, cam);
-  const meshes = components.filter(c => c.visible && c.displayMesh).map(c => c.displayMesh);
-  const hits = ray.intersectObjects(meshes);
+
+  // Check components
+  const compMeshes = components.filter(c => c.visible && c.displayMesh).map(c => c.displayMesh);
+  // Check slot meshes
+  const slotMeshes = window._sbd_getSlotMeshes ? window._sbd_getSlotMeshes() : [];
+  const allMeshes = [...compMeshes, ...slotMeshes];
+
+  const hits = ray.intersectObjects(allMeshes);
   if (hits.length > 0) {
-    const comp = components.find(c => c.displayMesh === hits[0].object);
+    const hitObj = hits[0].object;
+    // Is it a component?
+    const comp = components.find(c => c.displayMesh === hitObj);
     if (comp) { selectComponent(comp.id); attachGizmo(comp); renderComponentList(); return; }
+    // Is it a slot?
+    if (hitObj.userData.isSlot && gizmo) {
+      selectComponent(null);
+      gizmoTarget = { _isSlot: true, displayMesh: hitObj };
+      gizmo.attach(hitObj);
+      gizmo.visible = true;
+      gizmo.enabled = true;
+      gizmo.setMode('translate'); // slots only translate
+      const tb = document.getElementById('gizmoToolbar');
+      if (tb) tb.style.display = 'flex';
+      renderComponentList();
+      return;
+    }
   }
   // Clicked empty space
   selectComponent(null);

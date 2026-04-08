@@ -78,6 +78,8 @@ function rebuildSlotPreview() {
       slot.positionX * scale   // lateral offset
     );
     mesh.renderOrder = 10;
+    mesh.userData.isSlot = true;
+    mesh.userData.slotIndex = slots.indexOf(slot);
     scene.add(mesh);
     slotMeshes.push(mesh);
   }
@@ -1334,6 +1336,18 @@ window.stashAndLogin = function(e) {
   window.location = '/login';
 };
 window.profileState = profileState;
+
+// Expose slot meshes for gizmo system
+window._sbd_getSlotMeshes = () => slotMeshes;
+window._sbd_syncSlotFromGizmo = function(mesh) {
+  const idx = mesh.userData.slotIndex;
+  if (idx === undefined || !slots[idx]) return;
+  const scale = 25.4; // inches back to mm
+  slots[idx].positionY = +(mesh.position.x * scale).toFixed(1);
+  slots[idx].positionZ = +(mesh.position.y * scale).toFixed(1);
+  slots[idx].positionX = +(mesh.position.z * scale).toFixed(1);
+  renderSlotUI();
+};
 
 init();
 window.addEventListener('load', () => window.scrollTo(0, 0));
