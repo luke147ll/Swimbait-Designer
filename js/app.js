@@ -369,21 +369,25 @@ function update(resolution) {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
 
-  // Regenerate profiles from sliders + manual deltas
-  const base = buildProfilesFromSliders(p);
-  while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
-  while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
-  while (profileState.wDelta.length < base.width.length) profileState.wDelta.push(0);
+  // Skip profile regeneration if using imported/custom profiles (>13 control points)
+  // Sliders only affect profiles when using the base slider-driven system
+  const isImportedProfile = profileState.dorsal.length > 13 || importedMeshActive;
+  if (!isImportedProfile) {
+    const base = buildProfilesFromSliders(p);
+    while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
+    while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
+    while (profileState.wDelta.length < base.width.length) profileState.wDelta.push(0);
 
-  profileState.dorsal = base.dorsal.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.dDelta[i]
-  }));
-  profileState.ventral = base.ventral.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.vDelta[i]
-  }));
-  profileState.width = base.width.map((pt, i) => ({
-    ...pt, v: pt.v + profileState.wDelta[i]
-  }));
+    profileState.dorsal = base.dorsal.map((pt, i) => ({
+      ...pt, v: pt.v + profileState.dDelta[i]
+    }));
+    profileState.ventral = base.ventral.map((pt, i) => ({
+      ...pt, v: pt.v + profileState.vDelta[i]
+    }));
+    profileState.width = base.width.map((pt, i) => ({
+      ...pt, v: pt.v + profileState.wDelta[i]
+    }));
+  }
 
   rebuildProfileCache(profileState, p.CS, p.HL);
   rebuildScene(resolution);
