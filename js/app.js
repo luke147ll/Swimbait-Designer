@@ -994,7 +994,7 @@ async function sendToMoldGenerator() {
   const moldBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5173'
     : 'https://mold.swimbaitdesigner.com';
-  const moldWindow = window.open(moldBase + '/loading', '_blank');
+  const moldWindow = window.open(moldBase, '_blank');
 
   try {
     const res = await fetch('/api/mold-transfer', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
