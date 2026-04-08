@@ -74,12 +74,14 @@ export function addComponent(partData) {
     meshData: partData.meshData || null,
     displayMesh: null,
     _mirrorMesh: null,
+    _defaultPosition: null, // library default position (baked into transfer, not viewport)
   };
 
-  // Apply defaults from part data
+  // Apply defaults from part data (position, rotation, scale)
   if (partData.autoPosition) Object.assign(comp.position, partData.autoPosition);
   if (partData.autoRotation) Object.assign(comp.rotation, partData.autoRotation);
   if (partData.autoScale) Object.assign(comp.scale, partData.autoScale);
+  if (partData._defaultPosition) comp._defaultPosition = partData._defaultPosition;
 
   components.push(comp);
   rebuildDisplayMesh(comp);
@@ -382,9 +384,13 @@ function applyTransform(meshData, comp) {
     comp.scale.y * (comp.mirrorY ? -1 : 1),
     comp.scale.z * (comp.mirrorZ ? -1 : 1)
   );
-  // Position in mm (convert slider inches to mm for the mold coordinate system)
+  // Position = user slider (inches) + library default offset (inches), converted to mm
+  const defPos = comp._defaultPosition || { x: 0, y: 0, z: 0 };
+  const totalPosX = (comp.position.x + defPos.x) * 25.4;
+  const totalPosY = (comp.position.y + defPos.y) * 25.4;
+  const totalPosZ = (comp.position.z + defPos.z) * 25.4;
   mat.compose(
-    new THREE.Vector3(comp.position.x * 25.4, comp.position.y * 25.4, comp.position.z * 25.4),
+    new THREE.Vector3(totalPosX, totalPosY, totalPosZ),
     new THREE.Quaternion().setFromEuler(euler),
     s
   );
@@ -538,12 +544,9 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
       label: partData.name,
       category: category || partData.category || 'custom',
       meshData: { numProp: 3, vertProperties: bakedVerts, triVerts: bakedTris },
-      // Position from library defaults — NOT baked, shown on UI slider
-      autoPosition: {
-        x: d.positionX || 0,
-        y: d.positionY || 0,
-        z: d.positionZ || 0,
-      },
+      // Position baked into _defaultPosition for transfer offset,
+      // UI slider starts at 0 (centered in viewport)
+      _defaultPosition: { x: d.positionX || 0, y: d.positionY || 0, z: d.positionZ || 0 },
     });
   } catch (e) {
     console.error('[Parts] Load failed:', e);
