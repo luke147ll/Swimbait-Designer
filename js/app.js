@@ -28,6 +28,7 @@ let meshAnalysis = null;       // reference profile from analyzeMesh
 let originalPositions = null;  // Float32Array of original vertex positions
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = false;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
+let orbitCenter = new THREE.Vector3(0, -0.15, 0);
 let currentResolution = 'high';
 let hiResTimer = null;
 
@@ -134,8 +135,12 @@ function renderSlotUI() {
 // ── Camera ──
 
 function updateCamera() {
-  cam.position.set(od * Math.sin(op) * Math.cos(ot), od * Math.cos(op), od * Math.sin(op) * Math.sin(ot));
-  cam.lookAt(0, -.15, 0);
+  cam.position.set(
+    orbitCenter.x + od * Math.sin(op) * Math.cos(ot),
+    orbitCenter.y + od * Math.cos(op),
+    orbitCenter.z + od * Math.sin(op) * Math.sin(ot)
+  );
+  cam.lookAt(orbitCenter);
 }
 
 // ── Slider reading ──
@@ -591,6 +596,25 @@ function init() {
     updateCamera();
   });
   vp.addEventListener('pointerleave', () => { drag = false; });
+
+  // Double-click to set orbit center (raycast to mesh surface)
+  vp.addEventListener('dblclick', e => {
+    const rect = ren.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, cam);
+    const meshes = scene.children.filter(c => c.isMesh);
+    const hits = raycaster.intersectObjects(meshes);
+    if (hits.length > 0) {
+      orbitCenter.copy(hits[0].point);
+      updateCamera();
+      console.log('[Camera] Orbit center:', orbitCenter.x.toFixed(2), orbitCenter.y.toFixed(2), orbitCenter.z.toFixed(2));
+    }
+  });
+
   vp.addEventListener('wheel', e => {
     e.preventDefault();
     od = Math.max(3, Math.min(22, od + e.deltaY * .007));
@@ -1297,6 +1321,10 @@ window.setResolution = function(val) {
 };
 window.loadPreset = loadPreset;
 window.snapView = snapView;
+window.resetOrbit = function() {
+  orbitCenter.set(0, -0.15, 0);
+  updateCamera();
+};
 window.switchTab = switchTab;
 window.toggleEditors = toggleEditors;
 window.saveDesign = saveDesign;
