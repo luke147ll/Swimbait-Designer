@@ -369,10 +369,9 @@ function update(resolution) {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
 
-  // Skip profile regeneration if using imported/custom profiles (>13 control points)
-  // Sliders only affect profiles when using the base slider-driven system
-  const isImportedProfile = profileState.dorsal.length > 13 || importedMeshActive;
-  if (!isImportedProfile) {
+  // Skip profile regeneration if an imported mesh is active —
+  // sliders don't drive the profile in import mode
+  if (!importedMeshActive) {
     const base = buildProfilesFromSliders(p);
     while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
     while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
