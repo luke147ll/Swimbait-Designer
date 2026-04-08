@@ -17,6 +17,7 @@ import { createXSecEditor } from './xsec-editor.js';
 import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js';
 import { importSTL } from './stl-import.js';
 import { analyzeMesh, deformMesh } from './mesh-deform.js';
+import { initUndo, recordChange, recordChangeNow } from './undo.js';
 import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp, onViewportClick } from './components.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
@@ -401,6 +402,7 @@ function onSliderInput() {
 function onXSecEdit() {
   rebuildScene('draft');
   rebuildDraftThenUpgrade();
+  recordChange();
 }
 
 function showStationRing(stationIdx) {
@@ -437,12 +439,11 @@ function showStationRing(stationIdx) {
 }
 
 function onProfileEdit() {
-  // Profile points were edited directly — they ARE the source of truth now.
-  // Mark as manually edited so sliders don't overwrite.
   profileState._manuallyEdited = true;
   rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
   rebuildScene('draft');
   rebuildDraftThenUpgrade();
+  recordChange();
 }
 
 // ── UI handlers ──
@@ -693,6 +694,9 @@ function init() {
     showStationRing(defaultStation);
   }
 
+  // Init undo system
+  initUndo(getUndoState, restoreUndoState);
+
   // Check auth
   initAuth();
 
@@ -760,6 +764,91 @@ async function logoutDesigner() {
 }
 
 // ── Design state ──
+
+// ── Undo state capture/restore ──
+
+function getUndoState() {
+  return {
+    dorsal: profileState.dorsal.map(p => ({ ...p })),
+    ventral: profileState.ventral.map(p => ({ ...p })),
+    width: profileState.width.map(p => ({ ...p })),
+    dDelta: [...profileState.dDelta],
+    vDelta: [...profileState.vDelta],
+    wDelta: [...profileState.wDelta],
+    xsecKeyframes: JSON.parse(JSON.stringify(profileState.xsecKeyframes || {})),
+    xsecBlendRadii: JSON.parse(JSON.stringify(profileState.xsecBlendRadii || {})),
+    _manuallyEdited: profileState._manuallyEdited || false,
+    slots: slots.map(s => ({ ...s })),
+    components: getComponents().map(c => ({
+      partId: c.partId, label: c.label, category: c.category,
+      position: { ...c.position }, rotation: { ...c.rotation }, scale: { ...c.scale },
+      mirrorX: c.mirrorX, mirrorY: c.mirrorY, mirrorZ: c.mirrorZ,
+      autoMirror: c.autoMirror, visible: c.visible, enabled: c.enabled,
+      meshData: c.meshData, // reference — not deep-copied (too large)
+    })),
+    baitColor,
+    OL: document.getElementById('sOL')?.value,
+  };
+}
+
+function restoreUndoState(state) {
+  profileState.dorsal = state.dorsal;
+  profileState.ventral = state.ventral;
+  profileState.width = state.width;
+  profileState.dDelta = state.dDelta;
+  profileState.vDelta = state.vDelta;
+  profileState.wDelta = state.wDelta;
+  profileState.xsecKeyframes = state.xsecKeyframes;
+  profileState.xsecBlendRadii = state.xsecBlendRadii;
+  profileState._manuallyEdited = state._manuallyEdited;
+  if (state.baitColor) baitColor = state.baitColor;
+  if (state.OL) { const ol = document.getElementById('sOL'); if (ol) ol.value = state.OL; }
+  if (state.slots) { slots = state.slots; renderSlotUI(); }
+
+  // Restore components — remove all existing, re-add from state
+  // (only for components that have meshData — library parts get re-added)
+  const currentComps = getComponents();
+  for (const c of [...currentComps]) {
+    const { removeComponent } = { removeComponent: (id) => {
+      const idx = currentComps.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        if (currentComps[idx].displayMesh) { scene.remove(currentComps[idx].displayMesh); }
+        if (currentComps[idx]._mirrorMesh) { scene.remove(currentComps[idx]._mirrorMesh); }
+        currentComps.splice(idx, 1);
+      }
+    }};
+    removeComponent(c.id);
+  }
+  if (state.components) {
+    for (const saved of state.components) {
+      if (saved.meshData) {
+        addComponent({
+          partId: saved.partId, label: saved.label, category: saved.category,
+          meshData: saved.meshData,
+          autoPosition: saved.position,
+          autoRotation: saved.rotation,
+          autoScale: saved.scale,
+        });
+        // Override the auto-applied values with exact saved values
+        const comps = getComponents();
+        const last = comps[comps.length - 1];
+        if (last) {
+          updateComp(last.id, {
+            mirrorX: saved.mirrorX, mirrorY: saved.mirrorY, mirrorZ: saved.mirrorZ,
+            autoMirror: saved.autoMirror, visible: saved.visible, enabled: saved.enabled,
+          });
+        }
+      }
+    }
+  }
+
+  rebuildProfileCache(profileState, 2.2, +(document.getElementById('sHL')?.value || 0.24));
+  rebuildScene();
+  rebuildSlotPreview();
+  if (sideEditor) sideEditor.refresh();
+  if (widthEditor) widthEditor.refresh();
+  renderComponentList();
+}
 
 function getDesignState() {
   const p = getParams();
@@ -1037,8 +1126,10 @@ window.toggleSlot = function(idx) {
   slots[idx].enabled = !slots[idx].enabled;
   renderSlotUI();
   rebuildSlotPreview();
+  recordChangeNow();
 };
 window.updateSlot = function(idx, key, val) {
+  recordChange();
   if (key === 'depth' && val === 'through') {
     slots[idx].depth = 'through';
     renderSlotUI(); // structural change — rebuild DOM

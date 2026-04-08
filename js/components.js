@@ -7,6 +7,7 @@
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
 import { openFinCreator } from './fin-creator.js';
+import { recordChange, recordChangeNow } from './undo.js';
 
 const CATEGORY_COLORS = {
   head:    0x8a9aaa,
@@ -77,7 +78,7 @@ async function initGizmo() {
       updateDisplayTransform(gizmoTarget); // update mirror
     });
 
-    gizmo.addEventListener('mouseUp', () => renderComponentList());
+    gizmo.addEventListener('mouseUp', () => { renderComponentList(); recordChangeNow(); });
 
     scene.add(gizmo);
     gizmo.visible = false;
@@ -234,6 +235,7 @@ export function addComponent(partData) {
   rebuildDisplayMesh(comp);
   renderComponentList();
   notify();
+  recordChangeNow();
   return comp;
 }
 
@@ -246,6 +248,7 @@ export function removeComponent(id) {
   components.splice(idx, 1);
   renderComponentList();
   notify();
+  recordChangeNow();
 }
 
 export function updateComponent(id, changes) {
@@ -262,6 +265,7 @@ export function updateComponent(id, changes) {
 
   updateDisplayTransform(comp);
   notify();
+  recordChange(); // debounced — rapid slider drags collapse into one undo step
 }
 
 export function selectComponent(id) {
