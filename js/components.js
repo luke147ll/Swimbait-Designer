@@ -189,8 +189,10 @@ function updateDisplayTransform(comp) {
       comp._mirrorMesh = m.clone();
       scene.add(comp._mirrorMesh);
     }
+    // True mirror across Z=0: negate Z position, negate Z scale (flips geometry).
+    // Rotation stays the same — the flipped scale produces the mirror image.
     comp._mirrorMesh.position.set(comp.position.x, comp.position.y, -comp.position.z);
-    comp._mirrorMesh.rotation.set(m.rotation.x, m.rotation.y, -m.rotation.z);
+    comp._mirrorMesh.rotation.copy(m.rotation);
     comp._mirrorMesh.scale.set(m.scale.x, m.scale.y, -m.scale.z);
     comp._mirrorMesh.visible = comp.visible;
   } else if (comp._mirrorMesh) {
@@ -381,7 +383,9 @@ export function buildComponentTransferData() {
     });
 
     if (comp.autoMirror) {
-      const mirror = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z }, rotation: { x: comp.rotation.x, y: comp.rotation.y, z: -comp.rotation.z }, mirrorZ: !comp.mirrorZ };
+      // True mirror: negate Z position, toggle mirrorZ (flips geometry via -1 scale)
+      // Rotation stays the same — the negative Z scale handles the mirror
+      const mirror = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z }, rotation: { ...comp.rotation }, mirrorZ: !comp.mirrorZ };
       const mirrored = applyTransform(comp.meshData, mirror);
       result.push({
         id: comp.id + '_mirror', label: comp.label + ' (mirror)',
