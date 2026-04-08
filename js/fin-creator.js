@@ -15,6 +15,7 @@ const HIT_R = IS_TOUCH ? 22 : 10;
 const FIN_PRESETS = {
   dorsal_pointed: {
     label: 'Dorsal (pointed)',
+    defaultPos: { x: 0, y: 1.3, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.1, y: 0.3 }, { x: 0.3, y: 0.85 },
       { x: 0.4, y: 1.0 }, { x: 0.55, y: 0.7 }, { x: 0.75, y: 0.3 }, { x: 1, y: 0, fixed: true },
@@ -22,6 +23,7 @@ const FIN_PRESETS = {
   },
   dorsal_rounded: {
     label: 'Dorsal (rounded)',
+    defaultPos: { x: 0, y: 1.3, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.1, y: 0.5 }, { x: 0.3, y: 0.9 },
       { x: 0.5, y: 1.0 }, { x: 0.7, y: 0.9 }, { x: 0.9, y: 0.5 }, { x: 1, y: 0, fixed: true },
@@ -29,6 +31,7 @@ const FIN_PRESETS = {
   },
   dorsal_sail: {
     label: 'Dorsal (sail)',
+    defaultPos: { x: 0, y: 1.3, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.05, y: 0.7 }, { x: 0.15, y: 1.0 },
       { x: 0.4, y: 0.85 }, { x: 0.65, y: 0.55 }, { x: 0.85, y: 0.25 }, { x: 1, y: 0, fixed: true },
@@ -36,6 +39,7 @@ const FIN_PRESETS = {
   },
   pectoral: {
     label: 'Pectoral',
+    defaultPos: { x: 0, y: 0, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.1, y: 0.4 }, { x: 0.3, y: 0.8 },
       { x: 0.5, y: 1.0 }, { x: 0.7, y: 0.85 }, { x: 0.85, y: 0.5 }, { x: 1, y: 0, fixed: true },
@@ -43,6 +47,7 @@ const FIN_PRESETS = {
   },
   anal: {
     label: 'Anal fin',
+    defaultPos: { x: 0, y: -1.0, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.15, y: 0.5 }, { x: 0.35, y: 0.8 },
       { x: 0.5, y: 1.0 }, { x: 0.7, y: 0.6 }, { x: 1, y: 0, fixed: true },
@@ -50,6 +55,7 @@ const FIN_PRESETS = {
   },
   caudal_fork: {
     label: 'Caudal (forked)',
+    defaultPos: { x: 3.5, y: 0, z: 0 },
     points: [
       { x: 0, y: 0, fixed: true }, { x: 0.05, y: 0.7 }, { x: 0.15, y: 1.0 },
       { x: 0.3, y: 0.6 }, { x: 0.5, y: 0.3 }, { x: 0.7, y: 0.6 },
@@ -347,10 +353,12 @@ function finalize() {
   const mesh = buildFinMesh();
   console.log(`[FinCreator] Built: ${mesh.vertCount} verts, ${mesh.triCount} tris, ${baseLength}×${maxHeight}×${thickness}mm`);
 
+  const preset = FIN_PRESETS[currentPreset];
   addComponent({
-    label: FIN_PRESETS[currentPreset]?.label || 'Custom Fin',
+    label: preset?.label || 'Custom Fin',
     category: 'fin',
     meshData: { numProp: 3, vertProperties: mesh.vertProperties, triVerts: mesh.triVerts },
+    autoPosition: preset?.defaultPos || { x: 0, y: 0, z: 0 },
   });
 
   if (onDoneCallback) onDoneCallback();
