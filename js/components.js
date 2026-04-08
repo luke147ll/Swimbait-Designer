@@ -287,11 +287,32 @@ export function renderComponentList() {
         inner.appendChild(makeSlider('Z', comp.position.z, -3, 3, 0.02, v => updateComponent(comp.id, { position: { z: v } })));
       }));
 
-      // Rotation (collapsed by default)
+      // Rotation (collapsed by default) with 90° snap buttons
       body.appendChild(collapsibleSection('Rotation', 'rotation', inner => {
-        inner.appendChild(makeSlider('X°', comp.rotation.x, -180, 180, 1, v => updateComponent(comp.id, { rotation: { x: v } })));
-        inner.appendChild(makeSlider('Y°', comp.rotation.y, -180, 180, 1, v => updateComponent(comp.id, { rotation: { y: v } })));
-        inner.appendChild(makeSlider('Z°', comp.rotation.z, -180, 180, 1, v => updateComponent(comp.id, { rotation: { z: v } })));
+        function rotRow(axis, val) {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px';
+          // Snap buttons
+          const snapBtns = document.createElement('div');
+          snapBtns.style.cssText = 'display:flex;gap:2px;flex-shrink:0';
+          for (const deg of [-90, 0, 90, 180]) {
+            const btn = document.createElement('button');
+            btn.className = 'tb' + (Math.round(val) === deg ? ' on' : '');
+            btn.style.cssText = 'padding:2px 5px;font-size:8px;min-width:28px';
+            btn.textContent = deg + '°';
+            btn.onclick = () => updateComponent(comp.id, { rotation: { [axis]: deg } });
+            snapBtns.appendChild(btn);
+          }
+          row.appendChild(snapBtns);
+          // Fine slider
+          const slider = makeSlider(axis.toUpperCase(), val, -180, 180, 1, v => updateComponent(comp.id, { rotation: { [axis]: v } }));
+          slider.style.flex = '1';
+          row.appendChild(slider);
+          return row;
+        }
+        inner.appendChild(rotRow('x', comp.rotation.x));
+        inner.appendChild(rotRow('y', comp.rotation.y));
+        inner.appendChild(rotRow('z', comp.rotation.z));
       }));
 
       // Mirror + auto-pair
@@ -474,23 +495,44 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
 
     console.log('[Parts] Loaded:', partData.name, '— verts:', partData.mesh.vertProperties.length / 3);
 
+    // Bake library defaults (position, rotation, scale) into the mesh vertices
+    // so the UI sliders start at neutral (scale=1, pos=0, rot=0)
+    const d = partData.defaults;
     const s = partData.sizing.defaultScale || 1;
+    const mat = new THREE.Matrix4();
+    const euler = new THREE.Euler(
+      (d.rotationX || 0) * Math.PI / 180,
+      (d.rotationY || 0) * Math.PI / 180,
+      (d.rotationZ || 0) * Math.PI / 180
+    );
+    mat.compose(
+      new THREE.Vector3(d.positionX || 0, d.positionY || 0, d.positionZ || 0),
+      new THREE.Quaternion().setFromEuler(euler),
+      new THREE.Vector3(s, s, s)
+    );
+
+    const srcVerts = partData.mesh.vertProperties;
+    const bakedVerts = new Array(srcVerts.length);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < srcVerts.length; i += 3) {
+      v.set(srcVerts[i], srcVerts[i + 1], srcVerts[i + 2]).applyMatrix4(mat);
+      bakedVerts[i] = v.x; bakedVerts[i + 1] = v.y; bakedVerts[i + 2] = v.z;
+    }
+
+    // Flip winding if negative scale determinant
+    const bakedTris = Array.from(partData.mesh.triVerts);
+    if (s < 0) {
+      for (let i = 0; i < bakedTris.length; i += 3) {
+        const tmp = bakedTris[i + 1]; bakedTris[i + 1] = bakedTris[i + 2]; bakedTris[i + 2] = tmp;
+      }
+    }
+
     addComponent({
       partId: partId,
       label: partData.name,
       category: category || partData.category || 'custom',
-      meshData: partData.mesh,
-      autoPosition: {
-        x: partData.defaults.positionX || 0,
-        y: partData.defaults.positionY || 0,
-        z: partData.defaults.positionZ || 0,
-      },
-      autoRotation: {
-        x: partData.defaults.rotationX || 0,
-        y: partData.defaults.rotationY || 0,
-        z: partData.defaults.rotationZ || 0,
-      },
-      autoScale: { x: s, y: s, z: s },
+      meshData: { numProp: 3, vertProperties: bakedVerts, triVerts: bakedTris },
+      // UI starts at neutral — defaults are baked into mesh
     });
   } catch (e) {
     console.error('[Parts] Load failed:', e);
