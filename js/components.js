@@ -365,7 +365,12 @@ export function buildComponentTransferData() {
 }
 
 function applyTransform(meshData, comp) {
-  // Build transform: position (inches) + rotation + scale + mirror
+  // Mesh vertices have library defaults already baked in (viewport inches).
+  // User transform (position/rotation/scale from sliders) is applied on top.
+  // Position slider is in inches. Final output must be in mm for mold generator.
+  //
+  // Strategy: apply user rotation+scale around origin, then add user position,
+  // then convert everything to mm.
   const mat = new THREE.Matrix4();
   const euler = new THREE.Euler(
     comp.rotation.x * Math.PI / 180,
@@ -377,9 +382,9 @@ function applyTransform(meshData, comp) {
     comp.scale.y * (comp.mirrorY ? -1 : 1),
     comp.scale.z * (comp.mirrorZ ? -1 : 1)
   );
-  // Position in inches — same coordinate space as viewport
+  // Position in mm (convert slider inches to mm for the mold coordinate system)
   mat.compose(
-    new THREE.Vector3(comp.position.x, comp.position.y, comp.position.z),
+    new THREE.Vector3(comp.position.x * 25.4, comp.position.y * 25.4, comp.position.z * 25.4),
     new THREE.Quaternion().setFromEuler(euler),
     s
   );
@@ -387,9 +392,9 @@ function applyTransform(meshData, comp) {
   const vp = new Float32Array(meshData.vertProperties);
   const v = new THREE.Vector3();
   for (let i = 0; i < vp.length; i += 3) {
-    v.set(vp[i], vp[i + 1], vp[i + 2]).applyMatrix4(mat);
-    // Convert from viewport inches to mm (bait mesh is in mm)
-    vp[i] = v.x * 25.4; vp[i + 1] = v.y * 25.4; vp[i + 2] = v.z * 25.4;
+    // Vertices are in viewport inches (baked) — convert to mm first, then apply transform
+    v.set(vp[i] * 25.4, vp[i + 1] * 25.4, vp[i + 2] * 25.4).applyMatrix4(mat);
+    vp[i] = v.x; vp[i + 1] = v.y; vp[i + 2] = v.z;
   }
 
   const tv = Array.from(meshData.triVerts);
