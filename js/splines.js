@@ -93,8 +93,7 @@ const BASE_D = [
   { t: 0.0298, v: 0.060189 }, { t: 0.0517, v: 0.085628 },
   { t: 0.0952, v: 0.100067 }, { t: 0.2400, v: 0.109956 },
   { t: 0.3400, v: 0.107266 }, { t: 0.5600, v: 0.065320 },
-  { t: 0.7400, v: 0.048160 }, { t: 0.8300, v: 0.045000 },
-  { t: 0.8700, v: 0.042720 }, { t: 0.9100, v: 0.043500 },
+  { t: 0.7400, v: 0.048160 }, { t: 0.8700, v: 0.042720 },
   { t: 0.9287, v: 0.046128 }, { t: 0.9584, v: 0.086168 },
   { t: 1.0000, v: 0.160829 },
 ];
@@ -104,9 +103,8 @@ const BASE_V = [
   { t: 0.0249, v: -0.053174 }, { t: 0.0450, v: -0.070053 },
   { t: 0.0800, v: -0.077679 }, { t: 0.2400, v: -0.081493 },
   { t: 0.3400, v: -0.071959 }, { t: 0.5600, v: -0.053944 },
-  { t: 0.7400, v: -0.043746 }, { t: 0.8300, v: -0.043200 },
-  { t: 0.8700, v: -0.042720 }, { t: 0.9100, v: -0.044000 },
-  { t: 0.9400, v: -0.055000 }, { t: 0.9700, v: -0.116876 },
+  { t: 0.7400, v: -0.043746 }, { t: 0.8700, v: -0.042720 },
+  { t: 0.9400, v: -0.035056 }, { t: 0.9700, v: -0.116876 },
   { t: 1.0000, v: -0.160033 },
 ];
 
@@ -115,8 +113,7 @@ const BASE_W = [
   { t: 0.0200, v: 0.038626 }, { t: 0.0450, v: 0.056638 },
   { t: 0.0800, v: 0.068933 }, { t: 0.2400, v: 0.074339 },
   { t: 0.3400, v: 0.057604 }, { t: 0.5600, v: 0.051046 },
-  { t: 0.7400, v: 0.038317 }, { t: 0.8300, v: 0.028000 },
-  { t: 0.8700, v: 0.022214 }, { t: 0.9100, v: 0.020000 },
+  { t: 0.7400, v: 0.038317 }, { t: 0.8700, v: 0.022214 },
   { t: 0.9400, v: 0.018746 }, { t: 0.9700, v: 0.012178 },
   { t: 1.0000, v: 0.009561 },
 ];
@@ -139,7 +136,6 @@ export function buildProfilesFromSliders(p) {
   const s7t = girthPos + (stalkStart - girthPos) * p.BT;
   const taperF = 0.65 + p.BT * 0.35;
 
-  const preStalk = 1.0 - p.SL - 0.18;
   const scales = [
     [snoutR * depthR,  snoutR * depthR * bellyR,  snoutR * widthR,  null],
     [snoutR * depthR,  snoutR * depthR * bellyR,  snoutR * widthR,  null],
@@ -150,9 +146,7 @@ export function buildProfilesFromSliders(p) {
     [depthR * archR,   depthR * bellyR,           widthR,           girthPos],
     [depthR * taperF,  depthR * taperF,           widthR * taperF,  s7t],
     [depthR * 0.85,    depthR * 0.85,             widthR * 0.75,    stalkStart],
-    [depthR * 0.88,    depthR * 0.88,             widthR * 0.65,    preStalk],
     [pedDR,            pedDR,                     pedWR,            stalkMid],
-    [pedDR,            pedDR,                     pedWR,            null],
     [pedDR,            pedDR,                     pedWR,            null],
     [pedDR,            pedDR,                     pedWR,            null],
     [pedDR,            pedDR,                     pedWR,            null],
