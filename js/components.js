@@ -231,12 +231,13 @@ export function renderComponentList() {
 
     // Header
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;padding:6px 8px;cursor:pointer;gap:6px';
+    header.style.cssText = 'display:flex;align-items:center;padding:8px 10px;cursor:pointer;gap:6px';
+    const isExpanded = !comp.collapsed && comp.selected;
     header.innerHTML = `
-      <span style="width:8px;height:8px;border-radius:50%;border:1.5px solid ${comp.selected ? 'var(--ac)' : 'var(--mu)'};background:${comp.selected ? 'var(--ac)' : 'transparent'};flex-shrink:0"></span>
-      <span style="flex:1;font-size:11px;color:var(--tx)">${comp.label} <span style="font-size:8px;color:var(--mu)">${comp.category}</span></span>
-      <span style="font-size:10px;cursor:pointer;color:${comp.visible ? 'var(--ac)' : 'var(--mu)'}" onclick="event.stopPropagation();toggleComponentVisibility('${comp.id}')">${comp.visible ? '👁' : '◌'}</span>
-      <span style="font-size:10px;cursor:pointer;color:var(--mu)" onclick="event.stopPropagation();deleteComponent('${comp.id}')">✕</span>
+      <span style="font-size:10px;color:var(--mu);flex-shrink:0">${isExpanded ? '▾' : '▸'}</span>
+      <span style="flex:1;font-size:11px;color:${comp.selected ? 'var(--ac)' : 'var(--tx)'}">${comp.label} <span style="font-size:8px;color:var(--mu)">${comp.category}</span></span>
+      <span style="font-size:12px;cursor:pointer;color:${comp.visible ? 'var(--ac)' : 'var(--mu)'}; padding:2px 4px" onclick="event.stopPropagation();toggleComponentVisibility('${comp.id}')" title="Toggle visibility">${comp.visible ? '👁' : '◌'}</span>
+      <span style="font-size:12px;cursor:pointer;color:${comp._deleteConfirm ? '#e55' : 'var(--mu)'};padding:2px 4px" onclick="event.stopPropagation();deleteComponent('${comp.id}')" title="Delete component">🗑</span>
     `;
     header.onclick = () => { selectComponent(comp.id); renderComponentList(); };
     section.appendChild(header);
@@ -270,8 +271,8 @@ export function renderComponentList() {
         inner.appendChild(makeSlider('Uniform', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v, y: v, z: v } })));
         // Non-uniform toggle
         const nuBtn = document.createElement('div');
-        nuBtn.style.cssText = 'margin-top:2px';
-        nuBtn.innerHTML = `<span style="font-size:8px;color:var(--mu);cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();toggleComponentSection('${comp.id}','scaleXYZ')">${comp._openSections.scaleXYZ ? '▾ Per-axis' : '▸ Per-axis'}</span>`;
+        nuBtn.style.cssText = 'margin-top:4px';
+        nuBtn.innerHTML = `<span style="font-size:10px;color:var(--ac);cursor:pointer;letter-spacing:0.5px" onclick="event.stopPropagation();toggleComponentSection('${comp.id}','scaleXYZ')">${comp._openSections.scaleXYZ ? '▾ Per-axis scale' : '▸ Per-axis scale'}</span>`;
         inner.appendChild(nuBtn);
         if (comp._openSections.scaleXYZ) {
           inner.appendChild(makeSlider('X', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v } })));
