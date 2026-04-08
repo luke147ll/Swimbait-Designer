@@ -6,6 +6,7 @@
  * transfer to the mold generator as separate subtractions.
  */
 import * as THREE from 'https://esm.sh/three@0.162.0';
+import { openFinCreator } from './fin-creator.js';
 
 const CATEGORY_COLORS = {
   head:    0x8a9aaa,
@@ -454,6 +455,15 @@ window.deleteComponent = function(id) {
 
 // Show part picker dialog for a category
 window.addComponentFromSTL = function(category) {
+  // Fin category with no library parts — go straight to fin creator
+  if (category === 'fin') {
+    const libraryFins = partsIndex ? partsIndex.parts.filter(p => p.category === 'fin') : [];
+    if (libraryFins.length === 0) {
+      openFinCreatorDialog();
+      return;
+    }
+  }
+
   // Check if library has parts for this category
   const libraryParts = partsIndex ? partsIndex.parts.filter(p => p.category === category) : [];
 
@@ -484,10 +494,43 @@ window.addComponentFromSTL = function(category) {
     <div style="font-size:11px;color:var(--mu)">+ Import custom STL</div>
   </div>`;
 
+  // Fin creator option for fin category
+  if (category === 'fin') {
+    html += `<div class="tb on" style="display:block;padding:8px;margin-bottom:4px;cursor:pointer;text-align:left;background:var(--ac);color:var(--bg)" onclick="document.getElementById('partPickerDialog').remove();openFinCreatorDialog()">
+      <div style="font-size:11px;font-weight:700">Create Custom Fin</div>
+      <div style="font-size:9px;opacity:0.7">Draw a fin outline with spline controls</div>
+    </div>`;
+  }
+
   html += `<div style="text-align:right;margin-top:8px"><button class="tb" style="padding:4px 10px;font-size:9px" onclick="document.getElementById('partPickerDialog').remove()">Cancel</button></div>`;
 
   dialog.innerHTML = html;
   document.body.appendChild(dialog);
+};
+
+// Open fin creator in a modal dialog
+window.openFinCreatorDialog = function() {
+  const existing = document.getElementById('finCreatorDialog');
+  if (existing) existing.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'finCreatorDialog';
+  dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:0;width:320px;max-height:90vh;overflow-y:auto;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--bd)';
+  header.innerHTML = `<span style="font-size:11px;color:var(--ac);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">Fin Creator</span>
+    <span style="cursor:pointer;color:var(--mu);font-size:14px" onclick="document.getElementById('finCreatorDialog').remove()">✕</span>`;
+  dialog.appendChild(header);
+
+  const body = document.createElement('div');
+  dialog.appendChild(body);
+  document.body.appendChild(dialog);
+
+  openFinCreator(body, () => {
+    dialog.remove();
+    renderComponentList();
+  });
 };
 
 // Load a part from the library
