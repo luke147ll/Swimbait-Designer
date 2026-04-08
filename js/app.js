@@ -369,9 +369,13 @@ function update(resolution) {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
 
-  // Skip profile regeneration if an imported mesh is active —
-  // sliders don't drive the profile in import mode
-  if (!importedMeshActive) {
+  // Skip profile regeneration if:
+  // - An imported mesh is active
+  // - Manual profile edits exist (deltas would be destroyed by slider regen)
+  const hasManualEdits = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
+                         profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
+                         profileState.wDelta.some(d => Math.abs(d) > 0.0001);
+  if (!importedMeshActive && !hasManualEdits) {
     const base = buildProfilesFromSliders(p);
     while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
     while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
