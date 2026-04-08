@@ -18,6 +18,15 @@
       "fileUrl": "/parts/tails/tail-1-v1.json",
       "thumbnail": "",
       "fileSizeKB": 5620
+    },
+    {
+      "id": "tail-2-v1",
+      "name": "Tail 2",
+      "category": "tail",
+      "description": "High-detail tail",
+      "fileUrl": "/parts/tails/tail-2-v1.json",
+      "thumbnail": "",
+      "fileSizeKB": 32258
     }
   ]
 }
