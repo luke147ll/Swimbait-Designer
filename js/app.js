@@ -346,26 +346,9 @@ function update(resolution) {
   const p = getParams();
   const L = p.OL;
 
-  // Display values
-  document.getElementById('vOL').textContent = L.toFixed(1) + '"';
-  document.getElementById('vBD').textContent = p.BD.toFixed(2);
-  document.getElementById('vWR').textContent = p.WR.toFixed(2);
-  document.getElementById('vGP').textContent = Math.round(p.GP * 100) + '%';
-  document.getElementById('vHL').textContent = Math.round(p.HL * 100) + '%';
-  document.getElementById('vSB').textContent = p.SB.toFixed(2);
-  document.getElementById('vHW').textContent = p.HW.toFixed(2);
-  document.getElementById('vDA').textContent = p.DA.toFixed(2);
-  document.getElementById('vBF').textContent = p.BF.toFixed(2);
-  document.getElementById('vBT').textContent = p.BT.toFixed(2);
-  document.getElementById('vSL').textContent = Math.round(p.SL * 100) + '%';
-  document.getElementById('vSD').textContent = p.SD.toFixed(2);
-  document.getElementById('vSC').textContent = p.SC.toFixed(2);
-  document.getElementById('vTT').textContent = p.TT.toFixed(2);
-  document.getElementById('vFD').textContent = p.FD.toFixed(2);
-  document.getElementById('vFA').textContent = p.FA.toFixed(2);
-  document.getElementById('vEP').textContent = (p.EP * 100).toFixed(0) + '%';
-  document.getElementById('vES').textContent = p.ES.toFixed(2);
-  document.getElementById('vEB').textContent = p.EB.toFixed(2);
+  // Display values (only OL is visible, others removed)
+  const vOL = document.getElementById('vOL');
+  if (vOL) vOL.textContent = L.toFixed(1) + '"';
 
   // Skip profile regeneration if profile was manually edited or imported.
   // The profile points ARE the source of truth — sliders can't overwrite them.
