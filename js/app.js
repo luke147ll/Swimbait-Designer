@@ -334,11 +334,9 @@ function rebuildScene(resolution) {
   // Profile mode badge
   const badge = document.getElementById('profileMode');
   if (badge) {
-    const hasDeltas = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
-                      profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
-                      profileState.wDelta.some(d => Math.abs(d) > 0.0001);
-    badge.textContent = hasDeltas ? 'EDITED' : 'BASE';
-    badge.className = 'ed-mode ' + (hasDeltas ? 'manual' : 'sliders');
+    const edited = profileState._manuallyEdited || importedMeshActive;
+    badge.textContent = importedMeshActive ? 'IMPORTED' : edited ? 'EDITED' : 'BASE';
+    badge.className = 'ed-mode ' + (edited ? 'manual' : 'sliders');
   }
 }
 
@@ -369,13 +367,9 @@ function update(resolution) {
   document.getElementById('vES').textContent = p.ES.toFixed(2);
   document.getElementById('vEB').textContent = p.EB.toFixed(2);
 
-  // Skip profile regeneration if:
-  // - An imported mesh is active
-  // - Manual profile edits exist (deltas would be destroyed by slider regen)
-  const hasManualEdits = profileState.dDelta.some(d => Math.abs(d) > 0.0001) ||
-                         profileState.vDelta.some(d => Math.abs(d) > 0.0001) ||
-                         profileState.wDelta.some(d => Math.abs(d) > 0.0001);
-  if (!importedMeshActive && !hasManualEdits) {
+  // Skip profile regeneration if profile was manually edited or imported.
+  // The profile points ARE the source of truth — sliders can't overwrite them.
+  if (!importedMeshActive && !profileState._manuallyEdited) {
     const base = buildProfilesFromSliders(p);
     while (profileState.dDelta.length < base.dorsal.length) profileState.dDelta.push(0);
     while (profileState.vDelta.length < base.ventral.length) profileState.vDelta.push(0);
@@ -458,19 +452,9 @@ function showStationRing(stationIdx) {
 }
 
 function onProfileEdit() {
-  if (importedMeshActive) {
-    // Import mode: splines directly drive mesh deformation, no delta tracking needed
-    rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
-    rebuildScene('draft');
-    rebuildDraftThenUpgrade();
-    return;
-  }
-  const base = buildProfilesFromSliders(getParams());
-  for (let i = 0; i < base.dorsal.length; i++) {
-    profileState.dDelta[i] = (profileState.dorsal[i]?.v ?? base.dorsal[i].v) - base.dorsal[i].v;
-    profileState.vDelta[i] = (profileState.ventral[i]?.v ?? base.ventral[i].v) - base.ventral[i].v;
-    profileState.wDelta[i] = (profileState.width[i]?.v ?? base.width[i].v) - base.width[i].v;
-  }
+  // Profile points were edited directly — they ARE the source of truth now.
+  // Mark as manually edited so sliders don't overwrite.
+  profileState._manuallyEdited = true;
   rebuildProfileCache(profileState, 2.2, +document.getElementById('sHL').value);
   rebuildScene('draft');
   rebuildDraftThenUpgrade();
@@ -492,6 +476,8 @@ function loadPreset(name) {
   profileState.dDelta = [];
   profileState.vDelta = [];
   profileState.wDelta = [];
+  profileState._manuallyEdited = false;
+  importedMeshActive = false;
   update();
 }
 
