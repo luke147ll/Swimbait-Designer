@@ -119,7 +119,7 @@ function renderSlotUI() {
             <option value="5" ${slot.depth === 5 ? 'selected' : ''}>Custom</option>
           </select></div>
         ${slot.depth !== 'through' ? `<div class="c"><div class="cr"><label>Depth mm</label><span class="v">${slot.depth}</span></div>
-          <input type="range" min="2" max="30" step="0.5" value="${slot.depth}" oninput="updateSlot(${idx},'depth',this.value)"></div>` : ''}
+          <input type="range" min="2" max="60" step="0.5" value="${slot.depth}" oninput="updateSlot(${idx},'depth',this.value)"></div>` : ''}
         <div class="c"><div class="cr"><label>Position Y</label><span class="v">${slot.positionY.toFixed(1)}</span></div>
           <input type="range" min="${-halfLen}" max="${halfLen}" step="0.5" value="${slot.positionY}" oninput="updateSlot(${idx},'positionY',this.value)"></div>
         <div class="c"><div class="cr"><label>Position Z</label><span class="v">${slot.positionZ.toFixed(1)}</span></div>
