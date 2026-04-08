@@ -500,8 +500,8 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
 
     console.log('[Parts] Loaded:', partData.name, '— verts:', partData.mesh.vertProperties.length / 3);
 
-    // Bake library defaults (position, rotation, scale) into the mesh vertices
-    // so the UI sliders start at neutral (scale=1, pos=0, rot=0)
+    // Bake only rotation and scale into mesh vertices.
+    // Position stays as a UI value so it transfers correctly to mm.
     const d = partData.defaults;
     const s = partData.sizing.defaultScale || 1;
     const mat = new THREE.Matrix4();
@@ -510,8 +510,9 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
       (d.rotationY || 0) * Math.PI / 180,
       (d.rotationZ || 0) * Math.PI / 180
     );
+    // No position in the bake — only rotation + scale
     mat.compose(
-      new THREE.Vector3(d.positionX || 0, d.positionY || 0, d.positionZ || 0),
+      new THREE.Vector3(0, 0, 0),
       new THREE.Quaternion().setFromEuler(euler),
       new THREE.Vector3(s, s, s)
     );
@@ -537,7 +538,12 @@ window.loadLibraryPart = async function(partId, fileUrl, category) {
       label: partData.name,
       category: category || partData.category || 'custom',
       meshData: { numProp: 3, vertProperties: bakedVerts, triVerts: bakedTris },
-      // UI starts at neutral — defaults are baked into mesh
+      // Position from library defaults — NOT baked, shown on UI slider
+      autoPosition: {
+        x: d.positionX || 0,
+        y: d.positionY || 0,
+        z: d.positionZ || 0,
+      },
     });
   } catch (e) {
     console.error('[Parts] Load failed:', e);
