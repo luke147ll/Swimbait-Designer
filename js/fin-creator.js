@@ -220,10 +220,11 @@ function buildFinMesh() {
   const vp = new Float32Array(N * 2 * 3);
   const tris = [];
 
+  const S = 1 / 25.4; // mm → inches for viewport
   for (let i = 0; i < N; i++) {
-    const px = outline[i].x * baseLength - baseLength / 2;
-    const py = outline[i].y * maxHeight;
-    const ht = tapered ? thickness * (1 - outline[i].y * 0.7) : thickness;
+    const px = (outline[i].x * baseLength - baseLength / 2) * S;
+    const py = outline[i].y * maxHeight * S;
+    const ht = (tapered ? thickness * (1 - outline[i].y * 0.7) : thickness) * S;
     const hz = ht / 2;
 
     vp[i * 3] = px;
