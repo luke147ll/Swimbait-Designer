@@ -9,6 +9,7 @@ import { AlignmentPanel } from './ui/panels/AlignmentPanel';
 import { SpruePanel } from './ui/panels/SpruePanel';
 // import { VentPanel } from './ui/panels/VentPanel'; // removed for soft launch
 import { ClampPanel } from './ui/panels/ClampPanel';
+import { SlotPanel } from './ui/panels/SlotPanel';
 import { ExportPanel } from './ui/panels/ExportPanel';
 import { AccordionPanel } from './ui/shared/AccordionPanel';
 import { useMoldEngine } from './hooks/useMoldEngine';
@@ -47,6 +48,7 @@ function App() {
             <AlignmentPanel />
             <SpruePanel />
             <ClampPanel />
+            <SlotPanel />
             <ExportPanel />
           </div>
 

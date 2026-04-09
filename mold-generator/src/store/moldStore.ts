@@ -39,6 +39,11 @@ export const useMoldStore = create<MoldState>((set) => ({
   setTexturedBaitMesh: (mesh: THREE.BufferGeometry | null) => set({ texturedBaitMesh: mesh }),
   setTextureConfig: (config: TextureConfig | null) => set({ textureConfig: config }),
   setSlotConfigs: (configs) => set({ slotConfigs: configs }),
+  updateSlotConfig: (index, partial) => set((s) => {
+    const updated = [...s.slotConfigs];
+    updated[index] = { ...updated[index], ...partial };
+    return { slotConfigs: updated };
+  }),
   setInsertCards: (cards) => set({ insertCards: cards }),
   setAlignmentPins: (pins) => set({ alignmentPins: pins }),
   setWatermarkEnabled: (enabled) => set({ watermarkEnabled: enabled }),

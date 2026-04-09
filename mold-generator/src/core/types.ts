@@ -192,6 +192,7 @@ export interface MoldState {
   setTexturedBaitMesh: (mesh: THREE.BufferGeometry | null) => void;
   setTextureConfig: (config: TextureConfig | null) => void;
   setSlotConfigs: (configs: SlotConfig[]) => void;
+  updateSlotConfig: (index: number, partial: Partial<SlotConfig>) => void;
   setInsertCards: (cards: InsertCard[]) => void;
   setAlignmentPins: (pins: AlignmentPin[]) => void;
   setWatermarkEnabled: (enabled: boolean) => void;
