@@ -24,6 +24,8 @@ export interface MoldDimensions {
   boxX: number;
   boxY: number;
   boxZ: number;
+  cx: number;
+  cy: number;
 }
 
 export class BaitSubtraction {
@@ -113,6 +115,6 @@ export class BaitSubtraction {
     const elapsed = (performance.now() - startTime).toFixed(1);
     console.log(`[BaitSubtraction] Done in ${elapsed}ms`);
 
-    return { halfA, halfB, dims: { boxX, boxY, boxZ: halfZ } };
+    return { halfA, halfB, dims: { boxX, boxY, boxZ: halfZ, cx, cy } };
   }
 }

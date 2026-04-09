@@ -145,7 +145,7 @@ export class MoldEngine {
     if (state.watermarkEnabled) {
       console.log('[MoldEngine] Step 8.7: Watermark');
       const { applyWatermarks } = await import('./geometry/Watermark');
-      ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ));
+      ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ, 1.5, dims.cx, dims.cy));
     }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)

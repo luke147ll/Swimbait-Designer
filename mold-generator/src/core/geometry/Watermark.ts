@@ -88,6 +88,8 @@ export function applyWatermarks(
   moldHtY: number,
   halfZ: number,
   depth: number = 1.5,
+  centerX: number = 0,
+  centerY: number = 0,
 ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
   const margin = 10;
   const availW = moldLenX - margin * 2;
@@ -100,7 +102,7 @@ export function applyWatermarks(
     let text = buildTextSolid('SWIMBAIT', unitSize, totalW, totalH, depth);
     // Mirror X so text reads correctly when viewing -Z face (mold flipped over)
     text = text.scale([-1, 1, 1]);
-    const positioned = text.translate([0, 0, -halfZ + depth / 2]);
+    const positioned = text.translate([centerX, centerY, -halfZ + depth / 2]);
     halfA = mSubtract(halfA, positioned);
   }
 
@@ -109,7 +111,7 @@ export function applyWatermarks(
     const { unitSize, totalW, totalH } = calculateScale('DESIGNER', availW, availH);
     console.log(`[Watermark] "DESIGNER" — unit: ${unitSize.toFixed(2)}mm, size: ${totalW.toFixed(1)}×${totalH.toFixed(1)}mm`);
     const text = buildTextSolid('DESIGNER', unitSize, totalW, totalH, depth);
-    const positioned = text.translate([0, 0, halfZ - depth / 2]);
+    const positioned = text.translate([centerX, centerY, halfZ - depth / 2]);
     halfB = mSubtract(halfB, positioned);
   }
 
