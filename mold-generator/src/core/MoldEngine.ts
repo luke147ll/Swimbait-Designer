@@ -152,7 +152,7 @@ export class MoldEngine {
     {
       const pryLen = 15; // mm along the body axis
       const pryWidth = 2; // mm wide
-      const pryDepth = 2; // mm deep into the parting face
+      const pryDepth = 4; // mm deep into the parting face
       // Top edge of the actual mold box
       const topY = dims.cy + dims.boxY / 2;
 
