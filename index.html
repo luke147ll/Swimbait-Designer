@@ -31,6 +31,18 @@
 
   <div class="sec" style="display:flex;gap:6px;flex-wrap:wrap">
     <button class="tb" onclick="importSTLFile()" style="padding:6px 10px">Import STL</button>
+    <button class="tb" onclick="uploadReferencePhoto()" style="padding:6px 10px">Reference Photo</button>
+  </div>
+  <div class="sec" id="refPhotoControls" style="display:none">
+    <div class="st">Reference Photo</div>
+    <div style="display:flex;gap:4px;margin-bottom:6px">
+      <button class="tb" onclick="toggleRefPhoto()" id="refVisBtn" style="padding:5px 8px;font-size:9px;flex:1">Hide</button>
+      <button class="tb" onclick="removeRefPhoto()" style="padding:5px 8px;font-size:9px;flex:1;color:var(--rd)">Remove</button>
+    </div>
+    <div class="c"><div class="cr"><label>Opacity</label><span class="v" id="vRefOp">50%</span></div><input type="range" id="sRefOp" min="5" max="100" step="5" value="50" oninput="setRefOpacity(this.value)"></div>
+    <div class="c"><div class="cr"><label>Scale</label><span class="v" id="vRefSc">100%</span></div><input type="range" id="sRefSc" min="10" max="300" step="5" value="100" oninput="setRefScale(this.value)"></div>
+    <div class="c"><div class="cr"><label>Offset X</label><span class="v" id="vRefOx">0</span></div><input type="range" id="sRefOx" min="-5" max="5" step="0.05" value="0" oninput="setRefOffsetX(this.value)"></div>
+    <div class="c"><div class="cr"><label>Offset Y</label><span class="v" id="vRefOy">0</span></div><input type="range" id="sRefOy" min="-3" max="3" step="0.05" value="0" oninput="setRefOffsetY(this.value)"></div>
   </div>
   <div class="sec" id="importOrientControls" style="display:none">
     <div class="st">Adjust import orientation</div>
@@ -104,6 +116,14 @@
         <button class="tb" onclick="addComponentFromSTL('fin')" style="padding:6px;font-size:9px">+ Fin</button>
         <button class="tb" onclick="addComponentFromSTL('feature')" style="padding:6px;font-size:9px">+ Feature</button>
       </div>
+      <div style="margin-top:6px;font-size:9px;color:var(--mu);letter-spacing:1px;text-transform:uppercase">Primitives</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px">
+        <button class="tb" onclick="addPrimitive('sphere')" style="padding:6px;font-size:8px">Sphere</button>
+        <button class="tb" onclick="addPrimitive('box')" style="padding:6px;font-size:8px">Box</button>
+        <button class="tb" onclick="addPrimitive('tube')" style="padding:6px;font-size:8px">Tube</button>
+        <button class="tb" onclick="addPrimitive('cone')" style="padding:6px;font-size:8px">Cone</button>
+        <button class="tb" onclick="addPrimitive('torus')" style="padding:6px;font-size:8px">Torus</button>
+      </div>
     </div>
   </div>
 
@@ -147,8 +167,7 @@
       <div class="esu" id="authUsername"></div>
     </div>
     <button class="eb" style="background:var(--ac);margin-top:6px" onclick="sendToMoldGenerator()">▶ Generate Mold</button>
-    <button class="eb" disabled style="opacity:.4;cursor:default;margin-top:6px">Export master STL</button>
-    <div class="esu">Coming soon</div>
+    <button class="eb" style="margin-top:6px" onclick="exportMasterSTL()">Export master STL</button>
   </div>
 </div>
 

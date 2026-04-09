@@ -20,6 +20,7 @@ import { analyzeMesh, deformMesh } from './mesh-deform.js';
 import { initUndo, recordChange, recordChangeNow } from './undo.js';
 import { initEyeSockets, eyeConfig, updateEyeIndicators, buildEyeCylinderData, renderEyeControls } from './eye-sockets.js';
 import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp, onViewportClick } from './components.js';
+import { exportSTL } from './export-stl.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
 let importedRawVerts = null; // raw parsed vertices for re-extracting after flip/rotate
@@ -28,6 +29,8 @@ let importedMeshActive = false; // true = viewport shows imported STL, not tube 
 let importOrientPhase = false;  // true = user is adjusting orientation, deformation disabled
 let meshAnalysis = null;       // reference profile from analyzeMesh
 let originalPositions = null;  // Float32Array of original vertex positions
+let refPhotoMesh = null;       // reference photo plane mesh
+let refPhotoVisible = true;
 let tailType = 'paddle', baitColor = 0x7a8e9a, showEyes = false;
 let drag = false, px = 0, py = 0, ot = 0.55, op = 0.42, od = 9;
 let orbitCenter = new THREE.Vector3(0, -0.15, 0);
@@ -1471,6 +1474,127 @@ window._sbd_syncSlotFromGizmo = function(mesh) {
   slots[idx].positionZ = +(mesh.position.y * scale).toFixed(1);
   slots[idx].positionX = +(mesh.position.z * scale).toFixed(1);
   renderSlotUI();
+};
+
+// ── Feature: Reference Photo Overlay ──
+
+window.uploadReferencePhoto = function() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const file = inp.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        if (refPhotoMesh) { scene.remove(refPhotoMesh); refPhotoMesh.geometry.dispose(); refPhotoMesh.material.dispose(); }
+        const tex = new THREE.Texture(img);
+        tex.needsUpdate = true;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const aspect = img.width / img.height;
+        const baitLen = +document.getElementById('sOL').value || 8;
+        const geo = new THREE.PlaneGeometry(baitLen, baitLen / aspect);
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+        refPhotoMesh = new THREE.Mesh(geo, mat);
+        refPhotoMesh.renderOrder = -1;
+        refPhotoMesh.position.set(0, 0, -1);
+        refPhotoVisible = true;
+        scene.add(refPhotoMesh);
+        document.getElementById('refPhotoControls').style.display = '';
+        document.getElementById('refVisBtn').textContent = 'Hide';
+        ren.render(scene, cam);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+};
+
+window.toggleRefPhoto = function() {
+  if (!refPhotoMesh) return;
+  refPhotoVisible = !refPhotoVisible;
+  refPhotoMesh.visible = refPhotoVisible;
+  document.getElementById('refVisBtn').textContent = refPhotoVisible ? 'Hide' : 'Show';
+  ren.render(scene, cam);
+};
+
+window.removeRefPhoto = function() {
+  if (refPhotoMesh) { scene.remove(refPhotoMesh); refPhotoMesh.geometry.dispose(); refPhotoMesh.material.dispose(); refPhotoMesh = null; }
+  document.getElementById('refPhotoControls').style.display = 'none';
+  ren.render(scene, cam);
+};
+
+window.setRefOpacity = function(v) {
+  if (refPhotoMesh) refPhotoMesh.material.opacity = v / 100;
+  document.getElementById('vRefOp').textContent = v + '%';
+  ren.render(scene, cam);
+};
+
+window.setRefScale = function(v) {
+  if (!refPhotoMesh) return;
+  const s = v / 100;
+  refPhotoMesh.scale.set(s, s, 1);
+  document.getElementById('vRefSc').textContent = v + '%';
+  ren.render(scene, cam);
+};
+
+window.setRefOffsetX = function(v) {
+  if (refPhotoMesh) refPhotoMesh.position.x = +v;
+  document.getElementById('vRefOx').textContent = (+v).toFixed(2);
+  ren.render(scene, cam);
+};
+
+window.setRefOffsetY = function(v) {
+  if (refPhotoMesh) refPhotoMesh.position.y = +v;
+  document.getElementById('vRefOy').textContent = (+v).toFixed(2);
+  ren.render(scene, cam);
+};
+
+// ── Feature: Export Merged STL ──
+
+window.exportMasterSTL = function() {
+  const meshes = [];
+  if (bodyMesh) meshes.push(bodyMesh);
+  for (const comp of getComponents()) {
+    if (!comp.enabled || !comp.visible) continue;
+    if (comp._isEye) continue; // eye sockets are subtractive
+    if (comp.displayMesh) meshes.push(comp.displayMesh);
+    if (comp._mirrorMesh) meshes.push(comp._mirrorMesh);
+  }
+  if (meshes.length === 0) { alert('No meshes to export'); return; }
+  const name = (document.getElementById('designNameInput')?.value || 'swimbait').replace(/\s+/g, '_');
+  exportSTL(meshes, name + '.stl', 25.4);
+};
+
+// ── Feature: Primitive Shapes ──
+
+window.addPrimitive = function(type) {
+  let geo;
+  const s = 0.4; // inches — reasonable default size
+  switch (type) {
+    case 'sphere': geo = new THREE.SphereGeometry(s, 24, 16); break;
+    case 'box': geo = new THREE.BoxGeometry(s, s, s); break;
+    case 'tube': geo = new THREE.CylinderGeometry(s / 2, s / 2, s * 1.5, 24).rotateZ(Math.PI / 2); break;
+    case 'cone': geo = new THREE.ConeGeometry(s / 2, s, 24).rotateZ(-Math.PI / 2); break;
+    case 'torus': geo = new THREE.TorusGeometry(s * 0.6, s * 0.15, 12, 24).rotateY(Math.PI / 2); break;
+    default: return;
+  }
+  // Convert to non-indexed for component system compatibility
+  const ni = geo.index ? geo.toNonIndexed() : geo;
+  const pos = ni.attributes.position;
+  const vp = [];
+  const tv = [];
+  for (let i = 0; i < pos.count; i++) {
+    vp.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    tv.push(i);
+  }
+  geo.dispose();
+  addComponent({
+    label: type.charAt(0).toUpperCase() + type.slice(1),
+    category: 'feature',
+    meshData: { numProp: 3, vertProperties: vp, triVerts: tv },
+  });
 };
 
 init();
