@@ -133,18 +133,26 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
         // Eye sockets — build native Manifold cylinders and subtract from bait
         const eyeData = data.eyeSockets;
         if (eyeData && eyeData.radius && eyeData.radius > 0) {
-          console.log(`[BaitBridge] Subtracting eye sockets: r=${eyeData.radius.toFixed(1)}mm at X=${eyeData.stationX.toFixed(1)}, Y=${eyeData.vOff.toFixed(1)}`);
+          const recessDepth = eyeData.recessDepth || 0.5;
+          console.log(`[BaitBridge] Subtracting eye sockets: r=${eyeData.radius.toFixed(1)}mm, depth=${recessDepth}mm at X=${eyeData.stationX.toFixed(1)}, Y=${eyeData.vOff.toFixed(1)}`);
           try {
             const { mCylZ, manifoldToThree: m2t2 } = await import('./csg');
-            const cylLen = 20; // oversized — subtraction trims
+            // Get bait half-width from bounds to position cylinders at the surface
+            geometry.computeBoundingBox();
+            const halfZ = geometry.boundingBox!.max.z;
+            // Cylinder length = recess depth + margin to punch through surface
+            const cylLen = recessDepth + 2; // 2mm extra to ensure clean subtraction
             for (const side of [1, -1]) {
-              // Native Manifold cylinder along Z, translated to position
+              // Position: start outside the bait surface, extend inward by recessDepth
+              // mCylZ is centered — shift so one end is at the surface
+              const surfaceZ = side * halfZ;
+              const centerZ = surfaceZ - side * (cylLen / 2 - 0.5); // 0.5mm past surface
               const cyl = mCylZ(eyeData.radius, cylLen, 32)
-                .translate([eyeData.stationX, eyeData.vOff, side * cylLen / 2]);
+                .translate([eyeData.stationX, eyeData.vOff, centerZ]);
               manifold = manifold.subtract(cyl);
             }
             geometry = m2t2(manifold);
-            console.log(`[BaitBridge] Eye sockets subtracted`);
+            console.log(`[BaitBridge] Eye sockets subtracted (halfZ=${halfZ.toFixed(1)}mm)`);
           } catch (e) {
             console.warn(`[BaitBridge] Eye socket subtraction failed:`, e);
           }

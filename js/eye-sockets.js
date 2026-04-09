@@ -95,7 +95,7 @@ export function buildEyeCylinderData(OL) {
   const stationX = (-baitLenMM / 2) + eyeConfig.stationT * baitLenMM;
 
   // Send parameters — mold generator builds native Manifold cylinders (much faster)
-  const result = { radius: r, stationX, vOff: eyeConfig.verticalOffset, sizeLabel: size.label };
+  const result = { radius: r, stationX, vOff: eyeConfig.verticalOffset, recessDepth: eyeConfig.recessDepth, sizeLabel: size.label };
   console.log('[Eyes] Transfer data:', JSON.stringify(result));
   return result;
 }
