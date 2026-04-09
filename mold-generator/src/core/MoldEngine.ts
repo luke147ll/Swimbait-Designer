@@ -202,13 +202,14 @@ export class MoldEngine {
     const boxX = baitLenX + mc.wallMarginY * 2;
     const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
     const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35 - (config.boltInset || 0);
-    const cornerInset = 12;
-    const cornerX = boxX / 2 - cornerInset;
+    const baseInset = 12;
+    const headX = -(boxX / 2 - baseInset - (config.headInset || 0));
+    const tailX = boxX / 2 - baseInset - (config.tailInset || 0);
     const positions: Vec3[] = [];
-    // 4 corners always
-    for (const sx of [-1, 1])
-      for (const sy of [-1, 1])
-        positions.push({ x: cx + sx * cornerX, y: cy + sy * flangeCenter, z: 0 });
+    for (const sy of [-1, 1]) {
+      positions.push({ x: cx + headX, y: cy + sy * flangeCenter, z: 0 });
+      positions.push({ x: cx + tailX, y: cy + sy * flangeCenter, z: 0 });
+    }
     // Mid-span bolts
     if (config.boltCount >= 6) {
       for (const sy of [-1, 1])

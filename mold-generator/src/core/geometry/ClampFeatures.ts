@@ -14,14 +14,19 @@ function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig,
   const boxX = baitLenX + mc.wallMarginY * 2;
   const flangeInnerEdge = baitHtY / 2 + mc.wallMarginX;
   const flangeCenter = flangeInnerEdge + mc.clampFlange * 0.35 - (config.boltInset || 0);
-  const cornerInset = 12; // mm from the corner along X
+  const baseInset = 12; // mm base inset from the corner along X
+  const headExtra = config.headInset || 0; // extra inset for head end (negative X)
+  const tailExtra = config.tailInset || 0; // extra inset for tail end (positive X)
   const positions: Vec3[] = [];
 
-  // Always place bolts at the 4 corners — most important for clamping
-  const cornerX = boxX / 2 - cornerInset;
-  for (const sx of [-1, 1])
-    for (const sy of [-1, 1])
-      positions.push({ x: cx + sx * cornerX, y: cy + sy * flangeCenter, z: 0 });
+  // 4 corner bolts with independent head/tail insets
+  // Head end is at -X (negative), tail end is at +X (positive)
+  const headX = -(boxX / 2 - baseInset - headExtra);
+  const tailX = boxX / 2 - baseInset - tailExtra;
+  for (const sy of [-1, 1]) {
+    positions.push({ x: cx + headX, y: cy + sy * flangeCenter, z: 0 }); // head bolts
+    positions.push({ x: cx + tailX, y: cy + sy * flangeCenter, z: 0 }); // tail bolts
+  }
 
   // Add mid-span bolts if bolt count > 4
   if (config.boltCount >= 6) {

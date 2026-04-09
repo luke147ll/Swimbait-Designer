@@ -41,7 +41,7 @@ export const DEFAULT_ALIGNMENT_CONFIG: AlignmentConfig = {
 };
 
 export const DEFAULT_CLAMP_CONFIG: ClampConfig = {
-  mode: 'heat_set_insert', boltSize: 'M5', boltCount: 4, boltInset: 0, positions: [],
+  mode: 'heat_set_insert', boltSize: 'M5', boltCount: 4, boltInset: 0, headInset: 0, tailInset: 0, positions: [],
 };
 
 export const DEFAULT_SPRUE_CONFIG: SprueConfig = {

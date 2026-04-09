@@ -75,8 +75,12 @@ export function ClampPanel() {
             </div>
           </div>
 
-          <Slider label="Bolt Inset" value={config.boltInset || 0} min={0} max={10} step={0.5} unit="mm"
+          <Slider label="Flange Inset" value={config.boltInset || 0} min={0} max={10} step={0.5} unit="mm"
             onChange={v => update({ boltInset: v })} />
+          <Slider label="Head End Inset" value={config.headInset || 0} min={0} max={40} step={1} unit="mm"
+            onChange={v => update({ headInset: v })} />
+          <Slider label="Tail End Inset" value={config.tailInset || 0} min={0} max={40} step={1} unit="mm"
+            onChange={v => update({ tailInset: v })} />
 
           {config.positions.length > 0 && (
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
