@@ -429,10 +429,17 @@ function applySkew(verts, skew) {
   return out;
 }
 
-function updateSkewDisplay(comp) {
+async function updateSkewDisplay(comp) {
   if (!comp.meshData) return;
+  // Detach gizmo before rebuild (it holds a ref to the old mesh)
+  const wasGizmoTarget = gizmoTarget === comp;
+  if (wasGizmoTarget && gizmo) gizmo.detach();
   // Full rebuild — vertex merging changes count so in-place update won't work
-  rebuildDisplayMesh(comp);
+  await rebuildDisplayMesh(comp);
+  // Reattach gizmo to the new mesh
+  if (wasGizmoTarget && comp.displayMesh && gizmo) {
+    gizmo.attach(comp.displayMesh);
+  }
 }
 
 // ── UI Rendering ──
