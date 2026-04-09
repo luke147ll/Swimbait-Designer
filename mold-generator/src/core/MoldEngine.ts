@@ -1,6 +1,6 @@
 import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
 import * as THREE from 'three';
-import { initCSG, manifoldToThree, mDispose } from './csg';
+import { initCSG, manifoldToThree, mDispose, mBox } from './csg';
 import { useMoldStore } from '../store/moldStore';
 import { usePrinterStore } from '../store/printerStore';
 import { BaitSubtraction } from './geometry/BaitSubtraction';
@@ -146,6 +146,28 @@ export class MoldEngine {
       console.log('[MoldEngine] Step 8.7: Watermark');
       const { applyWatermarks } = await import('./geometry/Watermark');
       ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ, 1.5, dims.cx, dims.cy));
+    }
+
+    // Step 8.9: Pry slot — notch at the top center of the parting face for screwdriver
+    const pryWidth = effectiveMoldConfig.cavityClearance;
+    if (pryWidth > 0) {
+      const pryLen = 15; // mm along the body axis
+      const pryDepth = 2; // mm deep into the parting face
+      // Top edge of mold = max Y of the bait + wall margin
+      const topY = baitBounds.max.y + effectiveMoldConfig.wallMarginX;
+      // Centered on X (body axis)
+      const pryX = dims.cx;
+
+      // Notch on halfA (Z < 0 side, parting face at Z=0)
+      const notchA = mBox(pryLen, pryWidth, pryDepth).translate([pryX, topY, -pryDepth / 2]);
+      halfA = halfA.subtract(notchA);
+
+      // Notch on halfB (Z > 0 side, parting face at Z=0)
+      if (halfB) {
+        const notchB = mBox(pryLen, pryWidth, pryDepth).translate([pryX, topY, pryDepth / 2]);
+        halfB = halfB.subtract(notchB);
+      }
+      console.log(`[MoldEngine] Pry slot: ${pryLen}×${pryWidth}×${pryDepth}mm at top center`);
     }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)

@@ -31,7 +31,7 @@ export const BOLT_CLEARANCE_HOLES: Record<BoltSize, { clearanceDiameter: number;
 
 export const DEFAULT_MOLD_CONFIG: MoldConfig = {
   wallMarginX: 8, wallMarginY: 8, wallMarginZ: 4, clampFlange: 12,
-  partingFaceDepth: 2, cavityClearance: 0.15, draftAngle: 2, cornerRadius: 3,
+  partingFaceDepth: 2, cavityClearance: 2, draftAngle: 2, cornerRadius: 3,
 };
 
 export const DEFAULT_ALIGNMENT_CONFIG: AlignmentConfig = {
