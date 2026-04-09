@@ -229,6 +229,7 @@ export function addComponent(partData) {
     scale: { x: 1, y: 1, z: 1 },
     mirrorX: false, mirrorY: false, mirrorZ: false,
     autoMirror: false,
+    skew: { enabled: false, axis: 'y', direction: 1, amount: 0, falloff: 'linear' },
     visible: true, enabled: true, collapsed: true, selected: false,
     meshData: partData.meshData || null,
     displayMesh: null,
@@ -389,6 +390,64 @@ function updateDisplayTransform(comp) {
     comp._mirrorMesh.geometry.dispose();
     comp._mirrorMesh = null;
   }
+}
+
+// ── Skew/Pinch ──
+
+function applySkew(verts, skew) {
+  if (!skew || !skew.enabled || skew.amount === 0) return verts;
+  const ai = skew.axis === 'x' ? 0 : skew.axis === 'y' ? 1 : 2;
+  const oi = [0, 1, 2].filter(i => i !== ai);
+
+  let mn = Infinity, mx = -Infinity;
+  for (let i = ai; i < verts.length; i += 3) { if (verts[i] < mn) mn = verts[i]; if (verts[i] > mx) mx = verts[i]; }
+  const range = mx - mn;
+  if (range < 0.001) return verts;
+
+  // Centers of the other two axes
+  let c0 = 0, c1 = 0, n = verts.length / 3;
+  for (let i = 0; i < verts.length; i += 3) { c0 += verts[i + oi[0]]; c1 += verts[i + oi[1]]; }
+  c0 /= n; c1 /= n;
+
+  const out = new Array(verts.length);
+  for (let i = 0; i < verts.length; i += 3) {
+    const v = verts[i + ai];
+    const t = skew.direction > 0 ? (v - mn) / range : (mx - v) / range;
+    let sf;
+    if (skew.falloff === 'smooth') { const st = t * t * (3 - 2 * t); sf = 1 - st * skew.amount; }
+    else if (skew.falloff === 'sharp') { sf = 1 - (t * t) * skew.amount; }
+    else { sf = 1 - t * skew.amount; }
+    sf = Math.max(0.01, sf);
+
+    out[i + ai] = v;
+    out[i + oi[0]] = c0 + (verts[i + oi[0]] - c0) * sf;
+    out[i + oi[1]] = c1 + (verts[i + oi[1]] - c1) * sf;
+  }
+  return out;
+}
+
+function updateSkewDisplay(comp) {
+  if (!comp.meshData || !comp.displayMesh) return;
+  const skewed = applySkew(comp.meshData.vertProperties, comp.skew);
+  comp._skewedVerts = skewed;
+
+  // Update geometry in place
+  const geo = comp.displayMesh.geometry;
+  // Geometry may have been merged (fewer verts than meshData) — rebuild if count differs
+  const meshCount = comp.meshData.vertProperties.length / 3;
+  if (geo.attributes.position.count !== meshCount) {
+    // Rebuild the geometry from skewed data
+    rebuildDisplayMesh(comp);
+    return;
+  }
+  const pos = geo.attributes.position;
+  for (let i = 0; i < meshCount; i++) {
+    pos.setXYZ(i, skewed[i * 3], skewed[i * 3 + 1], skewed[i * 3 + 2]);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  geo.computeBoundingBox();
+  updateDisplayTransform(comp);
 }
 
 // ── UI Rendering ──
@@ -556,6 +615,67 @@ export function renderComponentList() {
       `;
       body.appendChild(mirrorDiv);
 
+      // Skew / Pinch (not for eyes)
+      if (!comp._isEye) {
+        const sk = comp.skew || { enabled: false, axis: 'y', direction: 1, amount: 0, falloff: 'linear' };
+        body.appendChild(collapsibleSection('Skew / Pinch', 'skew', inner => {
+          // Enable toggle
+          const toggleRow = document.createElement('div');
+          toggleRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+          toggleRow.innerHTML = `<span style="font-size:10px;color:var(--mu)">Enable</span>
+            <button class="tb${sk.enabled ? ' on' : ''}" style="padding:3px 8px;font-size:9px" onclick="toggleCompSkew('${comp.id}')">${sk.enabled ? 'On' : 'Off'}</button>`;
+          inner.appendChild(toggleRow);
+
+          if (sk.enabled) {
+            // Axis
+            const axisRow = document.createElement('div');
+            axisRow.style.cssText = 'display:flex;gap:2px;margin-bottom:6px';
+            for (const a of ['x', 'y', 'z']) {
+              const btn = document.createElement('button');
+              btn.className = 'tb' + (sk.axis === a ? ' on' : '');
+              btn.style.cssText = 'flex:1;padding:3px;font-size:9px';
+              btn.textContent = a.toUpperCase();
+              btn.onclick = () => { comp.skew.axis = a; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
+              axisRow.appendChild(btn);
+            }
+            inner.appendChild(axisRow);
+
+            // Direction
+            const posLabel = sk.axis === 'x' ? '→' : sk.axis === 'y' ? '↑' : '↑';
+            const negLabel = sk.axis === 'x' ? '←' : sk.axis === 'y' ? '↓' : '↓';
+            const dirRow = document.createElement('div');
+            dirRow.style.cssText = 'display:flex;gap:2px;margin-bottom:6px';
+            for (const [d, lbl] of [[1, 'Pinch +' + posLabel], [-1, 'Pinch -' + negLabel]]) {
+              const btn = document.createElement('button');
+              btn.className = 'tb' + (sk.direction === d ? ' on' : '');
+              btn.style.cssText = 'flex:1;padding:3px;font-size:9px';
+              btn.textContent = lbl;
+              btn.onclick = () => { comp.skew.direction = d; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
+              dirRow.appendChild(btn);
+            }
+            inner.appendChild(dirRow);
+
+            // Amount slider
+            inner.appendChild(makeSlider('Amount', (sk.amount * 100).toFixed(0) + '%', 0, 100, 1, v => {
+              comp.skew.amount = v / 100; updateSkewDisplay(comp);
+            }));
+
+            // Falloff
+            const ffRow = document.createElement('div');
+            ffRow.style.cssText = 'display:flex;gap:2px;margin-top:4px';
+            for (const f of ['linear', 'smooth', 'sharp']) {
+              const btn = document.createElement('button');
+              btn.className = 'tb' + (sk.falloff === f ? ' on' : '');
+              btn.style.cssText = 'flex:1;padding:3px;font-size:8px';
+              btn.textContent = f;
+              btn.onclick = () => { comp.skew.falloff = f; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
+              ffRow.appendChild(btn);
+            }
+            inner.appendChild(ffRow);
+          }
+        }));
+      }
+
       section.appendChild(body);
     }
 
@@ -634,7 +754,9 @@ function applyTransform(meshData, comp) {
     s
   );
 
-  const vp = new Float32Array(meshData.vertProperties);
+  // Apply skew before position/rotation/scale transform
+  const srcVerts = (comp.skew && comp.skew.enabled) ? applySkew(meshData.vertProperties, comp.skew) : meshData.vertProperties;
+  const vp = new Float32Array(srcVerts);
   const v = new THREE.Vector3();
   for (let i = 0; i < vp.length; i += 3) {
     // Vertices are in viewport inches (baked) — convert to mm first, then apply transform
@@ -675,6 +797,16 @@ window.toggleComponentSection = function(id, key) {
   if (!comp._openSections) comp._openSections = {};
   comp._openSections[key] = !comp._openSections[key];
   renderComponentList();
+};
+
+window.toggleCompSkew = function(id) {
+  const comp = components.find(c => c.id === id);
+  if (!comp) return;
+  if (!comp.skew) comp.skew = { enabled: false, axis: 'y', direction: 1, amount: 0.5, falloff: 'linear' };
+  comp.skew.enabled = !comp.skew.enabled;
+  updateSkewDisplay(comp);
+  renderComponentList();
+  recordChangeNow();
 };
 
 window.addEyeSockets = function() {
