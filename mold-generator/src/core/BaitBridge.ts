@@ -125,6 +125,14 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 let finSolid = w.Manifold.extrude(cs, fp.thickness);
                 finSolid = finSolid.translate([0, 0, -fp.thickness / 2]);
 
+                // Center the geometry (same as viewport's geo.center())
+                // so the transform position matches the viewport display
+                const bb = finSolid.boundingBox();
+                const ctrX = (bb[0] + bb[3]) / 2;
+                const ctrY = (bb[1] + bb[4]) / 2;
+                const ctrZ = (bb[2] + bb[5]) / 2;
+                finSolid = finSolid.translate([-ctrX, -ctrY, -ctrZ]);
+
                 // Apply the component's transform (position in mm, rotation in degrees, scale)
                 const t = comp.transform;
                 if (t) {
