@@ -83,6 +83,7 @@ export function updateEyeIndicators(OL, getWidthFn) {
 // ── Build cylinder mesh data for transfer ──
 
 export function buildEyeCylinderData(OL) {
+  console.log('[Eyes] buildEyeCylinderData called, enabled:', eyeConfig.enabled, 'OL:', OL);
   if (!eyeConfig.enabled) return null;
 
   const sizeId = eyeConfig.sizeId === 'auto' ? suggestSize(OL) : eyeConfig.sizeId;
@@ -94,12 +95,9 @@ export function buildEyeCylinderData(OL) {
   const stationX = (-baitLenMM / 2) + eyeConfig.stationT * baitLenMM;
 
   // Send parameters — mold generator builds native Manifold cylinders (much faster)
-  return {
-    radius: r,
-    stationX,
-    vOff: eyeConfig.verticalOffset,
-    sizeLabel: size.label,
-  };
+  const result = { radius: r, stationX, vOff: eyeConfig.verticalOffset, sizeLabel: size.label };
+  console.log('[Eyes] Transfer data:', JSON.stringify(result));
+  return result;
 }
 
 // ── UI Controls ──
