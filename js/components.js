@@ -288,7 +288,7 @@ export function selectComponent(id) {
 
 async function rebuildDisplayMesh(comp) {
   if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
-  if (!comp.meshData) { console.warn('[Components] No meshData for', comp.label); return; }
+  if (!comp.meshData) { if (!comp._isEye) console.warn('[Components] No meshData for', comp.label); return; }
 
   const vp = comp.meshData.vertProperties;
   const tv = comp.meshData.triVerts;

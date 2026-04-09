@@ -1107,7 +1107,12 @@ async function sendToMoldGenerator() {
     triVerts: Array.from(currentMeshData.triVerts),
     slots: enabledSlots,
     components: buildComponentTransferData(),
-    eyeSockets: buildEyeCylinderData(getParams().OL),
+    eyeSockets: (() => {
+      // Check if any eye component exists (in case eyeConfig.enabled wasn't set)
+      const hasEye = getComponents().some(c => c._isEye && c.enabled);
+      if (hasEye) eyeConfig.enabled = true;
+      return buildEyeCylinderData(getParams().OL);
+    })(),
   });
 
   // Open window immediately (before async fetch) to satisfy mobile popup blocker
