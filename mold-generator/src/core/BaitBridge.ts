@@ -155,7 +155,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 finSolid = finSolid.translate([dx, dy, dz]);
 
                 compManifold = finSolid;
-                console.log(`[BaitBridge] Fin extruded: ${comp.label} at [${cx.toFixed(1)},${cy.toFixed(1)},${cz.toFixed(1)}], ${thickness}mm thick`);
+                console.log(`[BaitBridge] Fin extruded: ${comp.label} at [${dx.toFixed(1)},${dy.toFixed(1)},${dz.toFixed(1)}], ${thickness}mm thick`);
               } else {
                 // Standard mesh component
                 const cvp = new Float32Array(comp.vertProperties);
