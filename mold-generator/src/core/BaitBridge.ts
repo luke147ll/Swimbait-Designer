@@ -110,30 +110,25 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
             try {
               let compManifold;
 
-              // Fins with finParams: use native Manifold CrossSection extrusion
+              // Fins with finParams: use native Manifold box with transform
               if (comp.finParams && comp.finParams.outline) {
                 const fp = comp.finParams;
-                const { getWasm } = await import('./csg');
-                const w = getWasm();
+                const { mBox: mB } = await import('./csg');
 
-                // Build 2D polygon from fin outline (in mm, local coords)
-                // Reverse to ensure CCW winding for CrossSection
-                const poly = fp.outline.map((p: {x: number; y: number}) => [p.x, p.y]).reverse();
-                const cs = new w.CrossSection([poly]);
+                // Get fin dimensions from the outline
+                const outline = fp.outline;
+                let oMinX = Infinity, oMaxX = -Infinity, oMinY = Infinity, oMaxY = -Infinity;
+                for (const p of outline) {
+                  if (p.x < oMinX) oMinX = p.x; if (p.x > oMaxX) oMaxX = p.x;
+                  if (p.y < oMinY) oMinY = p.y; if (p.y > oMaxY) oMaxY = p.y;
+                }
+                const finW = oMaxX - oMinX;
+                const finH = oMaxY - oMinY;
 
-                // Extrude along Z, centered
-                let finSolid = w.Manifold.extrude(cs, fp.thickness);
-                finSolid = finSolid.translate([0, 0, -fp.thickness / 2]);
+                // Build as a centered box (Manifold native — clean and fast)
+                let finSolid = mB(finW, finH, fp.thickness);
 
-                // Center the geometry (same as viewport's geo.center())
-                // so the transform position matches the viewport display
-                const bb = finSolid.boundingBox();
-                const ctrX = (bb[0] + bb[3]) / 2;
-                const ctrY = (bb[1] + bb[4]) / 2;
-                const ctrZ = (bb[2] + bb[5]) / 2;
-                finSolid = finSolid.translate([-ctrX, -ctrY, -ctrZ]);
-
-                // Apply the component's transform (position in mm, rotation in degrees, scale)
+                // Apply the component's transform
                 const t = comp.transform;
                 if (t) {
                   if (t.scale && (t.scale.x !== 1 || t.scale.y !== 1 || t.scale.z !== 1)) {
@@ -148,7 +143,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 }
 
                 compManifold = finSolid;
-                console.log(`[BaitBridge] Fin extruded: ${comp.label}, ${fp.thickness}mm thick, pos=[${t?.position?.x?.toFixed(1)},${t?.position?.y?.toFixed(1)},${t?.position?.z?.toFixed(1)}]`);
+                console.log(`[BaitBridge] Fin box: ${comp.label}, ${finW.toFixed(1)}×${finH.toFixed(1)}×${fp.thickness}mm, pos=[${t?.position?.x?.toFixed(1)},${t?.position?.y?.toFixed(1)},${t?.position?.z?.toFixed(1)}]`);
               } else {
                 // Standard mesh component
                 const cvp = new Float32Array(comp.vertProperties);
