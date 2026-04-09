@@ -734,7 +734,8 @@ export function buildComponentTransferData() {
   const result = [];
 
   for (const comp of components) {
-    if (!comp.enabled || !comp.meshData) continue;
+    if (!comp.enabled || !comp.meshData) { console.log(`[Transfer] Skip ${comp.label}: enabled=${comp.enabled}, hasMesh=${!!comp.meshData}`); continue; }
+    console.log(`[Transfer] Including ${comp.label}: ${comp.meshData.vertProperties.length / 3} verts`);
 
     const transformed = applyTransform(comp.meshData, comp);
     result.push({
