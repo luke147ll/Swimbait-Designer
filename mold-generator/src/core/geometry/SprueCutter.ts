@@ -25,7 +25,7 @@ export class SprueCutter {
     // In viewport: head = -X, tail = +X
     if (config.position === 'tail') { edgeX = cx + moldXHalf; dirX = -1; }
     else if (config.position === 'head') { edgeX = cx - moldXHalf; dirX = 1; }
-    else { return { halfA, halfB }; } // side — TODO
+    else { return { halfA, halfB }; }
 
     const entryLen = 8 + OS;
     const boreLen = wallThickness + OS;

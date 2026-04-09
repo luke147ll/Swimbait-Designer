@@ -73,7 +73,7 @@ export function SpruePanel() {
 
       <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 6 }}>Position</div>
       <div style={{ display: 'flex', marginBottom: 12, borderRadius: 3, overflow: 'hidden' }}>
-        {(['tail', 'head', 'side'] as SpruePosition[]).map(p => (
+        {(['head', 'tail'] as SpruePosition[]).map(p => (
           <button key={p} style={segBtn(config.position === p)}
             onClick={() => update({ position: p })}>{p}</button>
         ))}

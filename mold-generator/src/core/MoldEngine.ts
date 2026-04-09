@@ -150,20 +150,20 @@ export class MoldEngine {
 
     // Step 8.9: Pry slot — notch at the top edge of the parting face for screwdriver
     {
-      const pryLen = 15; // mm along the body axis
-      const pryWidth = 2; // mm wide
-      const pryDepth = 4; // mm deep into the parting face
+      const pryX = 15; // mm along the body axis (X)
+      const pryY = 4;  // mm tall (Y — height at top edge)
+      const pryZ = 2;  // mm into the parting face (Z — width of bait)
       // Top edge of the actual mold box
       const topY = dims.cy + dims.boxY / 2;
 
-      const notchA = mBox(pryLen, pryWidth, pryDepth).translate([dims.cx, topY, -pryDepth / 2]);
+      const notchA = mBox(pryX, pryY, pryZ).translate([dims.cx, topY, -pryZ / 2]);
       halfA = halfA.subtract(notchA);
 
       if (halfB) {
-        const notchB = mBox(pryLen, pryWidth, pryDepth).translate([dims.cx, topY, pryDepth / 2]);
+        const notchB = mBox(pryX, pryY, pryZ).translate([dims.cx, topY, pryZ / 2]);
         halfB = halfB.subtract(notchB);
       }
-      console.log(`[MoldEngine] Pry slot: ${pryLen}×${pryWidth}×${pryDepth}mm at top edge`);
+      console.log(`[MoldEngine] Pry slot: ${pryX}×${pryY}×${pryZ}mm at top edge`);
     }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)

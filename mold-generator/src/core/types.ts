@@ -65,7 +65,7 @@ export interface ClampConfig {
 
 export type SpruePreset = 'standard_5_8' | 'jacobs_press' | 'open_pour' | 'custom';
 export type GateType = 'direct' | 'pinch' | 'fan';
-export type SpruePosition = 'tail' | 'head' | 'side';
+export type SpruePosition = 'tail' | 'head';
 
 export interface SprueConfig {
   preset: SpruePreset;
