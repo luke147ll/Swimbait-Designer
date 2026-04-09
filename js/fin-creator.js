@@ -95,6 +95,7 @@ function smoothOutline(pts, res = 60) {
   // Catmull-Rom through control points for smooth curve
   const outline = [];
   const n = pts.length;
+  let prevX = -Infinity;
   for (let i = 0; i < res; i++) {
     const t = i / (res - 1);
     const raw = t * (n - 1);
@@ -105,8 +106,12 @@ function smoothOutline(pts, res = 60) {
       const t2 = t * t, t3 = t2 * t;
       return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
     };
+    // Enforce monotonic X to prevent self-intersecting outlines
+    let x = cr(pts[i0].x, pts[i1].x, pts[i2].x, pts[i3].x, lt);
+    if (x <= prevX) x = prevX + 0.001;
+    prevX = x;
     outline.push({
-      x: cr(pts[i0].x, pts[i1].x, pts[i2].x, pts[i3].x, lt),
+      x: Math.max(0, Math.min(1, x)),
       y: Math.max(0, cr(pts[i0].y, pts[i1].y, pts[i2].y, pts[i3].y, lt)),
     });
   }
@@ -128,7 +133,7 @@ function fromCanvas(cx, cy) {
   const baseY = canvasH - 20;
   return {
     x: Math.max(0, Math.min(1, (cx - m) / dw)),
-    y: Math.max(0, Math.min(1.2, (baseY - cy) / dh)),
+    y: Math.max(0, Math.min(1.0, (baseY - cy) / dh)),
   };
 }
 
@@ -206,8 +211,12 @@ function onPointerMove(e) {
   const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
   const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   const pt = fromCanvas(cx, cy);
+  // Enforce X ordering: can't cross neighboring points
+  const minX = dragIdx > 0 ? finPoints[dragIdx - 1].x + 0.02 : 0;
+  const maxX = dragIdx < finPoints.length - 1 ? finPoints[dragIdx + 1].x - 0.02 : 1;
+  pt.x = Math.max(minX, Math.min(maxX, pt.x));
   if (finPoints[dragIdx].fixed) {
-    finPoints[dragIdx].x = pt.x; // can move horizontally only
+    finPoints[dragIdx].x = pt.x;
   } else {
     finPoints[dragIdx].x = pt.x;
     finPoints[dragIdx].y = pt.y;
@@ -225,9 +234,20 @@ function buildFinMesh() {
   // Each station along the fin base has a rectangular cross-section (4 verts).
   // The rectangle's height comes from the outline profile.
   // Adjacent stations are connected by quad strips. Ends are capped with quads.
-  const outline = smoothOutline(finPoints, 30);
-  const NS = outline.length; // stations along the base
+  const rawOutline = smoothOutline(finPoints, 30);
   const S = 1 / 25.4; // mm → inches for viewport
+  const MIN_H = 0.3 * S; // minimum 0.3mm height to avoid degenerate triangles
+
+  // Filter outline: keep only stations with meaningful height,
+  // plus always keep first/last as base anchors (clamped to MIN_H)
+  const outline = [];
+  for (let i = 0; i < rawOutline.length; i++) {
+    const h = rawOutline[i].y * maxHeight * S;
+    if (h >= MIN_H || i === 0 || i === rawOutline.length - 1) {
+      outline.push({ x: rawOutline[i].x, y: rawOutline[i].y, h: Math.max(h, MIN_H) });
+    }
+  }
+  const NS = outline.length;
 
   // 4 verts per station: top-front, top-back, bottom-front, bottom-back
   const totalVerts = NS * 4;
@@ -236,7 +256,7 @@ function buildFinMesh() {
 
   for (let i = 0; i < NS; i++) {
     const px = (outline[i].x * baseLength - baseLength / 2) * S;
-    const h = outline[i].y * maxHeight * S;
+    const h = outline[i].h;
     const t = tapered ? thickness * Math.max(0.15, outline[i].y) * S : thickness * S;
     const hz = t / 2;
     const base = i * 4;
