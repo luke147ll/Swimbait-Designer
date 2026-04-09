@@ -998,6 +998,7 @@ async function initAuth() {
 }
 
 async function saveDesign() {
+  console.log('[Save] saveDesign called, currentUser:', !!currentUser);
   if (!currentUser) {
     try { localStorage.setItem('sd_pending_design', getDesignState()); } catch {}
     window.location = '/login';
