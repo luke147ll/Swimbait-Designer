@@ -134,39 +134,26 @@ export function buildEyeCylinderData(OL) {
   const allVerts = [];
   const allTris = [];
 
+  // Cylinder base verts are: (cos*r, sin*r, ±cylLen/2) — circle in XY, axis along Z.
+  // In mold coords: X=length, Y=height, Z=width.
+  // We want the cylinder axis along Z (punching into bait from sides).
+  // Circle coords (x,y of cylinder) map to (X,Y of bait) — body length + height.
+  // Z of cylinder maps to Z of bait — width/depth into bait.
+
   for (const side of [1, -1]) {
     const offset = allVerts.length / 3;
     for (let i = 0; i < verts.length; i += 3) {
-      // Cylinder is along Z — position it
       allVerts.push(
-        stationX + verts[i + 0] * 0, // X = body position (cylinder X becomes 0 contribution)
-        vOff + verts[i + 1] * 0,     // Y = vertical offset
-        side * verts[i + 2]          // Z = cylinder axis (into/out of bait)
-      );
-    }
-    // Actually, the cylinder verts are (x=cos, y=sin, z=±len/2)
-    // We want the cylinder axis along Z, with the circle in XY plane
-    // The circle face should be in the XY plane (perpendicular to Z)
-    // So x,y are the circle coords, z is the axis — that's already correct!
-    // Just need to translate to the right position
-    // Let me redo this properly:
-    for (let i = offset * 3; i < allVerts.length; i += 3) {
-      allVerts[i] = 0; // clear the wrong values
-    }
-    // Rebuild properly
-    allVerts.length = offset * 3; // truncate
-    for (let i = 0; i < verts.length; i += 3) {
-      allVerts.push(
-        stationX + verts[i],      // X = body axis + circle X
-        vOff + verts[i + 1],      // Y = height + circle Y
-        side * verts[i + 2]       // Z = cylinder depth (pos or neg side)
+        stationX + verts[i],       // X = body position + circle X (spreads the circle along body axis)
+        vOff + verts[i + 1],       // Y = height offset + circle Y (spreads circle vertically)
+        side * verts[i + 2]        // Z = cylinder depth (positive = right side, negative = left)
       );
     }
 
     for (let i = 0; i < tris.length; i++) {
       allTris.push(tris[i] + offset);
     }
-    // Flip winding for the negative side
+    // Flip winding for the negative side (geometry is mirrored)
     if (side < 0) {
       const start = allTris.length - tris.length;
       for (let i = start; i < allTris.length; i += 3) {
