@@ -244,7 +244,10 @@ export function addComponent(partData) {
   if (partData.autoScale) Object.assign(comp.scale, partData.autoScale);
 
   components.push(comp);
-  rebuildDisplayMesh(comp);
+  rebuildDisplayMesh(comp).then(() => {
+    // Auto-select new component to show gizmo at its position
+    selectComponent(comp.id);
+  });
   renderComponentList();
   notify();
   recordChangeNow();
@@ -256,8 +259,11 @@ export function removeComponent(id) {
   if (idx === -1) return;
   const comp = components[idx];
   if (comp._isEye) { eyeConfig.enabled = false; if (window._sbd_eyeChanged) window._sbd_eyeChanged(); }
-  if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
-  if (comp._mirrorMesh) { scene.remove(comp._mirrorMesh); comp._mirrorMesh.geometry.dispose(); }
+  if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); comp.displayMesh = null; }
+  if (comp._mirrorMesh) { scene.remove(comp._mirrorMesh); comp._mirrorMesh.geometry.dispose(); comp._mirrorMesh = null; }
+  // Also clean up any orphaned mirror meshes in the scene (safety net)
+  scene.children.filter(c => c === comp._mirrorMesh).forEach(c => scene.remove(c));
+  if (gizmo && gizmo.object === comp.displayMesh) detachGizmo();
   components.splice(idx, 1);
   renderComponentList();
   notify();
@@ -332,6 +338,9 @@ async function rebuildDisplayMesh(comp) {
   const maxDim = Math.max(bb2.max.x - bb2.min.x, bb2.max.y - bb2.min.y, bb2.max.z - bb2.min.z);
   if (maxDim > 30) { geo.scale(1 / 25.4, 1 / 25.4, 1 / 25.4); console.log('[Components] Scaled mm → inches'); }
   geo.computeVertexNormals();
+
+  // Guard: component may have been removed during async mesh build
+  if (!components.includes(comp)) return;
 
   comp.displayMesh = new THREE.Mesh(geo, createMaterial(comp.category));
   updateDisplayTransform(comp);
