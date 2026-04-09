@@ -754,28 +754,26 @@ export function buildComponentTransferData() {
     });
 
     if (comp.autoMirror) {
-      // True mirror: flip Z in the mesh data, then apply same transform with negated Z position
-      const mirroredMeshData = {
-        vertProperties: Array.from(comp.meshData.vertProperties),
-        triVerts: Array.from(comp.meshData.triVerts),
-      };
-      // Flip Z on all vertices
-      for (let vi = 2; vi < mirroredMeshData.vertProperties.length; vi += 3) {
-        mirroredMeshData.vertProperties[vi] = -mirroredMeshData.vertProperties[vi];
+      // True mirror: apply full transform first, THEN negate Z on the result.
+      // This matches the viewport mirror (world-space Z flip) and handles rotation correctly.
+      const original = applyTransform(comp.meshData, comp);
+      // Negate Z on all transformed vertices
+      const mvp = Array.from(original.vp);
+      for (let vi = 2; vi < mvp.length; vi += 3) {
+        mvp[vi] = -mvp[vi];
       }
-      // Flip winding
-      for (let fi = 0; fi < mirroredMeshData.triVerts.length; fi += 3) {
-        const tmp = mirroredMeshData.triVerts[fi + 1];
-        mirroredMeshData.triVerts[fi + 1] = mirroredMeshData.triVerts[fi + 2];
-        mirroredMeshData.triVerts[fi + 2] = tmp;
+      // Flip winding (mirror reverses face orientation)
+      const mtv = Array.from(original.tv);
+      for (let fi = 0; fi < mtv.length; fi += 3) {
+        const tmp = mtv[fi + 1];
+        mtv[fi + 1] = mtv[fi + 2];
+        mtv[fi + 2] = tmp;
       }
-      const mirrorComp = { ...comp, position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z } };
-      const mirrored = applyTransform(mirroredMeshData, mirrorComp);
       result.push({
         id: comp.id + '_mirror', label: comp.label + ' (mirror)',
         numProp: 3,
-        vertProperties: mirrored.vp,
-        triVerts: mirrored.tv,
+        vertProperties: mvp,
+        triVerts: mtv,
       });
     }
   }
