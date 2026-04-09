@@ -116,46 +116,31 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 const { getWasm } = await import('./csg');
                 const w = getWasm();
 
-                // Build 2D polygon from fin outline (in mm)
+                // Build 2D polygon from fin outline (in mm, local coords)
                 // Reverse to ensure CCW winding for CrossSection
                 const poly = fp.outline.map((p: {x: number; y: number}) => [p.x, p.y]).reverse();
-                console.log(`[BaitBridge] Fin polygon: ${poly.length} points, first=[${poly[0][0].toFixed(1)},${poly[0][1].toFixed(1)}], last=[${poly[poly.length-1][0].toFixed(1)},${poly[poly.length-1][1].toFixed(1)}]`);
                 const cs = new w.CrossSection([poly]);
-                const thickness = fp.thickness;
 
-                // Extrude along Z (will become the fin thickness)
-                // CrossSection extrudes along +Z from 0 to height
-                let finSolid = w.Manifold.extrude(cs, thickness);
-                // Center the extrusion on Z
-                finSolid = finSolid.translate([0, 0, -thickness / 2]);
+                // Extrude along Z, centered
+                let finSolid = w.Manifold.extrude(cs, fp.thickness);
+                finSolid = finSolid.translate([0, 0, -fp.thickness / 2]);
 
-                // Now apply the component's position/rotation/scale from the vertex bounds
-                // The transferred vertices have the full transform baked in (inches→mm)
-                // Get the center position from the vertex data
-                const cvp = new Float32Array(comp.vertProperties);
-                let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
-                for (let i = 0; i < cvp.length; i += 3) {
-                  if(cvp[i]<cMinX)cMinX=cvp[i]; if(cvp[i]>cMaxX)cMaxX=cvp[i];
-                  if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
-                  if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
+                // Apply the component's transform (position in mm, rotation in degrees, scale)
+                const t = comp.transform;
+                if (t) {
+                  if (t.scale && (t.scale.x !== 1 || t.scale.y !== 1 || t.scale.z !== 1)) {
+                    finSolid = finSolid.scale([t.scale.x, t.scale.y, t.scale.z]);
+                  }
+                  if (t.rotation && (t.rotation.x || t.rotation.y || t.rotation.z)) {
+                    finSolid = finSolid.rotate([t.rotation.x, t.rotation.y, t.rotation.z]);
+                  }
+                  if (t.position) {
+                    finSolid = finSolid.translate([t.position.x, t.position.y, t.position.z]);
+                  }
                 }
-                // Find the outline's own bounds to compute the offset
-                let oMinX = Infinity, oMaxX = -Infinity, oMinY = Infinity, oMaxY = -Infinity;
-                for (const [px, py] of poly) {
-                  if (px < oMinX) oMinX = px; if (px > oMaxX) oMaxX = px;
-                  if (py < oMinY) oMinY = py; if (py > oMaxY) oMaxY = py;
-                }
-                // Translate so outline bounds align with vertex bounds
-                // X: outline center → vertex center
-                // Y: outline min (base) → vertex min (base sits on bait surface)
-                // Z: already centered by the -thickness/2 offset
-                const dx = (cMinX + cMaxX) / 2 - (oMinX + oMaxX) / 2;
-                const dy = cMinY - oMinY;
-                const dz = (cMinZ + cMaxZ) / 2;
-                finSolid = finSolid.translate([dx, dy, dz]);
 
                 compManifold = finSolid;
-                console.log(`[BaitBridge] Fin extruded: ${comp.label} at [${dx.toFixed(1)},${dy.toFixed(1)},${dz.toFixed(1)}], ${thickness}mm thick`);
+                console.log(`[BaitBridge] Fin extruded: ${comp.label}, ${fp.thickness}mm thick, pos=[${t?.position?.x?.toFixed(1)},${t?.position?.y?.toFixed(1)},${t?.position?.z?.toFixed(1)}]`);
               } else {
                 // Standard mesh component
                 const cvp = new Float32Array(comp.vertProperties);

@@ -745,6 +745,12 @@ export function buildComponentTransferData() {
       vertProperties: transformed.vp,
       triVerts: transformed.tv,
       finParams: comp._finParams || null,
+      // Send transform for fins (mold generator builds native extrusion + applies transform)
+      transform: comp._finParams ? {
+        position: { x: comp.position.x * 25.4, y: comp.position.y * 25.4, z: comp.position.z * 25.4 },
+        rotation: { x: comp.rotation.x, y: comp.rotation.y, z: comp.rotation.z },
+        scale: { x: comp.scale.x, y: comp.scale.y, z: comp.scale.z },
+      } : null,
     });
 
     if (comp.autoMirror) {
