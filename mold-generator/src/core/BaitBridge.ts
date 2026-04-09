@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { useMoldStore } from '../store/moldStore';
+import { useLoadingStore } from '../store/loadingStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
 import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, type BaitPrimitive, type StationData } from './BaitPrimitives';
 import type { SlotConfig } from './types';
@@ -79,7 +80,9 @@ function buildFromVertices(positions: Float32Array, vertCount: number): Manifold
 }
 
 export async function transferBaitFromAPI(token: string): Promise<{ success: boolean; error?: string }> {
+  const ll = useLoadingStore.getState().log;
   try {
+    ll('fetching bait geometry...');
     console.log('[BaitBridge] Fetching transfer:', token);
     const res = await fetch(`${API_BASE}/api/mold-transfer?token=${encodeURIComponent(token)}`);
     if (!res.ok) {
@@ -89,6 +92,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
 
     const contentType = res.headers.get('Content-Type') || '';
     const store = useMoldStore.getState();
+    ll('manifold WASM core loaded');
     await initCSG();
 
     // Check if it's JSON (mesh/stations/primitives) or binary (STL)
@@ -98,7 +102,10 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
 
       // Manifold mesh transfer (tube mesh from designer) — preferred path
       if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
-        console.log(`[BaitBridge] Mesh transfer: ${data.vertProperties.length / 3} verts, ${data.triVerts.length / 3} tris`);
+        const vc = Math.round(data.vertProperties.length / 3);
+        ll(`bait received [${vc.toLocaleString()} verts]`);
+        console.log(`[BaitBridge] Mesh transfer: ${vc} verts, ${data.triVerts.length / 3} tris`);
+        ll('reconstructing bait solid...');
         let { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
 
         // Union components with the bait so they all subtract from the mold together

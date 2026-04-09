@@ -1,10 +1,8 @@
 import { T } from '../theme';
 import { useMoldStore } from '../store/moldStore';
-import { useAuthStore } from '../store/authStore';
 
 export function TopBar() {
   const fileName = useMoldStore(s => s.baitFileName);
-  const isAuth = useAuthStore(s => s.isAuthenticated);
 
   return (
     <div style={{
@@ -35,20 +33,8 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Right: avatar (authenticated) or empty placeholder */}
-      <div style={{ width: 48, display: 'flex', justifyContent: 'flex-end' }}>
-        {isAuth && (
-          <div style={{
-            width: 32, height: 32, borderRadius: 16,
-            background: T.bgSurface, border: `1px solid ${T.goldDim}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, color: T.textMuted, fontFamily: T.font,
-            flexShrink: 0,
-          }}>
-            LU
-          </div>
-        )}
-      </div>
+      {/* Right: placeholder */}
+      <div style={{ width: 48 }} />
 
     </div>
   );

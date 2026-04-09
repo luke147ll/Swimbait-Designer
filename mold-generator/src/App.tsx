@@ -1,4 +1,4 @@
-import { AuthGate } from './ui/AuthGate';
+import { LoadingScreen } from './ui/LoadingScreen';
 import { TopBar } from './ui/TopBar';
 import { BottomBar } from './ui/BottomBar';
 import { BaitLoader } from './ui/panels/BaitLoader';
@@ -7,7 +7,6 @@ import { PrinterSelector } from './ui/panels/PrinterSelector';
 import { MoldConfigPanel } from './ui/panels/MoldConfigPanel';
 import { AlignmentPanel } from './ui/panels/AlignmentPanel';
 import { SpruePanel } from './ui/panels/SpruePanel';
-// import { VentPanel } from './ui/panels/VentPanel'; // removed for soft launch
 import { ClampPanel } from './ui/panels/ClampPanel';
 import { SlotPanel } from './ui/panels/SlotPanel';
 import { ExportPanel } from './ui/panels/ExportPanel';
@@ -20,7 +19,8 @@ function App() {
   useBedValidation();
 
   return (
-    <AuthGate>
+    <>
+      <LoadingScreen />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh',
         background: '#141414', color: '#d4d4d4', fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}>
 
@@ -60,7 +60,7 @@ function App() {
 
         <BottomBar />
       </div>
-    </AuthGate>
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { MoldState, ValidationResult, BillOfMaterials, ClampConfig, MoldConfig, Vec3 } from './types';
 import * as THREE from 'three';
 import { initCSG, manifoldToThree, mDispose, mBox } from './csg';
+import { useLoadingStore } from '../store/loadingStore';
 import { useMoldStore } from '../store/moldStore';
 import { usePrinterStore } from '../store/printerStore';
 import { BaitSubtraction } from './geometry/BaitSubtraction';
@@ -64,6 +65,7 @@ export class MoldEngine {
 
   async generate(state: MoldState): Promise<MoldResult> {
     const startTime = performance.now();
+    const ll = useLoadingStore.getState().log;
 
     if (!this.initialized) {
       console.log('[MoldEngine] Initializing Manifold WASM...');
@@ -80,6 +82,7 @@ export class MoldEngine {
     if (state.clampConfig.mode === 'external_clamp') effectiveMoldConfig.clampFlange = 0;
 
     // Steps 3-4: Box + subtract — returns MANIFOLD objects
+    ll('subtracting bait cavity...');
     console.log('[MoldEngine] Steps 3-4: Box + subtract (Manifold-native)');
     let { halfA, halfB, dims } = this.baitSubtractor.subtractManifold(
       state.baitMesh, effectiveMoldConfig, state.texturedBaitMesh, state.baitManifold
@@ -95,6 +98,7 @@ export class MoldEngine {
     const clampPositions = this.computeClampPositions(state.clampConfig, baitBounds, effectiveMoldConfig, dims);
 
     // Step 5: Alignment — operates on Manifold objects directly
+    ll(`generating alignment pins [x${state.alignmentConfig.pinCount}]`);
     console.log('[MoldEngine] Step 5: Alignment (Manifold-native)');
     const alignResult = this.alignmentGen.generateManifold(
       halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions, printOrientation
@@ -106,12 +110,14 @@ export class MoldEngine {
     }
 
     // Step 6: Clamps — Manifold-native
+    ll(`drilling bolt holes [${state.clampConfig.boltSize} x${state.clampConfig.boltCount}]`);
     console.log('[MoldEngine] Step 6: Clamps (Manifold-native)');
     ({ halfA, halfB } = this.clampGen.generateManifold(
       halfA, halfB, state.clampConfig, baitBounds, effectiveMoldConfig, dims, printOrientation
     ));
 
     // Step 7: Sprue — Manifold-native
+    ll(`cutting sprue port [${state.sprueConfig.preset === 'standard_5_8' ? '5/8" standard' : state.sprueConfig.preset}]`);
     console.log('[MoldEngine] Step 7: Sprue (Manifold-native)');
     ({ halfA, halfB } = this.sprueGen.generateManifold(
       halfA, halfB, state.sprueConfig, baitBounds, effectiveMoldConfig, dims
@@ -143,6 +149,7 @@ export class MoldEngine {
 
     // Step 8.7: Watermark — subtract text voids from mold outer faces
     {
+      ll('stamping watermark');
       console.log('[MoldEngine] Step 8.7: Watermark');
       const { applyWatermarks } = await import('./geometry/Watermark');
       ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ, 1.5, dims.cx, dims.cy));
@@ -167,6 +174,7 @@ export class MoldEngine {
     }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)
+    ll(`mold complete [${dims.boxX.toFixed(0)} x ${dims.boxY.toFixed(0)} x ${(dims.boxZ * 2).toFixed(0)}mm]`);
     console.log('[MoldEngine] Step 9: Convert to Three.js');
     let halfAGeo = manifoldToThree(halfA);
     let halfBGeo = halfB ? manifoldToThree(halfB) : null;
@@ -178,6 +186,7 @@ export class MoldEngine {
     if (halfBGeo) halfBGeo = stripDegenerates(halfBGeo);
 
     // Step 10: Validation
+    ll('validating mesh topology... MANIFOLD');
     console.log('[MoldEngine] Step 10: Validate');
     const validation = new BedValidator().validate(halfAGeo, halfBGeo, state.printerProfile);
 

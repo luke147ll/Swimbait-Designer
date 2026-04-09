@@ -29,8 +29,9 @@ export function BaitLoader() {
   const [rotZ, setRotZ] = useState(0);
   const [scale, setScale] = useState(1.0);
 
-  // Auto-load from transfer token on mount
+  // Auto-load from transfer token on mount (skip if LoadingScreen already handled it)
   useEffect(() => {
+    if (baitFileName) return; // already loaded by LoadingScreen
     const token = getTransferToken();
     if (token) {
       setStatus('Loading from designer...');
@@ -43,7 +44,7 @@ export function BaitLoader() {
         }
       });
     }
-  }, []);
+  }, [baitFileName]);
 
   const applyTransform = useCallback((geo: THREE.BufferGeometry, axis: LengthAxis, rx: number, ry: number, rz: number, s: number, name: string) => {
     const clone = geo.clone();
