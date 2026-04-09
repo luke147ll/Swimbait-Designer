@@ -223,10 +223,24 @@ function onPointerUp() { dragIdx = -1; }
 function buildFinMesh() {
   const outline = smoothOutline(finPoints, 40);
   const N = outline.length;
-  const vp = new Float32Array(N * 2 * 3);
+  // Vertex layout: N front + N back + 2 cap centers (front + back)
+  const frontCenter = N * 2;
+  const backCenter = N * 2 + 1;
+  const totalVerts = N * 2 + 2;
+  const vp = new Float32Array(totalVerts * 3);
   const tris = [];
 
   const S = 1 / 25.4; // mm → inches for viewport
+
+  // Compute centroid for cap fan centers
+  let cx = 0, cy = 0;
+  for (let i = 0; i < N; i++) {
+    cx += (outline[i].x * baseLength - baseLength / 2) * S;
+    cy += outline[i].y * maxHeight * S;
+  }
+  cx /= N; cy /= N;
+  const centerHt = (tapered ? thickness * (1 - (cy / (maxHeight * S)) * 0.7) : thickness) * S;
+
   for (let i = 0; i < N; i++) {
     const px = (outline[i].x * baseLength - baseLength / 2) * S;
     const py = outline[i].y * maxHeight * S;
@@ -241,11 +255,14 @@ function buildFinMesh() {
     vp[(N + i) * 3 + 1] = py;
     vp[(N + i) * 3 + 2] = -hz;
   }
+  // Cap centers
+  vp[frontCenter * 3] = cx; vp[frontCenter * 3 + 1] = cy; vp[frontCenter * 3 + 2] = centerHt / 2;
+  vp[backCenter * 3] = cx; vp[backCenter * 3 + 1] = cy; vp[backCenter * 3 + 2] = -centerHt / 2;
 
-  // Front face fan
-  for (let i = 1; i < N - 1; i++) tris.push(0, i, i + 1);
-  // Back face fan (reversed)
-  for (let i = 1; i < N - 1; i++) tris.push(N, N + i + 1, N + i);
+  // Front face fan from centroid
+  for (let i = 0; i < N; i++) { const ni = (i + 1) % N; tris.push(frontCenter, i, ni); }
+  // Back face fan from centroid (reversed winding)
+  for (let i = 0; i < N; i++) { const ni = (i + 1) % N; tris.push(backCenter, N + ni, N + i); }
   // Side walls
   for (let i = 0; i < N; i++) {
     const ni = (i + 1) % N;
