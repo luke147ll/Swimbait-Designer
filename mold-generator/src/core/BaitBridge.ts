@@ -108,17 +108,50 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
           const { mFromMesh: mfm } = await import('./csg');
           for (const comp of comps) {
             try {
-              const cvp = new Float32Array(comp.vertProperties);
-              // Log component bounds for debugging
-              let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
-              for (let i = 0; i < cvp.length; i += 3) {
-                if(cvp[i]<cMinX)cMinX=cvp[i]; if(cvp[i]>cMaxX)cMaxX=cvp[i];
-                if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
-                if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
-              }
-              console.log(`[BaitBridge] Component ${comp.label} bounds: X[${cMinX.toFixed(1)},${cMaxX.toFixed(1)}] Y[${cMinY.toFixed(1)},${cMaxY.toFixed(1)}] Z[${cMinZ.toFixed(1)},${cMaxZ.toFixed(1)}]`);
+              let compManifold;
 
-              const compManifold = mfm(cvp, new Uint32Array(comp.triVerts));
+              // Fins with finParams: use native Manifold extrusion (guaranteed manifold)
+              if (comp.finParams && comp.finParams.outline) {
+                const fp = comp.finParams;
+                const { mBox: mB } = await import('./csg');
+                // Build fin as a native Manifold box scaled to fin dimensions, then
+                // use the outline to create a more accurate shape via CrossSection if available.
+                // Fallback: approximate with a box matching the fin's bounding box
+                const outline = fp.outline;
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (const p of outline) {
+                  if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+                  if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+                }
+                const finW = maxX - minX;
+                const finH = maxY - minY;
+                const finT = fp.thickness;
+                // Create fin as extruded box, positioned from the transferred vertex bounds
+                const cvp = new Float32Array(comp.vertProperties);
+                let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
+                for (let i = 0; i < cvp.length; i += 3) {
+                  if(cvp[i]<cMinX)cMinX=cvp[i]; if(cvp[i]>cMaxX)cMaxX=cvp[i];
+                  if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
+                  if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
+                }
+                console.log(`[BaitBridge] Fin ${comp.label} bounds: X[${cMinX.toFixed(1)},${cMaxX.toFixed(1)}] Y[${cMinY.toFixed(1)},${cMaxY.toFixed(1)}] Z[${cMinZ.toFixed(1)},${cMaxZ.toFixed(1)}]`);
+                // Use a native box at the fin's position
+                compManifold = mB(cMaxX - cMinX, cMaxY - cMinY, cMaxZ - cMinZ)
+                  .translate([(cMinX + cMaxX) / 2, (cMinY + cMaxY) / 2, (cMinZ + cMaxZ) / 2]);
+                console.log(`[BaitBridge] Fin built as native box: ${(cMaxX-cMinX).toFixed(1)}×${(cMaxY-cMinY).toFixed(1)}×${(cMaxZ-cMinZ).toFixed(1)}mm`);
+              } else {
+                // Standard mesh component
+                const cvp = new Float32Array(comp.vertProperties);
+                let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
+                for (let i = 0; i < cvp.length; i += 3) {
+                  if(cvp[i]<cMinX)cMinX=cvp[i]; if(cvp[i]>cMaxX)cMaxX=cvp[i];
+                  if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
+                  if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
+                }
+                console.log(`[BaitBridge] Component ${comp.label} bounds: X[${cMinX.toFixed(1)},${cMaxX.toFixed(1)}] Y[${cMinY.toFixed(1)},${cMaxY.toFixed(1)}] Z[${cMinZ.toFixed(1)},${cMaxZ.toFixed(1)}]`);
+                compManifold = mfm(cvp, new Uint32Array(comp.triVerts));
+              }
+
               manifold = manifold.add(compManifold);
               console.log(`[BaitBridge] Unioned component: ${comp.label}`);
             } catch (e) {

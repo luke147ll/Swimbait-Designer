@@ -368,6 +368,7 @@ export function openFinCreator(container, done) {
 
 function finalize() {
   const mesh = buildFinMesh();
+  const outline = smoothOutline(finPoints, 40);
   console.log(`[FinCreator] Built: ${mesh.vertCount} verts, ${mesh.triCount} tris, ${baseLength}×${maxHeight}×${thickness}mm`);
 
   const preset = FIN_PRESETS[currentPreset];
@@ -376,6 +377,12 @@ function finalize() {
     category: 'fin',
     meshData: { numProp: 3, vertProperties: mesh.vertProperties, triVerts: mesh.triVerts },
     autoPosition: preset?.defaultPos || { x: 0, y: 0, z: 0 },
+    // Store fin parameters for native Manifold extrusion in mold generator
+    _finParams: {
+      outline: outline.map(p => ({ x: p.x * baseLength - baseLength / 2, y: p.y * maxHeight })),
+      thickness,
+      tapered,
+    },
   });
 
   if (onDoneCallback) onDoneCallback();

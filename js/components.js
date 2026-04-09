@@ -235,6 +235,7 @@ export function addComponent(partData) {
     displayMesh: null,
     _mirrorMesh: null,
     _isEye: partData._isEye || false,
+    _finParams: partData._finParams || null,
   };
 
   // Apply defaults from part data (position, rotation, scale)
@@ -743,6 +744,7 @@ export function buildComponentTransferData() {
       numProp: 3,
       vertProperties: transformed.vp,
       triVerts: transformed.tv,
+      finParams: comp._finParams || null,
     });
 
     if (comp.autoMirror) {
