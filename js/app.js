@@ -907,25 +907,17 @@ function loadDesignState(state) {
   if (state.xsecBlendRadii) profileState.xsecBlendRadii = state.xsecBlendRadii;
   if (state.slots) { slots = state.slots; renderSlotUI(); }
 
-  // Restore profiles — if dorsal/ventral/width were saved directly (imported mesh),
-  // set them and rebuild cache WITHOUT calling update() (which would overwrite from sliders)
-  if (state.dorsal && state.dorsal.length > 13) {
-    // Imported profile (more than the default 13 control points)
-    profileState.dorsal = state.dorsal;
-    profileState.ventral = state.ventral || profileState.ventral;
-    profileState.width = state.width || profileState.width;
-    profileState.dDelta = [];
-    profileState.vDelta = [];
-    profileState.wDelta = [];
-    rebuildProfileCache(profileState, 2.2, +(document.getElementById('sHL')?.value || 0.24));
-    rebuildScene();
-  } else {
-    // Normal slider-driven profile — use deltas
-    if (state.dDelta) profileState.dDelta = state.dDelta;
-    if (state.vDelta) profileState.vDelta = state.vDelta;
-    if (state.wDelta) profileState.wDelta = state.wDelta;
-    update();
-  }
+  // Always restore profiles directly — saved data IS the source of truth.
+  // Never call update()/buildProfilesFromSliders on load — it overwrites saved profiles.
+  if (state.dorsal) profileState.dorsal = state.dorsal;
+  if (state.ventral) profileState.ventral = state.ventral;
+  if (state.width) profileState.width = state.width;
+  if (state.dDelta) profileState.dDelta = state.dDelta;
+  if (state.vDelta) profileState.vDelta = state.vDelta;
+  if (state.wDelta) profileState.wDelta = state.wDelta;
+  profileState._manuallyEdited = true; // prevent sliders from overwriting on any future update()
+  rebuildProfileCache(profileState, 2.2, +(document.getElementById('sHL')?.value || 0.24));
+  rebuildScene();
 
   // Restore components from library (reload mesh data by partId)
   if (state.components && state.components.length > 0) {
