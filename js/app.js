@@ -868,13 +868,24 @@ function restoreUndoState(state) {
 function getDesignState() {
   const p = getParams();
 
-  // Save components (partId for library parts to reload, no raw mesh data)
-  const savedComps = getComponents().map(c => ({
-    partId: c.partId, label: c.label, category: c.category,
-    position: { ...c.position }, rotation: { ...c.rotation }, scale: { ...c.scale },
-    mirrorX: c.mirrorX, mirrorY: c.mirrorY, mirrorZ: c.mirrorZ,
-    autoMirror: c.autoMirror, visible: c.visible, enabled: c.enabled,
-  }));
+  // Save components — library parts save partId (reloaded on load),
+  // fins and custom parts save meshData + finParams directly
+  const savedComps = getComponents().map(c => {
+    const s = {
+      partId: c.partId, label: c.label, category: c.category,
+      position: { ...c.position }, rotation: { ...c.rotation }, scale: { ...c.scale },
+      mirrorX: c.mirrorX, mirrorY: c.mirrorY, mirrorZ: c.mirrorZ,
+      autoMirror: c.autoMirror, visible: c.visible, enabled: c.enabled,
+    };
+    // For non-library components (fins, custom), save mesh data so they survive reload
+    if (!c.partId && c.meshData) {
+      s.meshData = c.meshData;
+    }
+    if (c._finParams) s._finParams = c._finParams;
+    if (c._isEye) s._isEye = true;
+    if (c.skew && c.skew.enabled) s.skew = { ...c.skew };
+    return s;
+  });
 
   return JSON.stringify({
     sliders: p,
@@ -919,31 +930,39 @@ function loadDesignState(state) {
   rebuildProfileCache(profileState, 2.2, +(document.getElementById('sHL')?.value || 0.24));
   rebuildScene();
 
-  // Restore components from library (reload mesh data by partId)
+  // Restore components
   if (state.components && state.components.length > 0) {
     for (const saved of state.components) {
       if (saved.partId) {
-        // Library part — find URL from part ID pattern
+        // Library part — reload mesh from server by partId
         const fileUrl = `/parts/${saved.category}s/${saved.partId}.json`;
         window.loadLibraryPart(saved.partId, fileUrl, saved.category || 'custom')
           .then(() => {
-            // Apply saved transforms after loading
             const comps = getComponents();
             const last = comps[comps.length - 1];
             if (last) {
               updateComp(last.id, {
-                position: saved.position,
-                rotation: saved.rotation,
-                scale: saved.scale,
-                mirrorX: saved.mirrorX,
-                mirrorY: saved.mirrorY,
-                mirrorZ: saved.mirrorZ,
-                autoMirror: saved.autoMirror,
-                visible: saved.visible,
-                enabled: saved.enabled,
+                position: saved.position, rotation: saved.rotation, scale: saved.scale,
+                mirrorX: saved.mirrorX, mirrorY: saved.mirrorY, mirrorZ: saved.mirrorZ,
+                autoMirror: saved.autoMirror, visible: saved.visible, enabled: saved.enabled,
               });
             }
           }).catch(e => console.warn('[Load] Component restore failed:', e));
+      } else if (saved.meshData) {
+        // Fin or custom component — restore directly from saved mesh data
+        const comp = addComponent({
+          label: saved.label, category: saved.category,
+          meshData: saved.meshData, _finParams: saved._finParams || null,
+          _isEye: saved._isEye || false,
+        });
+        if (comp) {
+          updateComp(comp.id, {
+            position: saved.position, rotation: saved.rotation, scale: saved.scale,
+            mirrorX: saved.mirrorX, mirrorY: saved.mirrorY, mirrorZ: saved.mirrorZ,
+            autoMirror: saved.autoMirror, visible: saved.visible, enabled: saved.enabled,
+          });
+          if (saved.skew) updateComp(comp.id, { skew: saved.skew });
+        }
       }
     }
   }
