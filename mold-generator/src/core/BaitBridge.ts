@@ -110,11 +110,8 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
             try {
               let compManifold;
 
-              // Fins: the lofted tube mesh should be manifold-clean (same technique as bait body)
-              // Try mFromMesh first, fall back to bounding box if it fails
-              if (comp.finParams) {
-              } else {
-                // Standard mesh component
+              // All components (including fins) go through mFromMesh
+              {
                 const cvp = new Float32Array(comp.vertProperties);
                 let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
                 for (let i = 0; i < cvp.length; i += 3) {
