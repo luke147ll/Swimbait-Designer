@@ -117,7 +117,9 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 const w = getWasm();
 
                 // Build 2D polygon from fin outline (in mm)
-                const poly = fp.outline.map((p: {x: number; y: number}) => [p.x, p.y]);
+                // Reverse to ensure CCW winding for CrossSection
+                const poly = fp.outline.map((p: {x: number; y: number}) => [p.x, p.y]).reverse();
+                console.log(`[BaitBridge] Fin polygon: ${poly.length} points, first=[${poly[0][0].toFixed(1)},${poly[0][1].toFixed(1)}], last=[${poly[poly.length-1][0].toFixed(1)},${poly[poly.length-1][1].toFixed(1)}]`);
                 const cs = new w.CrossSection([poly]);
                 const thickness = fp.thickness;
 
