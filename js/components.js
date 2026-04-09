@@ -429,17 +429,54 @@ function applySkew(verts, skew) {
   return out;
 }
 
-async function updateSkewDisplay(comp) {
+function updateSkewDisplay(comp) {
   if (!comp.meshData) return;
-  // Detach gizmo before rebuild (it holds a ref to the old mesh)
-  const wasGizmoTarget = gizmoTarget === comp;
-  if (wasGizmoTarget && gizmo) gizmo.detach();
-  // Full rebuild — vertex merging changes count so in-place update won't work
-  await rebuildDisplayMesh(comp);
-  // Reattach gizmo to the new mesh
-  if (wasGizmoTarget && comp.displayMesh && gizmo) {
-    gizmo.attach(comp.displayMesh);
+
+  // Apply skew to get new vertex positions
+  const vp = (comp.skew && comp.skew.enabled && comp.skew.amount > 0)
+    ? applySkew(comp.meshData.vertProperties, comp.skew)
+    : comp.meshData.vertProperties;
+
+  // If no display mesh yet, do a full async rebuild
+  if (!comp.displayMesh) { rebuildDisplayMesh(comp); return; }
+
+  // Fast path: rebuild geometry in place without async merge
+  // (avoids duplication from async timing issues)
+  const geo = comp.displayMesh.geometry;
+  const oldCount = geo.attributes.position.count;
+  const newCount = vp.length / 3;
+
+  if (oldCount === newCount) {
+    // Same vertex count — update in place
+    const pos = geo.attributes.position;
+    for (let i = 0; i < newCount; i++) pos.setXYZ(i, vp[i * 3], vp[i * 3 + 1], vp[i * 3 + 2]);
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    geo.computeBoundingBox();
+  } else {
+    // Different count (first skew on a merged mesh) — replace geometry
+    const wasGizmoTarget = gizmoTarget === comp;
+    if (wasGizmoTarget && gizmo) gizmo.detach();
+
+    if (geo) geo.dispose();
+    const newGeo = new THREE.BufferGeometry();
+    newGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(vp), 3));
+    const tv = comp.meshData.triVerts;
+    if (tv && tv.length > 0) newGeo.setIndex(new THREE.BufferAttribute(new Uint32Array(tv), 1));
+    newGeo.computeVertexNormals();
+    newGeo.computeBoundingBox();
+    newGeo.center();
+    // Scale if needed
+    const bb = newGeo.boundingBox;
+    const mx = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+    if (mx > 30) newGeo.scale(1 / 25.4, 1 / 25.4, 1 / 25.4);
+
+    comp.displayMesh.geometry = newGeo;
+
+    if (wasGizmoTarget && gizmo) gizmo.attach(comp.displayMesh);
   }
+
+  updateDisplayTransform(comp);
 }
 
 // ── UI Rendering ──
