@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mBox, mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
+import { mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
 import type { ClampConfig, MoldConfig, Vec3, PrintOrientation } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
 import { HEAT_SET_INSERT_HOLES, BOLT_CLEARANCE_HOLES } from '../constants';
