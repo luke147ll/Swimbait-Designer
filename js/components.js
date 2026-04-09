@@ -49,6 +49,7 @@ async function initGizmo() {
     gizmo.setMode('translate');
     gizmo.setSize(('ontouchstart' in window) ? 1.2 : 0.8);
     gizmo.setSpace('local');
+    gizmo.showZ = false; // lock Z in translate mode by default
 
     // Disable orbit while dragging gizmo
     gizmo.addEventListener('dragging-changed', e => {
@@ -129,6 +130,9 @@ window.setGizmoMode = function(mode) {
     return;
   }
   gizmo.setMode(mode);
+  // Lock Z axis in translate mode — prevents accidental off-center movement.
+  // Z positioning is available via the component's slider controls.
+  gizmo.showZ = mode !== 'translate';
   document.querySelectorAll('.gizmo-btn').forEach(b => {
     if (b.dataset.mode !== 'snap' && b.dataset.mode !== 'space') b.classList.toggle('on', b.dataset.mode === mode);
   });
@@ -763,30 +767,15 @@ export function buildComponentTransferData() {
     });
 
     if (comp.autoMirror) {
-      // Mirror across Z=0: flip Z in local mesh, reflect rotation, negate position Z.
-      // This matches what the viewport does (world-space Z flip) but avoids
-      // issues with Manifold interpreting post-transform Z negation incorrectly.
-      const mirroredMeshData = {
-        vertProperties: Array.from(comp.meshData.vertProperties),
-        triVerts: Array.from(comp.meshData.triVerts),
-      };
-      // Flip Z on local mesh vertices
-      for (let vi = 2; vi < mirroredMeshData.vertProperties.length; vi += 3) {
-        mirroredMeshData.vertProperties[vi] = -mirroredMeshData.vertProperties[vi];
-      }
-      // Flip winding (Z negation reverses face orientation)
-      for (let fi = 0; fi < mirroredMeshData.triVerts.length; fi += 3) {
-        const tmp = mirroredMeshData.triVerts[fi + 1];
-        mirroredMeshData.triVerts[fi + 1] = mirroredMeshData.triVerts[fi + 2];
-        mirroredMeshData.triVerts[fi + 2] = tmp;
-      }
-      // Reflected transform: negate position Z and reflect rotation (negate rotX, rotY)
+      // Mirror across Z=0: use the same world-space approach as the viewport.
+      // 1. Apply full transform to original mesh (gives correct world-space vertices)
+      // 2. Negate Z on the result (mirrors across the body centerline)
+      // 3. Use mirrorZ scale flag so applyTransform handles winding correctly
       const mirrorComp = {
         ...comp,
-        position: { x: comp.position.x, y: comp.position.y, z: -comp.position.z },
-        rotation: { x: -comp.rotation.x, y: -comp.rotation.y, z: comp.rotation.z },
+        mirrorZ: !comp.mirrorZ, // toggle Z mirror — applyTransform will negate Z scale and fix winding
       };
-      const mirrored = applyTransform(mirroredMeshData, mirrorComp);
+      const mirrored = applyTransform(comp.meshData, mirrorComp);
       result.push({
         id: comp.id + '_mirror', label: comp.label + ' (mirror)',
         numProp: 3,
