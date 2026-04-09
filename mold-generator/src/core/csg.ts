@@ -10,6 +10,9 @@ let wasm: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ManifoldSolid = any;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getWasm(): any { return wasm; }
+
 export async function initCSG(): Promise<void> {
   if (wasm) return;
   const Module = (await import('manifold-3d/manifold')).default;

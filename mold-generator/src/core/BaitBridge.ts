@@ -110,15 +110,26 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
             try {
               let compManifold;
 
-              // Fins with finParams: use native Manifold extrusion (guaranteed manifold)
+              // Fins with finParams: use native Manifold CrossSection extrusion
               if (comp.finParams && comp.finParams.outline) {
                 const fp = comp.finParams;
-                const { mBox: mB } = await import('./csg');
-                // Build fin as a native Manifold box scaled to fin dimensions, then
-                // use the outline to create a more accurate shape via CrossSection if available.
-                // Fallback: approximate with a box matching the fin's bounding box
-                void fp; // fin params available for future CrossSection extrusion
-                // Create fin as extruded box, positioned from the transferred vertex bounds
+                const { getWasm } = await import('./csg');
+                const w = getWasm();
+
+                // Build 2D polygon from fin outline (in mm)
+                const poly = fp.outline.map((p: {x: number; y: number}) => [p.x, p.y]);
+                const cs = new w.CrossSection([poly]);
+                const thickness = fp.thickness;
+
+                // Extrude along Z (will become the fin thickness)
+                // CrossSection extrudes along +Z from 0 to height
+                let finSolid = w.Manifold.extrude(cs, thickness);
+                // Center the extrusion on Z
+                finSolid = finSolid.translate([0, 0, -thickness / 2]);
+
+                // Now apply the component's position/rotation/scale from the vertex bounds
+                // The transferred vertices have the full transform baked in (inches→mm)
+                // Get the center position from the vertex data
                 const cvp = new Float32Array(comp.vertProperties);
                 let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
                 for (let i = 0; i < cvp.length; i += 3) {
@@ -126,11 +137,16 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                   if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
                   if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
                 }
-                console.log(`[BaitBridge] Fin ${comp.label} bounds: X[${cMinX.toFixed(1)},${cMaxX.toFixed(1)}] Y[${cMinY.toFixed(1)},${cMaxY.toFixed(1)}] Z[${cMinZ.toFixed(1)},${cMaxZ.toFixed(1)}]`);
-                // Use a native box at the fin's position
-                compManifold = mB(cMaxX - cMinX, cMaxY - cMinY, cMaxZ - cMinZ)
-                  .translate([(cMinX + cMaxX) / 2, (cMinY + cMaxY) / 2, (cMinZ + cMaxZ) / 2]);
-                console.log(`[BaitBridge] Fin built as native box: ${(cMaxX-cMinX).toFixed(1)}×${(cMaxY-cMinY).toFixed(1)}×${(cMaxZ-cMinZ).toFixed(1)}mm`);
+                // The fin outline is in local mm coords. The vertex bounds tell us
+                // where it was placed after transform. Translate the extruded solid
+                // to match the vertex center position.
+                const cx = (cMinX + cMaxX) / 2;
+                const cy = (cMinY + cMaxY) / 2;
+                const cz = (cMinZ + cMaxZ) / 2;
+                finSolid = finSolid.translate([cx, cy, cz]);
+
+                compManifold = finSolid;
+                console.log(`[BaitBridge] Fin extruded: ${comp.label} at [${cx.toFixed(1)},${cy.toFixed(1)},${cz.toFixed(1)}], ${thickness}mm thick`);
               } else {
                 // Standard mesh component
                 const cvp = new Float32Array(comp.vertProperties);
