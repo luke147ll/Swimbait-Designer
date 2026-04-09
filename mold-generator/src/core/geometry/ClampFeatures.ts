@@ -117,7 +117,6 @@ export class ClampFeatures {
       const cuttersA: ManifoldSolid[] = [];
       for (const pos of positions) {
         cuttersA.push(mTranslate(mCylZ(clr.clearanceDiameter / 2, cutterH), pos.x, pos.y, -dims.boxZ / 2));
-        cuttersA.push(mTranslate(mBox(16, 16, 5 + 1), pos.x, pos.y, -dims.boxZ + (5 + 1) / 2));
       }
       if (cuttersA.length > 0) halfA = mSubtract(halfA, mBatchUnion(cuttersA));
 
