@@ -90,81 +90,14 @@ export function buildEyeCylinderData(OL) {
   if (!size) return null;
 
   const r = (size.d + eyeConfig.clearance) / 2; // mm
-  const cylLen = 20; // mm — oversized, subtraction trims it
-  const segs = 32;
-
-  // Build a cylinder along Z axis, then we'll rotate to X for each eye
-  const verts = [];
-  const tris = [];
-
-  // Top cap center + bottom cap center
-  // Ring verts: segs * 2 (top ring + bottom ring)
-  // Cap centers: 2
-  const topCenter = segs * 2;
-  const botCenter = segs * 2 + 1;
-
-  for (let i = 0; i < segs; i++) {
-    const a = (i / segs) * Math.PI * 2;
-    const x = Math.cos(a) * r, y = Math.sin(a) * r;
-    verts.push(x, y, cylLen / 2);   // top ring
-    verts.push(x, y, -cylLen / 2);  // bottom ring
-  }
-  verts.push(0, 0, cylLen / 2);   // top center
-  verts.push(0, 0, -cylLen / 2);  // bottom center
-
-  // Side quads
-  for (let i = 0; i < segs; i++) {
-    const ni = (i + 1) % segs;
-    const t0 = i * 2, t1 = ni * 2, b0 = i * 2 + 1, b1 = ni * 2 + 1;
-    tris.push(t0, t1, b0); tris.push(t1, b1, b0);
-  }
-  // Top cap
-  for (let i = 0; i < segs; i++) { const ni = (i + 1) % segs; tris.push(topCenter, i * 2, ni * 2); }
-  // Bottom cap
-  for (let i = 0; i < segs; i++) { const ni = (i + 1) % segs; tris.push(botCenter, ni * 2 + 1, i * 2 + 1); }
-
-  // Now create two positioned copies (right eye + left eye)
-  // Rotate cylinder from Z-axis to Z-axis (width axis — punches in from the sides)
-  // In mold coords: X=length, Y=height, Z=width
-  // Cylinder axis should be along Z (width) to punch into the bait from each side
   const baitLenMM = OL * 25.4;
   const stationX = (-baitLenMM / 2) + eyeConfig.stationT * baitLenMM;
-  const vOff = eyeConfig.verticalOffset;
 
-  const allVerts = [];
-  const allTris = [];
-
-  // Cylinder base verts are: (cos*r, sin*r, ±cylLen/2) — circle in XY, axis along Z.
-  // In mold coords: X=length, Y=height, Z=width.
-  // We want the cylinder axis along Z (punching into bait from sides).
-  // Circle coords (x,y of cylinder) map to (X,Y of bait) — body length + height.
-  // Z of cylinder maps to Z of bait — width/depth into bait.
-
-  for (const side of [1, -1]) {
-    const offset = allVerts.length / 3;
-    for (let i = 0; i < verts.length; i += 3) {
-      allVerts.push(
-        stationX + verts[i],       // X = body position + circle X (spreads the circle along body axis)
-        vOff + verts[i + 1],       // Y = height offset + circle Y (spreads circle vertically)
-        side * verts[i + 2]        // Z = cylinder depth (positive = right side, negative = left)
-      );
-    }
-
-    for (let i = 0; i < tris.length; i++) {
-      allTris.push(tris[i] + offset);
-    }
-    // Flip winding for the negative side (geometry is mirrored)
-    if (side < 0) {
-      const start = allTris.length - tris.length;
-      for (let i = start; i < allTris.length; i += 3) {
-        const tmp = allTris[i + 1]; allTris[i + 1] = allTris[i + 2]; allTris[i + 2] = tmp;
-      }
-    }
-  }
-
+  // Send parameters — mold generator builds native Manifold cylinders (much faster)
   return {
-    vertProperties: allVerts,
-    triVerts: allTris,
+    radius: r,
+    stationX,
+    vOff: eyeConfig.verticalOffset,
     sizeLabel: size.label,
   };
 }

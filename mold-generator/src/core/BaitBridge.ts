@@ -130,17 +130,19 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
           geometry = m2t(manifold);
         }
 
-        // Eye sockets — subtract from bait (creates recesses in the bait surface)
+        // Eye sockets — build native Manifold cylinders and subtract from bait
         const eyeData = data.eyeSockets;
-        if (eyeData && eyeData.vertProperties && eyeData.vertProperties.length > 0) {
-          console.log(`[BaitBridge] Subtracting eye sockets (${eyeData.sizeLabel})`);
+        if (eyeData && eyeData.radius && eyeData.radius > 0) {
+          console.log(`[BaitBridge] Subtracting eye sockets: r=${eyeData.radius.toFixed(1)}mm at X=${eyeData.stationX.toFixed(1)}, Y=${eyeData.vOff.toFixed(1)}`);
           try {
-            const { mFromMesh: mfm, manifoldToThree: m2t2 } = await import('./csg');
-            const eyeManifold = mfm(
-              new Float32Array(eyeData.vertProperties),
-              new Uint32Array(eyeData.triVerts)
-            );
-            manifold = manifold.subtract(eyeManifold);
+            const { mCylZ, manifoldToThree: m2t2 } = await import('./csg');
+            const cylLen = 20; // oversized — subtraction trims
+            for (const side of [1, -1]) {
+              // Native Manifold cylinder along Z, translated to position
+              const cyl = mCylZ(eyeData.radius, cylLen, 32)
+                .translate([eyeData.stationX, eyeData.vOff, side * cylLen / 2]);
+              manifold = manifold.subtract(cyl);
+            }
             geometry = m2t2(manifold);
             console.log(`[BaitBridge] Eye sockets subtracted`);
           } catch (e) {
