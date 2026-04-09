@@ -1,13 +1,11 @@
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { AccordionPanel } from '../shared/AccordionPanel';
 import { useMoldStore } from '../../store/moldStore';
 import { STLExporter } from '../../core/export/STLExporter';
-import { ConfigExporter } from '../../core/export/ConfigExporter';
 import { BOMGenerator } from '../../core/export/BOMGenerator';
 import { T } from '../../theme';
 
 const stlExporter = new STLExporter();
-const configExporter = new ConfigExporter();
 const bomGenerator = new BOMGenerator();
 
 const expBtn = (disabled: boolean): React.CSSProperties => ({
@@ -18,21 +16,18 @@ const expBtn = (disabled: boolean): React.CSSProperties => ({
   opacity: disabled ? 0.5 : 1, transition: 'all 0.15s',
 });
 
-const secBtn: React.CSSProperties = {
-  width: '100%', padding: '8px 0', marginBottom: 6, fontSize: 11, cursor: 'pointer',
-  background: T.bgSurface, color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 3,
-  fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 1, transition: 'all 0.15s',
-};
-
 export function ExportPanel() {
   const halfA = useMoldStore(s => s.moldHalfA);
   const halfB = useMoldStore(s => s.moldHalfB);
+  const baitFileName = useMoldStore(s => s.baitFileName);
   const insertCards = useMoldStore(s => s.insertCards);
   const alignmentPins = useMoldStore(s => s.alignmentPins);
   const validation = useMoldStore(s => s.validationResult);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canExport = !!halfA && (validation?.valid !== false);
+
+  // Strip extension from bait name for clean filenames
+  const baseName = (baitFileName || 'mold').replace(/\.\w+$/, '').replace(/\s+/g, '_');
 
   const bom = (() => {
     const state = useMoldStore.getState();
@@ -40,71 +35,42 @@ export function ExportPanel() {
   })();
 
   const handleExportA = useCallback(() => {
-    if (halfA) stlExporter.exportBinary(halfA, 'mold_half_A');
-  }, [halfA]);
+    if (halfA) stlExporter.exportBinary(halfA, `${baseName}_half_A`);
+  }, [halfA, baseName]);
 
   const handleExportB = useCallback(() => {
-    if (halfB) stlExporter.exportBinary(halfB, 'mold_half_B');
-  }, [halfB]);
+    if (halfB) stlExporter.exportBinary(halfB, `${baseName}_half_B`);
+  }, [halfB, baseName]);
 
   const handleExportAll = useCallback(() => {
-    if (halfA) stlExporter.exportBinary(halfA, 'mold_half_A');
-    if (halfB) setTimeout(() => stlExporter.exportBinary(halfB, 'mold_half_B'), 200);
-    setTimeout(() => configExporter.downloadConfig(useMoldStore.getState()), 400);
-  }, [halfA, halfB]);
-
-  const handleSaveConfig = useCallback(() => {
-    configExporter.downloadConfig(useMoldStore.getState());
-  }, []);
-
-  const handleLoadConfig = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const onFileLoad = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = configExporter.importConfig(reader.result as string);
-      if (result) {
-        const store = useMoldStore.getState();
-        if (result.moldConfig) store.updateMoldConfig(result.moldConfig);
-        if (result.alignmentConfig) store.updateAlignmentConfig(result.alignmentConfig);
-        if (result.clampConfig) store.updateClampConfig(result.clampConfig);
-        if (result.sprueConfig) store.updateSprueConfig(result.sprueConfig);
-        if (result.ventConfig) store.updateVentConfig(result.ventConfig);
-        if (result.printerProfile) store.setPrinterProfile(result.printerProfile);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  }, []);
+    if (halfA) stlExporter.exportBinary(halfA, `${baseName}_half_A`);
+    if (halfB) setTimeout(() => stlExporter.exportBinary(halfB, `${baseName}_half_B`), 200);
+  }, [halfA, halfB, baseName]);
 
   return (
     <AccordionPanel title="Export" defaultExpanded={false}>
       <button style={expBtn(!canExport)} disabled={!canExport} onClick={handleExportA}>
-        Export Half A (.stl)
+        Export {baseName} Half A (.stl)
       </button>
       {halfB && (
         <button style={expBtn(!canExport)} disabled={!canExport} onClick={handleExportB}>
-          Export Half B (.stl)
+          Export {baseName} Half B (.stl)
         </button>
       )}
       {alignmentPins.length > 0 && alignmentPins.map((pin, i) => (
         <button key={`pin-${i}`} style={expBtn(!canExport)} disabled={!canExport}
-          onClick={() => stlExporter.exportBinary(pin.geometry, `hex_pin_${i + 1}`)}>
+          onClick={() => stlExporter.exportBinary(pin.geometry, `${baseName}_hex_pin_${i + 1}`)}>
           Export {pin.label} (.stl)
         </button>
       ))}
       {insertCards.length > 0 && insertCards.map((card, i) => (
         <button key={`card-${i}`} style={expBtn(!canExport)} disabled={!canExport}
-          onClick={() => stlExporter.exportBinary(card.geometry, `insert_card_${i + 1}`)}>
+          onClick={() => stlExporter.exportBinary(card.geometry, `${baseName}_insert_card_${i + 1}`)}>
           Export {card.label} (.stl)
         </button>
       ))}
       <button style={expBtn(!canExport)} disabled={!canExport} onClick={handleExportAll}>
-        Export All (STL + Config)
+        Export All (.stl)
       </button>
 
       {!canExport && halfA && (
@@ -148,13 +114,6 @@ export function ExportPanel() {
           <div>Infill: {bom.recommendedPrintSettings.infill}</div>
           <div>Orient: {bom.recommendedPrintSettings.orientation}</div>
         </div>
-      </div>
-
-      {/* Config save/load */}
-      <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12, marginTop: 12 }}>
-        <button style={secBtn} onClick={handleSaveConfig}>Save Config (.json)</button>
-        <button style={secBtn} onClick={handleLoadConfig}>Load Config</button>
-        <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={onFileLoad} />
       </div>
 
       {/* STEP placeholder */}
