@@ -110,40 +110,9 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
             try {
               let compManifold;
 
-              // Fins with finParams: use native Manifold box with transform
-              if (comp.finParams && comp.finParams.outline) {
-                const fp = comp.finParams;
-                const { mBox: mB } = await import('./csg');
-
-                // Get fin dimensions from the outline
-                const outline = fp.outline;
-                let oMinX = Infinity, oMaxX = -Infinity, oMinY = Infinity, oMaxY = -Infinity;
-                for (const p of outline) {
-                  if (p.x < oMinX) oMinX = p.x; if (p.x > oMaxX) oMaxX = p.x;
-                  if (p.y < oMinY) oMinY = p.y; if (p.y > oMaxY) oMaxY = p.y;
-                }
-                const finW = oMaxX - oMinX;
-                const finH = oMaxY - oMinY;
-
-                // Build as a centered box (Manifold native — clean and fast)
-                let finSolid = mB(finW, finH, fp.thickness);
-
-                // Apply the component's transform
-                const t = comp.transform;
-                if (t) {
-                  if (t.scale && (t.scale.x !== 1 || t.scale.y !== 1 || t.scale.z !== 1)) {
-                    finSolid = finSolid.scale([t.scale.x, t.scale.y, t.scale.z]);
-                  }
-                  if (t.rotation && (t.rotation.x || t.rotation.y || t.rotation.z)) {
-                    finSolid = finSolid.rotate([t.rotation.x, t.rotation.y, t.rotation.z]);
-                  }
-                  if (t.position) {
-                    finSolid = finSolid.translate([t.position.x, t.position.y, t.position.z]);
-                  }
-                }
-
-                compManifold = finSolid;
-                console.log(`[BaitBridge] Fin box: ${comp.label}, ${finW.toFixed(1)}×${finH.toFixed(1)}×${fp.thickness}mm, pos=[${t?.position?.x?.toFixed(1)},${t?.position?.y?.toFixed(1)},${t?.position?.z?.toFixed(1)}]`);
+              // Fins: the lofted tube mesh should be manifold-clean (same technique as bait body)
+              // Try mFromMesh first, fall back to bounding box if it fails
+              if (comp.finParams) {
               } else {
                 // Standard mesh component
                 const cvp = new Float32Array(comp.vertProperties);

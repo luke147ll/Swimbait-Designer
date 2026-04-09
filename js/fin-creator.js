@@ -221,54 +221,55 @@ function onPointerUp() { dragIdx = -1; }
 // ── Mesh Building ──
 
 function buildFinMesh() {
-  const outline = smoothOutline(finPoints, 40);
-  const N = outline.length;
-  // Vertex layout: N front + N back + 2 cap centers (front + back)
-  const frontCenter = N * 2;
-  const backCenter = N * 2 + 1;
-  const totalVerts = N * 2 + 2;
+  // Lofted tube approach — same technique as the bait body.
+  // Each station along the fin base has a rectangular cross-section (4 verts).
+  // The rectangle's height comes from the outline profile.
+  // Adjacent stations are connected by quad strips. Ends are capped with quads.
+  const outline = smoothOutline(finPoints, 30);
+  const NS = outline.length; // stations along the base
+  const S = 1 / 25.4; // mm → inches for viewport
+
+  // 4 verts per station: top-front, top-back, bottom-front, bottom-back
+  const totalVerts = NS * 4;
   const vp = new Float32Array(totalVerts * 3);
   const tris = [];
 
-  const S = 1 / 25.4; // mm → inches for viewport
-
-  // Compute centroid for cap fan centers
-  let cx = 0, cy = 0;
-  for (let i = 0; i < N; i++) {
-    cx += (outline[i].x * baseLength - baseLength / 2) * S;
-    cy += outline[i].y * maxHeight * S;
-  }
-  cx /= N; cy /= N;
-  const centerHt = (tapered ? thickness * (1 - (cy / (maxHeight * S)) * 0.7) : thickness) * S;
-
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < NS; i++) {
     const px = (outline[i].x * baseLength - baseLength / 2) * S;
-    const py = outline[i].y * maxHeight * S;
-    const ht = (tapered ? thickness * (1 - outline[i].y * 0.7) : thickness) * S;
-    const hz = ht / 2;
+    const h = outline[i].y * maxHeight * S;
+    const t = tapered ? thickness * Math.max(0.15, outline[i].y) * S : thickness * S;
+    const hz = t / 2;
+    const base = i * 4;
 
-    vp[i * 3] = px;
-    vp[i * 3 + 1] = py;
-    vp[i * 3 + 2] = hz;
-
-    vp[(N + i) * 3] = px;
-    vp[(N + i) * 3 + 1] = py;
-    vp[(N + i) * 3 + 2] = -hz;
+    // top-front (0)
+    vp[(base + 0) * 3] = px; vp[(base + 0) * 3 + 1] = h; vp[(base + 0) * 3 + 2] = hz;
+    // top-back (1)
+    vp[(base + 1) * 3] = px; vp[(base + 1) * 3 + 1] = h; vp[(base + 1) * 3 + 2] = -hz;
+    // bottom-front (2)
+    vp[(base + 2) * 3] = px; vp[(base + 2) * 3 + 1] = 0; vp[(base + 2) * 3 + 2] = hz;
+    // bottom-back (3)
+    vp[(base + 3) * 3] = px; vp[(base + 3) * 3 + 1] = 0; vp[(base + 3) * 3 + 2] = -hz;
   }
-  // Cap centers
-  vp[frontCenter * 3] = cx; vp[frontCenter * 3 + 1] = cy; vp[frontCenter * 3 + 2] = centerHt / 2;
-  vp[backCenter * 3] = cx; vp[backCenter * 3 + 1] = cy; vp[backCenter * 3 + 2] = -centerHt / 2;
 
-  // Front face fan from centroid
-  for (let i = 0; i < N; i++) { const ni = (i + 1) % N; tris.push(frontCenter, i, ni); }
-  // Back face fan from centroid (reversed winding)
-  for (let i = 0; i < N; i++) { const ni = (i + 1) % N; tris.push(backCenter, N + ni, N + i); }
-  // Side walls
-  for (let i = 0; i < N; i++) {
-    const ni = (i + 1) % N;
-    tris.push(i, ni, N + i);
-    tris.push(ni, N + ni, N + i);
+  // Quad strips between adjacent stations (4 faces per pair)
+  for (let i = 0; i < NS - 1; i++) {
+    const a = i * 4, b = (i + 1) * 4;
+    // Front face (verts 0,2 of each station)
+    tris.push(a + 0, a + 2, b + 0); tris.push(a + 2, b + 2, b + 0);
+    // Back face (verts 1,3 — reversed winding)
+    tris.push(a + 1, b + 1, a + 3); tris.push(a + 3, b + 1, b + 3);
+    // Top face (verts 0,1)
+    tris.push(a + 0, b + 0, a + 1); tris.push(a + 1, b + 0, b + 1);
+    // Bottom face (verts 2,3 — reversed)
+    tris.push(a + 2, a + 3, b + 2); tris.push(a + 3, b + 3, b + 2);
   }
+
+  // End caps (simple quads)
+  // Left cap (station 0): 0,1,2,3
+  tris.push(0, 1, 2); tris.push(1, 3, 2);
+  // Right cap (last station): reversed winding
+  const e = (NS - 1) * 4;
+  tris.push(e + 0, e + 2, e + 1); tris.push(e + 1, e + 2, e + 3);
 
   return { vertProperties: Array.from(vp), triVerts: tris, vertCount: N * 2, triCount: tris.length / 3 };
 }
