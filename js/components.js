@@ -612,28 +612,38 @@ export function renderComponentList() {
           inner.appendChild(toggleRow);
 
           if (sk.enabled) {
-            // Axis
+            // Taper direction — named by what happens visually
+            const axisLabels = {
+              x: { name: 'Length', pos: 'Taper toward tail', neg: 'Taper toward head' },
+              y: { name: 'Height', pos: 'Taper toward top', neg: 'Taper toward belly' },
+              z: { name: 'Width', pos: 'Taper toward right', neg: 'Taper toward left' },
+            };
+
+            const lbl2 = document.createElement('div');
+            lbl2.style.cssText = 'font-size:9px;color:var(--mu);margin-bottom:4px';
+            lbl2.textContent = 'Taper along:';
+            inner.appendChild(lbl2);
+
             const axisRow = document.createElement('div');
             axisRow.style.cssText = 'display:flex;gap:2px;margin-bottom:6px';
             for (const a of ['x', 'y', 'z']) {
               const btn = document.createElement('button');
               btn.className = 'tb' + (sk.axis === a ? ' on' : '');
-              btn.style.cssText = 'flex:1;padding:3px;font-size:9px';
-              btn.textContent = a.toUpperCase();
+              btn.style.cssText = 'flex:1;padding:4px;font-size:9px';
+              btn.textContent = axisLabels[a].name;
               btn.onclick = () => { comp.skew.axis = a; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
               axisRow.appendChild(btn);
             }
             inner.appendChild(axisRow);
 
-            // Direction
-            const posLabel = sk.axis === 'x' ? '→' : sk.axis === 'y' ? '↑' : '↑';
-            const negLabel = sk.axis === 'x' ? '←' : sk.axis === 'y' ? '↓' : '↓';
+            // Direction — plain language
+            const al = axisLabels[sk.axis];
             const dirRow = document.createElement('div');
             dirRow.style.cssText = 'display:flex;gap:2px;margin-bottom:6px';
-            for (const [d, lbl] of [[1, 'Pinch +' + posLabel], [-1, 'Pinch -' + negLabel]]) {
+            for (const [d, lbl] of [[1, al.pos], [-1, al.neg]]) {
               const btn = document.createElement('button');
               btn.className = 'tb' + (sk.direction === d ? ' on' : '');
-              btn.style.cssText = 'flex:1;padding:3px;font-size:9px';
+              btn.style.cssText = 'flex:1;padding:4px;font-size:8px';
               btn.textContent = lbl;
               btn.onclick = () => { comp.skew.direction = d; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
               dirRow.appendChild(btn);
@@ -645,14 +655,20 @@ export function renderComponentList() {
               comp.skew.amount = v / 100; updateSkewDisplay(comp);
             }));
 
-            // Falloff
+            // Falloff — with descriptions
+            const lbl3 = document.createElement('div');
+            lbl3.style.cssText = 'font-size:9px;color:var(--mu);margin-top:6px;margin-bottom:4px';
+            lbl3.textContent = 'Taper curve:';
+            inner.appendChild(lbl3);
+
             const ffRow = document.createElement('div');
-            ffRow.style.cssText = 'display:flex;gap:2px;margin-top:4px';
+            ffRow.style.cssText = 'display:flex;gap:2px';
+            const ffLabels = { linear: 'Even', smooth: 'Smooth', sharp: 'Sharp tip' };
             for (const f of ['linear', 'smooth', 'sharp']) {
               const btn = document.createElement('button');
               btn.className = 'tb' + (sk.falloff === f ? ' on' : '');
-              btn.style.cssText = 'flex:1;padding:3px;font-size:8px';
-              btn.textContent = f;
+              btn.style.cssText = 'flex:1;padding:4px;font-size:8px';
+              btn.textContent = ffLabels[f];
               btn.onclick = () => { comp.skew.falloff = f; updateSkewDisplay(comp); renderComponentList(); recordChange(); };
               ffRow.appendChild(btn);
             }
