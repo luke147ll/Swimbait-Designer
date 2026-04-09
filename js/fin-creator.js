@@ -271,7 +271,7 @@ function buildFinMesh() {
   const e = (NS - 1) * 4;
   tris.push(e + 0, e + 2, e + 1); tris.push(e + 1, e + 2, e + 3);
 
-  return { vertProperties: Array.from(vp), triVerts: tris, vertCount: N * 2, triCount: tris.length / 3 };
+  return { vertProperties: Array.from(vp), triVerts: tris, vertCount: NS * 4, triCount: tris.length / 3 };
 }
 
 // ── UI ──
