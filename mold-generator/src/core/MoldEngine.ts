@@ -148,26 +148,22 @@ export class MoldEngine {
       ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ, 1.5, dims.cx, dims.cy));
     }
 
-    // Step 8.9: Pry slot — notch at the top center of the parting face for screwdriver
-    const pryWidth = effectiveMoldConfig.cavityClearance;
-    if (pryWidth > 0) {
+    // Step 8.9: Pry slot — notch at the top edge of the parting face for screwdriver
+    {
       const pryLen = 15; // mm along the body axis
+      const pryWidth = 2; // mm wide
       const pryDepth = 2; // mm deep into the parting face
-      // Top edge of mold = max Y of the bait + wall margin
-      const topY = baitBounds.max.y + effectiveMoldConfig.wallMarginX;
-      // Centered on X (body axis)
-      const pryX = dims.cx;
+      // Top edge of the actual mold box
+      const topY = dims.cy + dims.boxY / 2;
 
-      // Notch on halfA (Z < 0 side, parting face at Z=0)
-      const notchA = mBox(pryLen, pryWidth, pryDepth).translate([pryX, topY, -pryDepth / 2]);
+      const notchA = mBox(pryLen, pryWidth, pryDepth).translate([dims.cx, topY, -pryDepth / 2]);
       halfA = halfA.subtract(notchA);
 
-      // Notch on halfB (Z > 0 side, parting face at Z=0)
       if (halfB) {
-        const notchB = mBox(pryLen, pryWidth, pryDepth).translate([pryX, topY, pryDepth / 2]);
+        const notchB = mBox(pryLen, pryWidth, pryDepth).translate([dims.cx, topY, pryDepth / 2]);
         halfB = halfB.subtract(notchB);
       }
-      console.log(`[MoldEngine] Pry slot: ${pryLen}×${pryWidth}×${pryDepth}mm at top center`);
+      console.log(`[MoldEngine] Pry slot: ${pryLen}×${pryWidth}×${pryDepth}mm at top edge`);
     }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)

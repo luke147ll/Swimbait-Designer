@@ -36,8 +36,6 @@ export function MoldConfigPanel() {
       <Slider label="Clamp Flange" value={config.clampFlange} min={8} max={20} step={1} unit="mm"
         disabled={clampMode === 'external_clamp'}
         onChange={v => update({ clampFlange: v })} />
-      <Slider label="Pry Slot Width" value={config.cavityClearance} min={0} max={5} step={0.5} unit="mm"
-        onChange={v => update({ cavityClearance: v })} />
       <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>
         Watermark: A: "SWIMBAIT" &middot; B: "DESIGNER"
       </div>
