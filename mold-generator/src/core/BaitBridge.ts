@@ -139,13 +139,20 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                   if(cvp[i+1]<cMinY)cMinY=cvp[i+1]; if(cvp[i+1]>cMaxY)cMaxY=cvp[i+1];
                   if(cvp[i+2]<cMinZ)cMinZ=cvp[i+2]; if(cvp[i+2]>cMaxZ)cMaxZ=cvp[i+2];
                 }
-                // The fin outline is in local mm coords. The vertex bounds tell us
-                // where it was placed after transform. Translate the extruded solid
-                // to match the vertex center position.
-                const cx = (cMinX + cMaxX) / 2;
-                const cy = (cMinY + cMaxY) / 2;
-                const cz = (cMinZ + cMaxZ) / 2;
-                finSolid = finSolid.translate([cx, cy, cz]);
+                // Find the outline's own bounds to compute the offset
+                let oMinX = Infinity, oMaxX = -Infinity, oMinY = Infinity, oMaxY = -Infinity;
+                for (const [px, py] of poly) {
+                  if (px < oMinX) oMinX = px; if (px > oMaxX) oMaxX = px;
+                  if (py < oMinY) oMinY = py; if (py > oMaxY) oMaxY = py;
+                }
+                // Translate so outline bounds align with vertex bounds
+                // X: outline center → vertex center
+                // Y: outline min (base) → vertex min (base sits on bait surface)
+                // Z: already centered by the -thickness/2 offset
+                const dx = (cMinX + cMaxX) / 2 - (oMinX + oMaxX) / 2;
+                const dy = cMinY - oMinY;
+                const dz = (cMinZ + cMaxZ) / 2;
+                finSolid = finSolid.translate([dx, dy, dz]);
 
                 compManifold = finSolid;
                 console.log(`[BaitBridge] Fin extruded: ${comp.label} at [${cx.toFixed(1)},${cy.toFixed(1)},${cz.toFixed(1)}], ${thickness}mm thick`);
