@@ -271,6 +271,17 @@ function buildFinMesh() {
   const e = (NS - 1) * 4;
   tris.push(e + 0, e + 2, e + 1); tris.push(e + 1, e + 2, e + 3);
 
+  // Center the mesh (same as geo.center() in the display) so the position
+  // slider value matches between viewport and mold generator
+  let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity, mnZ = Infinity, mxZ = -Infinity;
+  for (let i = 0; i < vp.length; i += 3) {
+    if (vp[i] < mnX) mnX = vp[i]; if (vp[i] > mxX) mxX = vp[i];
+    if (vp[i+1] < mnY) mnY = vp[i+1]; if (vp[i+1] > mxY) mxY = vp[i+1];
+    if (vp[i+2] < mnZ) mnZ = vp[i+2]; if (vp[i+2] > mxZ) mxZ = vp[i+2];
+  }
+  const offX = (mnX + mxX) / 2, offY = (mnY + mxY) / 2, offZ = (mnZ + mxZ) / 2;
+  for (let i = 0; i < vp.length; i += 3) { vp[i] -= offX; vp[i+1] -= offY; vp[i+2] -= offZ; }
+
   return { vertProperties: Array.from(vp), triVerts: tris, vertCount: NS * 4, triCount: tris.length / 3 };
 }
 
