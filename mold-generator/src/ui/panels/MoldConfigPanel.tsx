@@ -38,9 +38,7 @@ export function MoldConfigPanel() {
       <Slider label="Clamp Flange" value={config.clampFlange} min={8} max={20} step={1} unit="mm"
         disabled={clampMode === 'external_clamp'}
         onChange={v => update({ clampFlange: v })} />
-      <Slider label="Parting Face Depth" value={config.partingFaceDepth} min={1} max={4} step={0.5} unit="mm"
-        onChange={v => update({ partingFaceDepth: v })} />
-      <Slider label="Cavity Clearance" value={config.cavityClearance} min={0.05} max={0.40} step={0.05} unit="mm"
+      <Slider label="Release Gap" value={config.cavityClearance} min={0.05} max={0.40} step={0.05} unit="mm"
         onChange={v => update({ cavityClearance: v })} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: T.textMuted }}>Watermark</span>

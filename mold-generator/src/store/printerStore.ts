@@ -11,7 +11,7 @@ interface PrinterState {
 }
 
 export const usePrinterStore = create<PrinterState>((set) => ({
-  selectedProfile: PRINTER_PROFILES[0],
+  selectedProfile: PRINTER_PROFILES.find(p => p.id === 'bambu_x1c') || PRINTER_PROFILES[0],
   printOrientation: 'on_edge',
   setProfile: (profile: PrinterProfile) => set({ selectedProfile: profile }),
   setCustomDimensions: (x: number, y: number, z: number) => set({

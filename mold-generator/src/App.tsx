@@ -7,7 +7,7 @@ import { PrinterSelector } from './ui/panels/PrinterSelector';
 import { MoldConfigPanel } from './ui/panels/MoldConfigPanel';
 import { AlignmentPanel } from './ui/panels/AlignmentPanel';
 import { SpruePanel } from './ui/panels/SpruePanel';
-import { VentPanel } from './ui/panels/VentPanel';
+// import { VentPanel } from './ui/panels/VentPanel'; // removed for soft launch
 import { ClampPanel } from './ui/panels/ClampPanel';
 import { ExportPanel } from './ui/panels/ExportPanel';
 import { AccordionPanel } from './ui/shared/AccordionPanel';
@@ -46,7 +46,6 @@ function App() {
             <MoldConfigPanel />
             <AlignmentPanel />
             <SpruePanel />
-            <VentPanel />
             <ClampPanel />
             <ExportPanel />
           </div>
