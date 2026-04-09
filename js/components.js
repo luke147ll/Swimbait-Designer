@@ -299,9 +299,12 @@ async function rebuildDisplayMesh(comp) {
   if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
   if (!comp.meshData) { if (!comp._isEye) console.warn('[Components] No meshData for', comp.label); return; }
 
-  const vp = comp.meshData.vertProperties;
+  // Use skewed vertices if skew is active, otherwise original
+  const vp = (comp.skew && comp.skew.enabled && comp.skew.amount > 0)
+    ? applySkew(comp.meshData.vertProperties, comp.skew)
+    : comp.meshData.vertProperties;
   const tv = comp.meshData.triVerts;
-  console.log(`[Components] Building mesh for ${comp.label}: ${vp.length / 3} verts, ${tv.length / 3} tris`);
+  console.log(`[Components] Building mesh for ${comp.label}: ${vp.length / 3} verts, ${tv.length / 3} tris${comp.skew?.enabled ? ' (skewed)' : ''}`);
 
   let geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(vp), 3));
@@ -427,27 +430,9 @@ function applySkew(verts, skew) {
 }
 
 function updateSkewDisplay(comp) {
-  if (!comp.meshData || !comp.displayMesh) return;
-  const skewed = applySkew(comp.meshData.vertProperties, comp.skew);
-  comp._skewedVerts = skewed;
-
-  // Update geometry in place
-  const geo = comp.displayMesh.geometry;
-  // Geometry may have been merged (fewer verts than meshData) — rebuild if count differs
-  const meshCount = comp.meshData.vertProperties.length / 3;
-  if (geo.attributes.position.count !== meshCount) {
-    // Rebuild the geometry from skewed data
-    rebuildDisplayMesh(comp);
-    return;
-  }
-  const pos = geo.attributes.position;
-  for (let i = 0; i < meshCount; i++) {
-    pos.setXYZ(i, skewed[i * 3], skewed[i * 3 + 1], skewed[i * 3 + 2]);
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
-  geo.computeBoundingBox();
-  updateDisplayTransform(comp);
+  if (!comp.meshData) return;
+  // Full rebuild — vertex merging changes count so in-place update won't work
+  rebuildDisplayMesh(comp);
 }
 
 // ── UI Rendering ──
