@@ -62,9 +62,8 @@ export function updateEyeIndicators(OL, getWidthFn) {
   const discMat = new THREE.MeshBasicMaterial({ color: 0xc8a84e, side: THREE.DoubleSide, transparent: true, opacity: 0.15 });
 
   for (const side of [1, -1]) {
-    // Ring outline — face outward along Z (width axis)
+    // Ring outline — default XY plane faces along Z (width axis) — no rotation needed
     const ringGeo = new THREE.RingGeometry(r - 0.015, r, 32);
-    ringGeo.rotateY(Math.PI / 2); // rotate to face along Z
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.position.set(stationX, vOff, side * (halfW + 0.01));
     ring.userData.isEyeIndicator = true;
@@ -73,7 +72,6 @@ export function updateEyeIndicators(OL, getWidthFn) {
 
     // Filled disc
     const discGeo = new THREE.CircleGeometry(r, 32);
-    discGeo.rotateY(Math.PI / 2); // face along Z
     const disc = new THREE.Mesh(discGeo, discMat);
     disc.position.set(stationX, vOff, side * (halfW + 0.005));
     disc.userData.isEyeIndicator = true;
