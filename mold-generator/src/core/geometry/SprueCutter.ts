@@ -22,9 +22,10 @@ export class SprueCutter {
     const wallThickness = moldConfig.wallMarginY;
 
     let edgeX: number, dirX: number;
-    if (config.position === 'tail') { edgeX = cx - moldXHalf; dirX = 1; }
-    else if (config.position === 'head') { edgeX = cx + moldXHalf; dirX = -1; }
-    else { return { halfA, halfB }; }
+    // In viewport: head = -X, tail = +X
+    if (config.position === 'tail') { edgeX = cx + moldXHalf; dirX = -1; }
+    else if (config.position === 'head') { edgeX = cx - moldXHalf; dirX = 1; }
+    else { return { halfA, halfB }; } // side — TODO
 
     const entryLen = 8 + OS;
     const boreLen = wallThickness + OS;

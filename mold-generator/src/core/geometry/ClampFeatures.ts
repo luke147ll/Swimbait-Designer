@@ -36,7 +36,7 @@ function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig,
   }
   if (config.boltCount >= 8) {
     // Add quarter-span bolts
-    const midX = cornerX / 2;
+    const midX = tailX / 2;
     for (const sx of [-1, 1])
       for (const sy of [-1, 1])
         positions.push({ x: cx + sx * midX, y: cy + sy * flangeCenter, z: 0 });

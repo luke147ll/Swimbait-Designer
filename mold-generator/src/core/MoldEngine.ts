@@ -216,7 +216,7 @@ export class MoldEngine {
         positions.push({ x: cx, y: cy + sy * flangeCenter, z: 0 });
     }
     if (config.boltCount >= 8) {
-      const midX = cornerX / 2;
+      const midX = tailX / 2;
       for (const sx of [-1, 1])
         for (const sy of [-1, 1])
           positions.push({ x: cx + sx * midX, y: cy + sy * flangeCenter, z: 0 });
