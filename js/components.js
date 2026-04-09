@@ -115,15 +115,22 @@ window.setGizmoMode = function(mode) {
   if (!gizmo) return;
   if (mode === 'snap') {
     const on = !gizmo.translationSnap;
-    gizmo.setTranslationSnap(on ? 0.05 : null); // ~1.3mm in inches
-    gizmo.setRotationSnap(on ? Math.PI / 12 : null); // 15°
+    gizmo.setTranslationSnap(on ? 0.05 : null);
+    gizmo.setRotationSnap(on ? Math.PI / 12 : null);
     gizmo.setScaleSnap(on ? 0.1 : null);
     document.querySelectorAll('.gizmo-btn[data-mode="snap"]').forEach(b => b.classList.toggle('on', on));
     return;
   }
+  if (mode === 'space') {
+    const isLocal = gizmo.space === 'local';
+    gizmo.setSpace(isLocal ? 'world' : 'local');
+    const btn = document.querySelector('.gizmo-btn[data-mode="space"]');
+    if (btn) { btn.textContent = isLocal ? 'W' : 'L'; btn.title = isLocal ? 'World Space — click for Local (W)' : 'Local Space — click for World (W)'; }
+    return;
+  }
   gizmo.setMode(mode);
   document.querySelectorAll('.gizmo-btn').forEach(b => {
-    if (b.dataset.mode !== 'snap') b.classList.toggle('on', b.dataset.mode === mode);
+    if (b.dataset.mode !== 'snap' && b.dataset.mode !== 'space') b.classList.toggle('on', b.dataset.mode === mode);
   });
 };
 
@@ -133,6 +140,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'g' || e.key === 'G') window.setGizmoMode('translate');
   if (e.key === 'r' || e.key === 'R') window.setGizmoMode('rotate');
   if (e.key === 's' || e.key === 'S') window.setGizmoMode('scale');
+  if (e.key === 'w' || e.key === 'W') window.setGizmoMode('space');
   if (e.key === 'Escape') { selectComponent(null); detachGizmo(); renderComponentList(); }
 });
 
