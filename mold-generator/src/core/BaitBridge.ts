@@ -117,7 +117,7 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
                 // Build fin as a native Manifold box scaled to fin dimensions, then
                 // use the outline to create a more accurate shape via CrossSection if available.
                 // Fallback: approximate with a box matching the fin's bounding box
-                const _fp = fp;
+                void fp; // fin params available for future CrossSection extrusion
                 // Create fin as extruded box, positioned from the transferred vertex bounds
                 const cvp = new Float32Array(comp.vertProperties);
                 let cMinX=Infinity,cMaxX=-Infinity,cMinY=Infinity,cMaxY=-Infinity,cMinZ=Infinity,cMaxZ=-Infinity;
