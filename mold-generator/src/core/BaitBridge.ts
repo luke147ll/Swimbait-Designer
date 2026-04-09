@@ -130,6 +130,24 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
           geometry = m2t(manifold);
         }
 
+        // Eye sockets — subtract from bait (creates recesses in the bait surface)
+        const eyeData = data.eyeSockets;
+        if (eyeData && eyeData.vertProperties && eyeData.vertProperties.length > 0) {
+          console.log(`[BaitBridge] Subtracting eye sockets (${eyeData.sizeLabel})`);
+          try {
+            const { mFromMesh: mfm, manifoldToThree: m2t2 } = await import('./csg');
+            const eyeManifold = mfm(
+              new Float32Array(eyeData.vertProperties),
+              new Uint32Array(eyeData.triVerts)
+            );
+            manifold = manifold.subtract(eyeManifold);
+            geometry = m2t2(manifold);
+            console.log(`[BaitBridge] Eye sockets subtracted`);
+          } catch (e) {
+            console.warn(`[BaitBridge] Eye socket subtraction failed:`, e);
+          }
+        }
+
         geometry.computeBoundingBox();
         const size = new THREE.Vector3();
         geometry.boundingBox!.getSize(size);

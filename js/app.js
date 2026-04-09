@@ -18,6 +18,7 @@ import { buildTubeMesh, verifyWinding, RESOLUTION_PRESETS } from './tube-mesh.js
 import { importSTL } from './stl-import.js';
 import { analyzeMesh, deformMesh } from './mesh-deform.js';
 import { initUndo, recordChange, recordChangeNow } from './undo.js';
+import { initEyeSockets, eyeConfig, updateEyeIndicators, buildEyeCylinderData, renderEyeControls } from './eye-sockets.js';
 import { initComponents, renderComponentList, buildComponentTransferData, getComponents, addComponent, updateComponent as updateComp, onViewportClick } from './components.js';
 
 let scene, cam, ren, bodyMesh, eyeGrpL, eyeGrpR, hsM, stationRing;
@@ -311,6 +312,9 @@ function rebuildScene(resolution) {
 
   // Slot inserts
   rebuildSlotPreview();
+
+  // Eye socket indicators
+  if (window._sbd_eyeChanged) window._sbd_eyeChanged();
 
   // Stats
   let maxD = 0, maxW = 0;
@@ -657,6 +661,17 @@ function init() {
   }
 
   initComponents(scene, () => {}, cam, ren.domElement);
+  initEyeSockets(scene);
+
+  // Eye socket change handler — update indicators and rebuild
+  window._sbd_eyeChanged = () => {
+    const p = getParams();
+    const getW = (t) => {
+      const i = Math.round(t * 96);
+      return profileState.widthCache[Math.min(i, 96)] * p.OL;
+    };
+    updateEyeIndicators(p.OL, getW);
+  };
 
   // Viewport click → select component (single click, not drag)
   let vpClickStart = null;
@@ -1092,6 +1107,7 @@ async function sendToMoldGenerator() {
     triVerts: Array.from(currentMeshData.triVerts),
     slots: enabledSlots,
     components: buildComponentTransferData(),
+    eyeSockets: buildEyeCylinderData(getParams().OL),
   });
 
   // Open window immediately (before async fetch) to satisfy mobile popup blocker

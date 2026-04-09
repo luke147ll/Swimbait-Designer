@@ -8,6 +8,7 @@
 import * as THREE from 'https://esm.sh/three@0.162.0';
 import { openFinCreator } from './fin-creator.js';
 import { recordChange, recordChangeNow } from './undo.js';
+import { eyeConfig, renderEyeControls } from './eye-sockets.js';
 
 const CATEGORY_COLORS = {
   head:    0x8a9aaa,
@@ -224,6 +225,7 @@ export function addComponent(partData) {
     meshData: partData.meshData || null,
     displayMesh: null,
     _mirrorMesh: null,
+    _isEye: partData._isEye || false,
   };
 
   // Apply defaults from part data (position, rotation, scale)
@@ -243,6 +245,7 @@ export function removeComponent(id) {
   const idx = components.findIndex(c => c.id === id);
   if (idx === -1) return;
   const comp = components[idx];
+  if (comp._isEye) { eyeConfig.enabled = false; if (window._sbd_eyeChanged) window._sbd_eyeChanged(); }
   if (comp.displayMesh) { scene.remove(comp.displayMesh); comp.displayMesh.geometry.dispose(); }
   if (comp._mirrorMesh) { scene.remove(comp._mirrorMesh); comp._mirrorMesh.geometry.dispose(); }
   components.splice(idx, 1);
@@ -434,6 +437,14 @@ export function renderComponentList() {
     if (!comp.collapsed && comp.selected) {
       const body = document.createElement('div');
       body.style.cssText = 'padding:6px 10px 10px';
+
+      // Eye components get their own specialized controls
+      if (comp._isEye) {
+        renderEyeControls(body);
+        section.appendChild(body);
+        container.appendChild(section);
+        continue;
+      }
 
       // Track which sub-sections are open per component
       if (!comp._openSections) comp._openSections = { scale: true };
@@ -658,6 +669,18 @@ window.toggleComponentSection = function(id, key) {
   renderComponentList();
 };
 
+window.addEyeSockets = function() {
+  eyeConfig.enabled = true;
+  const OL = parseFloat(document.getElementById('sOL')?.value || 8);
+  addComponent({
+    label: 'Eye Sockets',
+    category: 'feature',
+    _isEye: true,
+    meshData: null, // eyes don't have their own mesh — they subtract via transfer
+  });
+  if (window._sbd_eyeChanged) window._sbd_eyeChanged();
+};
+
 window.deleteComponent = function(id) {
   const comp = components.find(c => c.id === id);
   if (!comp) return;
@@ -672,6 +695,28 @@ window.deleteComponent = function(id) {
 
 // Show part picker dialog for a category
 window.addComponentFromSTL = function(category) {
+  // Feature category — show eye sockets option
+  if (category === 'feature') {
+    const existing = document.getElementById('partPickerDialog');
+    if (existing) existing.remove();
+    const dialog = document.createElement('div');
+    dialog.id = 'partPickerDialog';
+    dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:12px;width:280px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)';
+    dialog.innerHTML = `
+      <div style="font-size:11px;color:var(--ac);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Features</div>
+      <div class="tb on" style="display:block;padding:8px;margin-bottom:4px;cursor:pointer;text-align:left;background:var(--ac);color:var(--bg)" onclick="document.getElementById('partPickerDialog').remove();addEyeSockets()">
+        <div style="font-size:11px;font-weight:700">Eye Sockets</div>
+        <div style="font-size:9px;opacity:0.7">Paired cylinder recesses for stick-on 3D eyes</div>
+      </div>
+      <div class="tb" style="display:block;padding:8px;margin-bottom:4px;cursor:pointer;text-align:left;border-style:dashed" onclick="importComponentSTL('feature');document.getElementById('partPickerDialog').remove()">
+        <div style="font-size:11px;color:var(--mu)">+ Import custom STL</div>
+      </div>
+      <div style="text-align:right;margin-top:8px"><button class="tb" style="padding:4px 10px;font-size:9px" onclick="document.getElementById('partPickerDialog').remove()">Cancel</button></div>
+    `;
+    document.body.appendChild(dialog);
+    return;
+  }
+
   // Fin category with no library parts — go straight to fin creator
   if (category === 'fin') {
     const libraryFins = partsIndex ? partsIndex.parts.filter(p => p.category === 'fin') : [];
