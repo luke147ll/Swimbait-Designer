@@ -4,6 +4,7 @@ import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
 import { initCSG, mFromMesh } from '../../core/csg';
 import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
+import { decimateIfNeeded } from '../../core/decimation';
 
 type LengthAxis = 'x' | 'y' | 'z';
 
@@ -69,14 +70,16 @@ export function BaitLoader() {
     clone.computeBoundingBox();
     clone.center();
     clone.computeVertexNormals();
-    setBaitMesh(clone, name);
+
+    // Decimate dense meshes (ZBrush exports can be 500K+ tris)
+    const decimated = decimateIfNeeded(clone);
+    setBaitMesh(decimated, name);
 
     // Build Manifold from the geometry so BaitSubtraction uses the native path
-    // (avoids threeToManifold which produces corrugated results)
     (async () => {
       try {
         await initCSG();
-        const nonIndexed = clone.index ? clone.toNonIndexed() : clone;
+        const nonIndexed = decimated.index ? decimated.toNonIndexed() : decimated;
         const pos = nonIndexed.attributes.position;
         const vp = new Float32Array(pos.count * 3);
         for (let i = 0; i < pos.count; i++) {
