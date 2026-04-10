@@ -244,18 +244,7 @@ export function createSideEditor(container, state, onEdit) {
       }
     }
 
-    // Eye marker — positioned at actual eye height (30% down from dorsal toward ventral)
-    if (eyeT > 0) {
-      const dorsalV = sampleProfile(state.dorsal, eyeT);
-      const ventralV = sampleProfile(state.ventral, eyeT);
-      const eyeBaseV = dorsalV * 0.7 + ventralV * 0.3; // 30% down from dorsal
-      const scr = dataToScreen(eyeT, eyeBaseV + eyeV);
-      const dot = document.createElement('div');
-      dot.className = 'pe-html-dot eye';
-      const eyeR = DOT_PX * 1.4;
-      dot.style.cssText = `position:absolute;left:${scr.x - eyeR/2}px;top:${scr.y - eyeR/2}px;width:${eyeR}px;height:${eyeR}px;pointer-events:none`;
-      dotOverlay.appendChild(dot);
-    }
+    // Eye marker removed — eye sockets now handled via component system
   }
 
   // Station line + xsec indicators on the side profile
@@ -295,8 +284,6 @@ export function createSideEditor(container, state, onEdit) {
       }
     }
   }
-
-  let eyeT = 0.08, eyeV = 0;
 
   function redraw() {
     svg.setAttribute('viewBox', vp.viewBox());
@@ -351,24 +338,12 @@ export function createSideEditor(container, state, onEdit) {
     }
     check(state.dorsal, 'dorsal');
     check(state.ventral, 'ventral');
-    // Also check eye marker
-    if (eyeT > 0) {
-      const dorsalV = sampleProfile(state.dorsal, eyeT);
-      const ventralV = sampleProfile(state.ventral, eyeT);
-      const eyeBaseV = dorsalV * 0.7 + ventralV * 0.3;
-      const s = dataToScreen(eyeT, eyeBaseV + eyeV);
-      const d = Math.hypot(mouseX - s.x, mouseY - s.y);
-      if (d < HIT_RADIUS && (!best || d < best.dist)) {
-        best = { cls: 'eye', idx: -1, profile: null, dist: d };
-      }
-    }
     return best;
   }
 
   function startDrag(mouseX, mouseY) {
     const hit = findNearestPt(mouseX, mouseY);
     if (!hit) return false;
-    if (hit.cls === 'eye') { drag = hit; isDragging = true; return true; }
     drag = hit;
     isDragging = true;
     return true;
@@ -376,22 +351,6 @@ export function createSideEditor(container, state, onEdit) {
 
   function moveDrag(mouseX, mouseY, shiftKey) {
     if (!drag) return;
-    if (drag.cls === 'eye') {
-      const data = screenToData(mouseX, mouseY);
-      eyeT = Math.max(0.02, Math.min(0.25, data.t));
-      // Vertical offset from the eye baseline (30% down from dorsal)
-      const dorsalV = sampleProfile(state.dorsal, eyeT);
-      const ventralV = sampleProfile(state.ventral, eyeT);
-      const eyeBaseV = dorsalV * 0.7 + ventralV * 0.3;
-      eyeV = data.v - eyeBaseV;
-      // Update slider
-      const epSlider = document.getElementById('sEP');
-      if (epSlider) epSlider.value = eyeT;
-      const epLabel = document.getElementById('vEP');
-      if (epLabel) epLabel.textContent = (eyeT * 100).toFixed(0) + '%';
-      onEdit();
-      return;
-    }
     const data = screenToData(mouseX, mouseY);
     // Clamp: dorsal stays positive, ventral stays negative (can't cross centerline)
     if (drag.cls === 'dorsal') {
