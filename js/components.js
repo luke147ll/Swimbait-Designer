@@ -446,6 +446,9 @@ async function booleanOp(op) {
     ? sel.map(c => c.label).join(' + ')
     : sel[0].label + ' − ' + sel.slice(1).map(c => c.label).join(', ');
 
+  // Detach gizmo before removing source components
+  detachGizmo();
+
   // Remove source components
   for (const c of sel) removeComponent(c.id);
 
