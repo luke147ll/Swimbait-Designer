@@ -100,78 +100,82 @@ export class MoldEngine {
     // Step 5: Alignment — operates on Manifold objects directly
     ll(`generating alignment pins [x${state.alignmentConfig.pinCount}]`);
     console.log('[MoldEngine] Step 5: Alignment (Manifold-native)');
-    const alignResult = this.alignmentGen.generateManifold(
-      halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions, printOrientation
-    );
-    halfA = alignResult.halfA;
-    halfB = alignResult.halfB;
-    if (alignResult.pins.length > 0) {
-      useMoldStore.getState().setAlignmentPins(alignResult.pins);
-    }
+    try {
+      const alignResult = this.alignmentGen.generateManifold(
+        halfA, halfB, state.alignmentConfig, baitBounds, effectiveMoldConfig, dims, clampPositions, printOrientation
+      );
+      halfA = alignResult.halfA;
+      halfB = alignResult.halfB;
+      if (alignResult.pins.length > 0) {
+        useMoldStore.getState().setAlignmentPins(alignResult.pins);
+      }
+    } catch (e) { console.warn('[MoldEngine] Alignment failed, skipping:', e); }
 
     // Step 6: Clamps — Manifold-native
     ll(`drilling bolt holes [${state.clampConfig.boltSize} x${state.clampConfig.boltCount}]`);
     console.log('[MoldEngine] Step 6: Clamps (Manifold-native)');
-    ({ halfA, halfB } = this.clampGen.generateManifold(
-      halfA, halfB, state.clampConfig, baitBounds, effectiveMoldConfig, dims, printOrientation
-    ));
+    try {
+      ({ halfA, halfB } = this.clampGen.generateManifold(
+        halfA, halfB, state.clampConfig, baitBounds, effectiveMoldConfig, dims, printOrientation
+      ));
+    } catch (e) { console.warn('[MoldEngine] Clamps failed, skipping:', e); }
 
     // Step 7: Sprue — Manifold-native
     ll(`cutting sprue port [${state.sprueConfig.preset === 'standard_5_8' ? '5/8" standard' : state.sprueConfig.preset}]`);
     console.log('[MoldEngine] Step 7: Sprue (Manifold-native)');
-    ({ halfA, halfB } = this.sprueGen.generateManifold(
-      halfA, halfB, state.sprueConfig, baitBounds, effectiveMoldConfig, dims
-    ));
+    try {
+      ({ halfA, halfB } = this.sprueGen.generateManifold(
+        halfA, halfB, state.sprueConfig, baitBounds, effectiveMoldConfig, dims
+      ));
+    } catch (e) { console.warn('[MoldEngine] Sprue failed, skipping:', e); }
 
     // Step 8: Vents — Manifold-native
     console.log('[MoldEngine] Step 8: Vents (Manifold-native)');
-    ({ halfA, halfB } = this.ventGen.generateManifold(
-      halfA, halfB, state.ventConfig, state.baitMesh, baitBounds, effectiveMoldConfig, state.sprueConfig, dims
-    ));
+    try {
+      ({ halfA, halfB } = this.ventGen.generateManifold(
+        halfA, halfB, state.ventConfig, state.baitMesh, baitBounds, effectiveMoldConfig, state.sprueConfig, dims
+      ));
+    } catch (e) { console.warn('[MoldEngine] Vents failed, skipping:', e); }
 
     // Step 8.5: Slot inserts — subtract slot boxes from mold halves, generate insert cards
     if (state.slotConfigs && state.slotConfigs.length > 0) {
-      console.log(`[MoldEngine] Step 8.5: ${state.slotConfigs.length} slot insert(s)`);
-      const { subtractSlotsFromMold, generateInsertCard } = await import('./BaitPrimitives');
-      const baitHeight = baitBounds.max.y - baitBounds.min.y;
+      try {
+        console.log(`[MoldEngine] Step 8.5: ${state.slotConfigs.length} slot insert(s)`);
+        const { subtractSlotsFromMold, generateInsertCard } = await import('./BaitPrimitives');
+        const baitHeight = baitBounds.max.y - baitBounds.min.y;
 
-      ({ halfA, halfB } = subtractSlotsFromMold(halfA, halfB, state.slotConfigs));
+        ({ halfA, halfB } = subtractSlotsFromMold(halfA, halfB, state.slotConfigs));
 
-      // Generate insert cards
-      const cards: import('./types').InsertCard[] = [];
-      for (let i = 0; i < state.slotConfigs.length; i++) {
-        const { geometry: cardGeo } = generateInsertCard(state.slotConfigs[i], baitHeight);
-        cardGeo.computeVertexNormals();
-        cards.push({ label: `Insert Card ${i + 1}`, geometry: cardGeo });
-      }
-      useMoldStore.getState().setInsertCards(cards);
+        const cards: import('./types').InsertCard[] = [];
+        for (let i = 0; i < state.slotConfigs.length; i++) {
+          const { geometry: cardGeo } = generateInsertCard(state.slotConfigs[i], baitHeight);
+          cardGeo.computeVertexNormals();
+          cards.push({ label: `Insert Card ${i + 1}`, geometry: cardGeo });
+        }
+        useMoldStore.getState().setInsertCards(cards);
+      } catch (e) { console.warn('[MoldEngine] Slots failed, skipping:', e); }
     }
 
     // Step 8.7: Watermark — subtract text voids from mold outer faces
-    {
+    try {
       ll('stamping watermark');
       console.log('[MoldEngine] Step 8.7: Watermark');
       const { applyWatermarks } = await import('./geometry/Watermark');
       ({ halfA, halfB } = applyWatermarks(halfA, halfB, dims.boxX, dims.boxY, dims.boxZ, 1.5, dims.cx, dims.cy));
-    }
+    } catch (e) { console.warn('[MoldEngine] Watermark failed, skipping:', e); }
 
     // Step 8.9: Pry slot — notch at the top edge of the parting face for screwdriver
-    {
-      const pryX = 15; // mm along the body axis (X)
-      const pryY = 4;  // mm tall (Y — height at top edge)
-      const pryZ = 2;  // mm into the parting face (Z — width of bait)
-      // Top edge of the actual mold box
+    try {
+      const pryX = 15, pryY = 4, pryZ = 2;
       const topY = dims.cy + dims.boxY / 2;
-
       const notchA = mBox(pryX, pryY, pryZ).translate([dims.cx, topY, -pryZ / 2]);
       halfA = halfA.subtract(notchA);
-
       if (halfB) {
         const notchB = mBox(pryX, pryY, pryZ).translate([dims.cx, topY, pryZ / 2]);
         halfB = halfB.subtract(notchB);
       }
       console.log(`[MoldEngine] Pry slot: ${pryX}×${pryY}×${pryZ}mm at top edge`);
-    }
+    } catch (e) { console.warn('[MoldEngine] Pry slot failed, skipping:', e); }
 
     // Step 9: FINAL CONVERSION — Manifold → Three.js (only conversion in entire pipeline)
     ll(`mold complete [${dims.boxX.toFixed(0)} x ${dims.boxY.toFixed(0)} x ${(dims.boxZ * 2).toFixed(0)}mm]`);

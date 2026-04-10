@@ -3,11 +3,13 @@ import { useMoldStore } from '../store/moldStore';
 import { usePrinterStore } from '../store/printerStore';
 import { MoldEngine } from '../core/MoldEngine';
 
-const engine = new MoldEngine();
+let engine = new MoldEngine();
+let consecutiveErrors = 0;
 
 /**
  * Auto-regenerates the mold when any config changes.
  * Debounced by 400ms to avoid excessive CSG during slider drags.
+ * Auto-recovers from WASM errors by creating a fresh engine.
  */
 export function useMoldEngine() {
   const baitMesh = useMoldStore(s => s.baitMesh);
@@ -36,8 +38,21 @@ export function useMoldEngine() {
         const result = await engine.generate(state);
         setGeneratedMold(result.halfA, result.halfB);
         setValidationResult(result.validation);
+        consecutiveErrors = 0;
       } catch (err) {
         console.error('[useMoldEngine] Generation failed:', err);
+        consecutiveErrors++;
+
+        // After 2 consecutive errors, create a fresh engine instance
+        // to recover from corrupted WASM state
+        if (consecutiveErrors >= 2) {
+          console.warn('[useMoldEngine] Multiple failures — resetting engine');
+          engine = new MoldEngine();
+          consecutiveErrors = 0;
+        }
+
+        // Retry once with the fresh engine on the next config change
+        // (the useEffect will fire again since we're already in the dep cycle)
       }
       setIsGenerating(false);
     }, 400);
