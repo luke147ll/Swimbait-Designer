@@ -199,7 +199,7 @@ export function onViewportClick(event) {
     const hitObj = hits[0].object;
     // Is it a component?
     const comp = components.find(c => c.displayMesh === hitObj);
-    if (comp) { selectComponent(comp.id); attachGizmo(comp); renderComponentList(); return; }
+    if (comp) { selectComponent(comp.id, event.shiftKey); return; }
     // Is it a slot?
     if (hitObj.userData.isSlot && gizmo) {
       selectComponent(null);
@@ -314,6 +314,122 @@ export function duplicateComponent(id) {
   }
 }
 
+// ── Boolean Operations (lazy-load Manifold WASM) ──
+
+let manifoldWasm = null;
+
+async function initManifold() {
+  if (manifoldWasm) return manifoldWasm;
+  const Module = (await import('https://esm.sh/manifold-3d@3.4.1/manifold')).default;
+  manifoldWasm = await Module();
+  manifoldWasm.setup();
+  console.log('[Boolean] Manifold WASM loaded');
+  return manifoldWasm;
+}
+
+function compToManifold(wasm, comp) {
+  if (!comp.meshData || !comp.displayMesh) return null;
+  // Get world-space vertices by applying the display mesh transform
+  const m = comp.displayMesh;
+  m.updateMatrixWorld(true);
+  const geo = m.geometry;
+  const pos = geo.attributes.position;
+  const idx = geo.index;
+  const mat = m.matrixWorld;
+  const v = new THREE.Vector3();
+
+  const vp = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mat);
+    vp[i * 3] = v.x; vp[i * 3 + 1] = v.y; vp[i * 3 + 2] = v.z;
+  }
+
+  let tv;
+  if (idx) {
+    tv = new Uint32Array(idx.count);
+    for (let i = 0; i < idx.count; i++) tv[i] = idx.getX(i);
+  } else {
+    tv = new Uint32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) tv[i] = i;
+  }
+
+  try {
+    return new wasm.Manifold({ numProp: 3, vertProperties: vp, triVerts: tv });
+  } catch (e) {
+    // Try with merge vectors
+    const tol = 0.001;
+    const vertMap = new Map();
+    const mergeFrom = [], mergeTo = [];
+    for (let i = 0; i < vp.length / 3; i++) {
+      const key = `${Math.round(vp[i*3]/tol)},${Math.round(vp[i*3+1]/tol)},${Math.round(vp[i*3+2]/tol)}`;
+      const ex = vertMap.get(key);
+      if (ex !== undefined) { mergeFrom.push(i); mergeTo.push(ex); } else vertMap.set(key, i);
+    }
+    return new wasm.Manifold({ numProp: 3, vertProperties: vp, triVerts: tv,
+      mergeFromVert: new Uint32Array(mergeFrom), mergeToVert: new Uint32Array(mergeTo) });
+  }
+}
+
+function manifoldToMeshData(wasm, solid) {
+  const mesh = solid.getMesh();
+  const np = mesh.numProp;
+  const vc = mesh.vertProperties.length / np;
+  const vp = [];
+  for (let i = 0; i < vc; i++) {
+    vp.push(mesh.vertProperties[i * np], mesh.vertProperties[i * np + 1], mesh.vertProperties[i * np + 2]);
+  }
+  const tv = [];
+  for (let i = 0; i < mesh.numTri * 3; i++) tv.push(mesh.triVerts[i]);
+  return { numProp: 3, vertProperties: vp, triVerts: tv };
+}
+
+async function booleanOp(op) {
+  const sel = getSelectedComponents();
+  if (sel.length < 2) { alert('Select 2 components (Shift+click)'); return; }
+
+  const wasm = await initManifold();
+  const solids = [];
+  for (const c of sel) {
+    const s = compToManifold(wasm, c);
+    if (!s) { alert(`Failed to convert "${c.label}" to solid`); return; }
+    solids.push(s);
+  }
+
+  let result;
+  try {
+    if (op === 'merge') {
+      result = solids[0];
+      for (let i = 1; i < solids.length; i++) result = result.add(solids[i]);
+    } else {
+      // Subtract: first selected minus all others
+      result = solids[0];
+      for (let i = 1; i < solids.length; i++) result = result.subtract(solids[i]);
+    }
+  } catch (e) {
+    alert('Boolean operation failed: ' + e.message);
+    console.error('[Boolean]', e);
+    return;
+  }
+
+  const meshData = manifoldToMeshData(wasm, result);
+  const label = op === 'merge'
+    ? sel.map(c => c.label).join(' + ')
+    : sel[0].label + ' − ' + sel.slice(1).map(c => c.label).join(', ');
+
+  // Remove source components
+  for (const c of sel) removeComponent(c.id);
+
+  // Add result
+  addComponent({
+    label,
+    category: sel[0].category,
+    meshData,
+  });
+}
+
+window.mergeComponents = () => booleanOp('merge');
+window.subtractComponents = () => booleanOp('subtract');
+
 export function removeComponent(id) {
   const idx = components.findIndex(c => c.id === id);
   if (idx === -1) return;
@@ -348,17 +464,23 @@ export function updateComponent(id, changes) {
   recordChange(); // debounced — rapid slider drags collapse into one undo step
 }
 
-export function selectComponent(id) {
-  components.forEach(c => { c.selected = false; c.collapsed = true; });
+export function selectComponent(id, addToSelection = false) {
+  if (!addToSelection) {
+    components.forEach(c => { c.selected = false; c.collapsed = true; });
+  }
   const comp = components.find(c => c.id === id);
   if (comp) {
-    comp.selected = true;
-    comp.collapsed = false;
-    attachGizmo(comp);
+    comp.selected = !addToSelection || !comp.selected; // toggle if shift-clicking
+    comp.collapsed = !comp.selected;
+    if (comp.selected) attachGizmo(comp); else if (!components.some(c => c.selected)) detachGizmo();
   } else {
     detachGizmo();
   }
   renderComponentList();
+}
+
+export function getSelectedComponents() {
+  return components.filter(c => c.selected);
 }
 
 // ── Display ──
@@ -575,6 +697,19 @@ export function renderComponentList() {
   const container = document.getElementById('componentList');
   if (!container) return;
   container.innerHTML = '';
+
+  // Boolean operation buttons when 2+ components selected
+  const sel = getSelectedComponents();
+  if (sel.length >= 2) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:4px;padding:6px 8px;border-bottom:1px solid var(--ac);background:rgba(200,168,78,0.05)';
+    bar.innerHTML = `
+      <span style="font-size:9px;color:var(--ac);align-self:center;margin-right:auto">${sel.length} selected</span>
+      <button class="tb on" style="padding:4px 10px;font-size:9px;background:var(--ac);color:var(--bg)" onclick="mergeComponents()">Merge</button>
+      <button class="tb" style="padding:4px 10px;font-size:9px" onclick="subtractComponents()">Subtract</button>
+    `;
+    container.appendChild(bar);
+  }
 
   for (const comp of components) {
     const section = document.createElement('div');
