@@ -10,7 +10,6 @@ import { useMoldStore } from '../store/moldStore';
 import { useLoadingStore } from '../store/loadingStore';
 import { initCSG, mSphere, type ManifoldSolid } from './csg';
 import { buildBait, buildBaitFromStationData, buildBaitFromMeshData, type BaitPrimitive, type StationData } from './BaitPrimitives';
-import { decimateIfNeeded } from './decimation';
 import type { SlotConfig } from './types';
 
 const INCHES_TO_MM = 25.4;
@@ -103,32 +102,11 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
 
       // Manifold mesh transfer (tube mesh from designer) — preferred path
       if (data.type === 'manifold_mesh' && data.vertProperties && data.triVerts) {
-        let vertProps = data.vertProperties;
-        let triVertices = data.triVerts;
-        const vc = Math.round(vertProps.length / 3);
-        const tc = Math.round(triVertices.length / 3);
+        const vc = Math.round(data.vertProperties.length / 3);
         ll(`bait received [${vc.toLocaleString()} verts]`);
-        console.log(`[BaitBridge] Mesh transfer: ${vc} verts, ${tc} tris`);
-
-        // Decimate dense meshes before CSG (ZBrush exports can be 500K+ tris)
-        if (tc > 50000) {
-          ll(`decimating dense mesh [${tc.toLocaleString()} → ~50K tris]...`);
-          const tmpGeo = new THREE.BufferGeometry();
-          tmpGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(vertProps), 3));
-          tmpGeo.setIndex(Array.from(triVertices));
-          const dec = decimateIfNeeded(tmpGeo, 50000);
-          const decPos = dec.attributes.position;
-          const decIdx = dec.index!;
-          vertProps = Array.from(new Float32Array(decPos.count * 3).map((_, i) =>
-            decPos.array[i]
-          ));
-          triVertices = Array.from(decIdx.array);
-          console.log(`[BaitBridge] Decimated: ${decPos.count} verts, ${decIdx.count / 3} tris`);
-          tmpGeo.dispose(); dec.dispose();
-        }
-
+        console.log(`[BaitBridge] Mesh transfer: ${vc} verts, ${data.triVerts.length / 3} tris`);
         ll('reconstructing bait solid...');
-        let { manifold, geometry } = await buildBaitFromMeshData(vertProps, triVertices);
+        let { manifold, geometry } = await buildBaitFromMeshData(data.vertProperties, data.triVerts);
 
         // Union components with the bait so they all subtract from the mold together
         const comps = data.components || [];
@@ -267,8 +245,6 @@ export async function transferBaitFromAPI(token: string): Promise<{ success: boo
     geo.computeVertexNormals();
     geo.computeBoundingBox();
 
-    // Decimate if dense
-    geo = decimateIfNeeded(geo, 50000);
     store.setBaitMesh(geo, 'designed_bait.stl');
 
     // Build Manifold from profile ellipsoids
