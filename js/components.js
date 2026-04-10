@@ -217,14 +217,17 @@ function createMaterial(category) {
 
 // ── CRUD ──
 
+let compCounter = 0;
+
 export function addComponent(partData) {
   if (components.length >= MAX_COMPONENTS) {
     alert(`Maximum ${MAX_COMPONENTS} components`);
     return null;
   }
 
+  compCounter++;
   const comp = {
-    id: partData.category + '_' + Date.now().toString(36),
+    id: (partData.category || 'comp') + '_' + compCounter + '_' + Math.random().toString(36).slice(2, 6),
     partId: partData.partId || null,
     label: partData.label || 'Component',
     category: partData.category || 'custom',
