@@ -961,6 +961,7 @@ function loadDesignState(state) {
           meshData: saved.meshData, _finParams: saved._finParams || null,
           _isEye: saved._isEye || false,
           _skipAutoSelect: true,
+          skew: saved.skew || null,
         });
         if (comp && comp._meshReady) {
           const s = saved;
@@ -970,7 +971,6 @@ function loadDesignState(state) {
               mirrorX: s.mirrorX, mirrorY: s.mirrorY, mirrorZ: s.mirrorZ,
               autoMirror: s.autoMirror, visible: s.visible, enabled: s.enabled,
             });
-            if (s.skew) updateComp(comp.id, { skew: s.skew });
           });
         }
       }

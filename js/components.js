@@ -245,10 +245,11 @@ export function addComponent(partData) {
     _finParams: partData._finParams || null,
   };
 
-  // Apply defaults from part data (position, rotation, scale)
+  // Apply defaults from part data (position, rotation, scale, skew)
   if (partData.autoPosition) Object.assign(comp.position, partData.autoPosition);
   if (partData.autoRotation) Object.assign(comp.rotation, partData.autoRotation);
   if (partData.autoScale) Object.assign(comp.scale, partData.autoScale);
+  if (partData.skew) comp.skew = { ...comp.skew, ...partData.skew };
 
   components.push(comp);
   const meshReady = rebuildDisplayMesh(comp).then(() => {
@@ -290,6 +291,7 @@ export function updateComponent(id, changes) {
     }
   }
 
+  if ('skew' in changes) updateSkewDisplay(comp);
   updateDisplayTransform(comp);
   notify();
   recordChange(); // debounced — rapid slider drags collapse into one undo step
