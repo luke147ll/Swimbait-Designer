@@ -320,10 +320,20 @@ let csgLib = null;
 
 async function loadCSG() {
   if (csgLib) return csgLib;
-  const mod = await import('https://esm.sh/three-bvh-csg@0.0.16');
-  csgLib = mod;
-  console.log('[Boolean] three-bvh-csg loaded');
-  return csgLib;
+  // Try multiple CDNs for reliability
+  for (const url of [
+    'https://esm.sh/three-bvh-csg@0.0.16?deps=three@0.162.0&target=es2022',
+    'https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.16/+esm',
+  ]) {
+    try {
+      csgLib = await import(url);
+      console.log('[Boolean] three-bvh-csg loaded from', url);
+      return csgLib;
+    } catch (e) {
+      console.warn('[Boolean] Failed to load from', url, e.message);
+    }
+  }
+  throw new Error('Could not load CSG library');
 }
 
 function compToWorldGeo(comp) {
