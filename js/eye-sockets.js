@@ -31,7 +31,7 @@ export const eyeConfig = {
   sizeId: 'auto',
   stationT: 0.12,
   verticalOffset: 0.5,
-  recessDepth: 0.5,
+  recessDepth: 1.5,
   clearance: 0.2,
 };
 
@@ -154,7 +154,7 @@ export function renderEyeControls(container) {
   sel.onchange = () => { eyeConfig.sizeId = sel.value; onEyeChange(); };
   container.appendChild(sel);
 
-  container.appendChild(slider('Recess depth', eyeConfig.recessDepth, 0.2, 1.5, 0.1, 'mm', v => { eyeConfig.recessDepth = v; onEyeChange(); }));
+  container.appendChild(slider('Recess depth', eyeConfig.recessDepth, 0.2, 4, 0.1, 'mm', v => { eyeConfig.recessDepth = v; onEyeChange(); }));
   container.appendChild(slider('Along body', (eyeConfig.stationT * 100).toFixed(0), 5, 40, 1, '%', v => { eyeConfig.stationT = v / 100; onEyeChange(); }));
   container.appendChild(slider('Height offset', eyeConfig.verticalOffset, -8, 10, 0.1, 'mm', v => { eyeConfig.verticalOffset = v; onEyeChange(); }));
   container.appendChild(slider('Clearance', eyeConfig.clearance, 0, 0.5, 0.05, 'mm', v => { eyeConfig.clearance = v; onEyeChange(); }));
