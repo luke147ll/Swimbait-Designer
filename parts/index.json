@@ -11,6 +11,24 @@
       "fileSizeKB": 2968
     },
     {
+      "id": "trout-head-v1",
+      "name": "Trout Head",
+      "category": "head",
+      "description": "Trout-style head",
+      "fileUrl": "/parts/heads/trout-head-v1.json",
+      "thumbnail": "",
+      "fileSizeKB": 23509
+    },
+    {
+      "id": "side-fin-1-v1",
+      "name": "Side Fin 1",
+      "category": "fin",
+      "description": "Side fin / pectoral",
+      "fileUrl": "/parts/fins/side-fin-1-v1.json",
+      "thumbnail": "",
+      "fileSizeKB": 11885
+    },
+    {
       "id": "tail-1-v1",
       "name": "Paddle Tail 1",
       "category": "tail",
