@@ -158,6 +158,16 @@ document.addEventListener('keydown', e => {
     return;
   }
 
+  // Delete/Backspace — remove selected component
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (gizmoTarget) {
+      const id = gizmoTarget.id;
+      detachGizmo();
+      removeComponent(id);
+    }
+    return;
+  }
+
   if (!gizmoTarget) return;
   if (e.key === 'g' || e.key === 'G') window.setGizmoMode('translate');
   if (e.key === 'r' || e.key === 'R') window.setGizmoMode('rotate');
