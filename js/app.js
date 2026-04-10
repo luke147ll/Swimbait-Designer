@@ -354,6 +354,7 @@ function rebuildScene(resolution) {
 function update(resolution) {
   const p = getParams();
   const L = p.OL;
+  console.log('[Shape] BD='+p.BD+' WR='+p.WR+' GP='+p.GP+' HL='+p.HL+' SB='+p.SB+' DA='+p.DA+' BF='+p.BF+' BT='+p.BT+' SL='+p.SL+' SD='+p.SD+' SC='+p.SC);
 
   // Display values (only OL is visible, others removed)
   const vOL = document.getElementById('vOL');
