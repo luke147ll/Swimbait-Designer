@@ -1473,6 +1473,10 @@ window.profileState = profileState;
 
 // Expose slot meshes for gizmo system
 window._sbd_getSlotMeshes = () => slotMeshes;
+window._sbd_focusOnPoint = function(x, y, z) {
+  orbitCenter.set(x, y, z);
+  updateCamera();
+};
 window._sbd_syncSlotFromGizmo = function(mesh) {
   const idx = mesh.userData.slotIndex;
   if (idx === undefined || !slots[idx]) return;

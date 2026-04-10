@@ -140,7 +140,25 @@ window.setGizmoMode = function(mode) {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
-  if (!gizmoTarget || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  // F — focus camera on selected component
+  if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey) {
+    if (gizmoTarget && gizmoTarget.displayMesh && window._sbd_focusOnPoint) {
+      const pos = gizmoTarget.displayMesh.position;
+      window._sbd_focusOnPoint(pos.x, pos.y, pos.z);
+    }
+    return;
+  }
+
+  // Ctrl+D — duplicate selected component
+  if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    if (gizmoTarget) duplicateComponent(gizmoTarget.id);
+    return;
+  }
+
+  if (!gizmoTarget) return;
   if (e.key === 'g' || e.key === 'G') window.setGizmoMode('translate');
   if (e.key === 'r' || e.key === 'R') window.setGizmoMode('rotate');
   if (e.key === 's' || e.key === 'S') window.setGizmoMode('scale');
@@ -261,6 +279,29 @@ export function addComponent(partData) {
   notify();
   recordChangeNow();
   return comp;
+}
+
+export function duplicateComponent(id) {
+  const src = components.find(c => c.id === id);
+  if (!src) return;
+  const comp = addComponent({
+    partId: src.partId,
+    label: src.label + ' copy',
+    category: src.category,
+    meshData: src.meshData ? { numProp: 3, vertProperties: [...src.meshData.vertProperties], triVerts: [...src.meshData.triVerts] } : null,
+    _finParams: src._finParams ? { ...src._finParams } : null,
+    _isEye: src._isEye,
+    skew: src.skew?.enabled ? { ...src.skew } : null,
+    autoPosition: { x: src.position.x + 0.3, y: src.position.y, z: src.position.z },
+    autoRotation: { ...src.rotation },
+    autoScale: { ...src.scale },
+  });
+  if (comp) {
+    comp.mirrorX = src.mirrorX;
+    comp.mirrorY = src.mirrorY;
+    comp.mirrorZ = src.mirrorZ;
+    comp.autoMirror = src.autoMirror;
+  }
 }
 
 export function removeComponent(id) {
