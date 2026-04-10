@@ -360,13 +360,14 @@ function mergeGeometries(geos) {
   return merged;
 }
 
-// Subtract using Manifold via the mold generator's WASM (fetched from same origin)
+// Subtract using local Manifold WASM (same binary as mold generator)
 let manifoldReady = null;
 async function getManifold() {
   if (manifoldReady) return manifoldReady;
-  // Load manifold WASM from the mold generator's public directory
-  const Module = (await import('https://esm.sh/manifold-3d@3.0.0/manifold.js?bundle')).default;
-  manifoldReady = await Module();
+  const Module = (await import('/lib/manifold.js')).default;
+  manifoldReady = await Module({
+    locateFile: (path) => path.endsWith('.wasm') ? '/lib/manifold.wasm' : path,
+  });
   manifoldReady.setup();
   console.log('[Boolean] Manifold WASM loaded');
   return manifoldReady;
