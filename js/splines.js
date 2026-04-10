@@ -118,8 +118,8 @@ const BASE_W = [
   { t: 1.0000, v: 0.009561 },
 ];
 
-const DEF = { BD: 0.32, WR: 0.60, DA: 0.20, BF: 0.30, SB: 0.50, BT: 0.55,
-              SL: 0.14, SD: 0.22, SC: 0.55, HL: 0.24, GP: 0.34 };
+const DEF = { BD: 0.32, WR: 0.85, DA: 0.08, BF: 0.10, SB: 0.70, BT: 0.40,
+              SL: 0.10, SD: 0.20, SC: 0.55, HL: 0.18, GP: 0.25 };
 
 export function buildProfilesFromSliders(p) {
   const depthR = p.BD / DEF.BD;
