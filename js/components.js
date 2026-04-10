@@ -316,31 +316,11 @@ export function duplicateComponent(id) {
 
 // ── Boolean Operations (lazy-load Manifold WASM) ──
 
-let csgLib = null;
-
-async function loadCSG() {
-  if (csgLib) return csgLib;
-  // Try multiple CDNs for reliability
-  for (const url of [
-    'https://esm.sh/three-bvh-csg@0.0.16?deps=three@0.162.0&target=es2022',
-    'https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.16/+esm',
-  ]) {
-    try {
-      csgLib = await import(url);
-      console.log('[Boolean] three-bvh-csg loaded from', url);
-      return csgLib;
-    } catch (e) {
-      console.warn('[Boolean] Failed to load from', url, e.message);
-    }
-  }
-  throw new Error('Could not load CSG library');
-}
-
 function compToWorldGeo(comp) {
   if (!comp.displayMesh) return null;
   const m = comp.displayMesh;
   m.updateMatrixWorld(true);
-  const geo = m.geometry.clone();
+  const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
   geo.applyMatrix4(m.matrixWorld);
   return geo;
 }
@@ -357,32 +337,103 @@ function geoToMeshData(geo) {
   return { numProp: 3, vertProperties: vp, triVerts: tv };
 }
 
+function mergeGeometries(geos) {
+  // Simple geometry concatenation — combine all vertices and triangles
+  const allPos = [];
+  const allTri = [];
+  let offset = 0;
+  for (const geo of geos) {
+    const ni = geo.index ? geo.toNonIndexed() : geo;
+    const pos = ni.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      allPos.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    }
+    for (let i = 0; i < pos.count; i++) {
+      allTri.push(offset + i);
+    }
+    offset += pos.count;
+  }
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(allPos, 3));
+  merged.setIndex(allTri);
+  merged.computeVertexNormals();
+  return merged;
+}
+
+// Subtract using Manifold via the mold generator's WASM (fetched from same origin)
+let manifoldReady = null;
+async function getManifold() {
+  if (manifoldReady) return manifoldReady;
+  // Load manifold WASM from the mold generator's public directory
+  const Module = (await import('https://esm.sh/manifold-3d@3.0.0/manifold.js?bundle')).default;
+  manifoldReady = await Module();
+  manifoldReady.setup();
+  console.log('[Boolean] Manifold WASM loaded');
+  return manifoldReady;
+}
+
+function geoToManifold(wasm, geo) {
+  const ni = geo.index ? geo.toNonIndexed() : geo;
+  const pos = ni.attributes.position;
+  const vp = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    vp[i * 3] = pos.getX(i); vp[i * 3 + 1] = pos.getY(i); vp[i * 3 + 2] = pos.getZ(i);
+  }
+  const tv = new Uint32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) tv[i] = i;
+
+  try {
+    return new wasm.Manifold({ numProp: 3, vertProperties: vp, triVerts: tv });
+  } catch {
+    // Fallback: merge vectors
+    const tol = 0.001, vertMap = new Map(), mergeFrom = [], mergeTo = [];
+    for (let i = 0; i < pos.count; i++) {
+      const key = `${Math.round(vp[i*3]/tol)},${Math.round(vp[i*3+1]/tol)},${Math.round(vp[i*3+2]/tol)}`;
+      const ex = vertMap.get(key);
+      if (ex !== undefined) { mergeFrom.push(i); mergeTo.push(ex); } else vertMap.set(key, i);
+    }
+    return new wasm.Manifold({ numProp: 3, vertProperties: vp, triVerts: tv,
+      mergeFromVert: new Uint32Array(mergeFrom), mergeToVert: new Uint32Array(mergeTo) });
+  }
+}
+
+function manifoldToGeo(wasm, solid) {
+  const mesh = solid.getMesh();
+  const np = mesh.numProp, vc = mesh.vertProperties.length / np;
+  const pos = new Float32Array(vc * 3);
+  for (let i = 0; i < vc; i++) { pos[i*3] = mesh.vertProperties[i*np]; pos[i*3+1] = mesh.vertProperties[i*np+1]; pos[i*3+2] = mesh.vertProperties[i*np+2]; }
+  const idx = [];
+  for (let i = 0; i < mesh.numTri * 3; i++) idx.push(mesh.triVerts[i]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 async function booleanOp(op) {
   const sel = getSelectedComponents();
   if (sel.length < 2) { alert('Select 2 components (Shift+click)'); return; }
 
-  const { ADDITION, SUBTRACTION, Evaluator, Brush } = await loadCSG();
-  const evaluator = new Evaluator();
-
-  const brushes = [];
+  const geos = [];
   for (const c of sel) {
     const geo = compToWorldGeo(c);
     if (!geo) { alert(`No geometry for "${c.label}"`); return; }
-    brushes.push(new Brush(geo));
+    geos.push(geo);
   }
 
   let resultGeo;
   try {
     if (op === 'merge') {
-      resultGeo = brushes[0];
-      for (let i = 1; i < brushes.length; i++) {
-        resultGeo = evaluator.evaluate(resultGeo, brushes[i], ADDITION);
-      }
+      // Simple geometry concatenation — fast, no CSG library needed
+      resultGeo = mergeGeometries(geos);
     } else {
-      resultGeo = brushes[0];
-      for (let i = 1; i < brushes.length; i++) {
-        resultGeo = evaluator.evaluate(resultGeo, brushes[i], SUBTRACTION);
-      }
+      // Subtract requires real CSG — use Manifold WASM
+      const wasm = await getManifold();
+      const solids = geos.map(g => geoToManifold(wasm, g));
+      let result = solids[0];
+      for (let i = 1; i < solids.length; i++) result = result.subtract(solids[i]);
+      resultGeo = manifoldToGeo(wasm, result);
     }
   } catch (e) {
     alert('Boolean operation failed: ' + e.message);
@@ -390,7 +441,7 @@ async function booleanOp(op) {
     return;
   }
 
-  const meshData = geoToMeshData(resultGeo.geometry || resultGeo);
+  const meshData = geoToMeshData(resultGeo);
   const label = op === 'merge'
     ? sel.map(c => c.label).join(' + ')
     : sel[0].label + ' − ' + sel.slice(1).map(c => c.label).join(', ');
