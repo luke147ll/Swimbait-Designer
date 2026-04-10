@@ -938,32 +938,40 @@ function loadDesignState(state) {
       if (saved.partId) {
         // Library part — reload mesh from server by partId
         const fileUrl = `/parts/${saved.category}s/${saved.partId}.json`;
+        const s = saved;
         window.loadLibraryPart(saved.partId, fileUrl, saved.category || 'custom')
           .then(() => {
             const comps = getComponents();
             const last = comps[comps.length - 1];
             if (last) {
-              updateComp(last.id, {
-                position: saved.position, rotation: saved.rotation, scale: saved.scale,
-                mirrorX: saved.mirrorX, mirrorY: saved.mirrorY, mirrorZ: saved.mirrorZ,
-                autoMirror: saved.autoMirror, visible: saved.visible, enabled: saved.enabled,
+              const apply = () => updateComp(last.id, {
+                position: s.position, rotation: s.rotation, scale: s.scale,
+                mirrorX: s.mirrorX, mirrorY: s.mirrorY, mirrorZ: s.mirrorZ,
+                autoMirror: s.autoMirror, visible: s.visible, enabled: s.enabled,
               });
+              // Wait for mesh to be built before applying transforms
+              if (last._meshReady) last._meshReady.then(apply); else apply();
             }
           }).catch(e => console.warn('[Load] Component restore failed:', e));
       } else if (saved.meshData) {
         // Fin or custom component — restore directly from saved mesh data
+        // Skip auto-select during batch load, apply transforms after mesh is built
         const comp = addComponent({
           label: saved.label, category: saved.category,
           meshData: saved.meshData, _finParams: saved._finParams || null,
           _isEye: saved._isEye || false,
+          _skipAutoSelect: true,
         });
-        if (comp) {
-          updateComp(comp.id, {
-            position: saved.position, rotation: saved.rotation, scale: saved.scale,
-            mirrorX: saved.mirrorX, mirrorY: saved.mirrorY, mirrorZ: saved.mirrorZ,
-            autoMirror: saved.autoMirror, visible: saved.visible, enabled: saved.enabled,
+        if (comp && comp._meshReady) {
+          const s = saved;
+          comp._meshReady.then(() => {
+            updateComp(comp.id, {
+              position: s.position, rotation: s.rotation, scale: s.scale,
+              mirrorX: s.mirrorX, mirrorY: s.mirrorY, mirrorZ: s.mirrorZ,
+              autoMirror: s.autoMirror, visible: s.visible, enabled: s.enabled,
+            });
+            if (s.skew) updateComp(comp.id, { skew: s.skew });
           });
-          if (saved.skew) updateComp(comp.id, { skew: saved.skew });
         }
       }
     }

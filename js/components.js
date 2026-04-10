@@ -248,10 +248,11 @@ export function addComponent(partData) {
   if (partData.autoScale) Object.assign(comp.scale, partData.autoScale);
 
   components.push(comp);
-  rebuildDisplayMesh(comp).then(() => {
-    // Auto-select new component to show gizmo at its position
-    selectComponent(comp.id);
+  const meshReady = rebuildDisplayMesh(comp).then(() => {
+    // Auto-select new component to show gizmo at its position (skip during batch load)
+    if (!partData._skipAutoSelect) selectComponent(comp.id);
   });
+  comp._meshReady = meshReady;
   renderComponentList();
   notify();
   recordChangeNow();
