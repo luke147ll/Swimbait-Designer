@@ -1,14 +1,14 @@
 /**
  * @file fin-creator.js
- * 2D spline-based fin creator with transparent viewport overlay.
- * The canvas overlays the 3D viewport so the user can trace the bait shape.
- * Supports zoom (scroll), pan (right-drag), and point dragging.
+ * 2D spline-based fin creator. User draws a fin outline using draggable
+ * control points, sets dimensions, and gets a watertight extruded solid
+ * added as a component.
  */
 import { sampleClosedLoop } from './splines.js';
 import { addComponent } from './components.js';
 
 const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-const HIT_R = IS_TOUCH ? 28 : 12;
+const HIT_R = IS_TOUCH ? 22 : 10;
 
 // ── Presets ──
 
@@ -69,18 +69,10 @@ const FIN_PRESETS = {
 let finPoints = [];
 let baseLength = 25, maxHeight = 15, thickness = 2, tapered = false;
 let currentPreset = 'dorsal_pointed';
-let canvas, ctx, canvasW, canvasH;
+let canvas, ctx, canvasW = 280, canvasH = 200;
 let dragIdx = -1;
 let editorContainer = null;
 let onDoneCallback = null;
-let overlayEl = null;
-
-// Zoom & pan
-let zoom = 1.0;
-let panX = 0, panY = 0;
-let isPanning = false;
-let panStartX = 0, panStartY = 0;
-let panStartPanX = 0, panStartPanY = 0;
 
 // ── Interpolation ──
 
@@ -88,6 +80,7 @@ function interpolateOutline(pts, res = 40) {
   const outline = [];
   for (let i = 0; i < res; i++) {
     const t = i / (res - 1);
+    // Linear interpolation between control points (find segment)
     const total = pts.length - 1;
     const raw = t * total;
     const seg = Math.min(Math.floor(raw), total - 1);
@@ -99,6 +92,7 @@ function interpolateOutline(pts, res = 40) {
 }
 
 function smoothOutline(pts, res = 60) {
+  // Catmull-Rom through control points for smooth curve
   const outline = [];
   const n = pts.length;
   let prevX = -Infinity;
@@ -112,6 +106,7 @@ function smoothOutline(pts, res = 60) {
       const t2 = t * t, t3 = t2 * t;
       return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
     };
+    // Enforce monotonic X to prevent self-intersecting outlines
     let x = cr(pts[i0].x, pts[i1].x, pts[i2].x, pts[i3].x, lt);
     if (x <= prevX) x = prevX + 0.001;
     prevX = x;
@@ -123,50 +118,42 @@ function smoothOutline(pts, res = 60) {
   return outline;
 }
 
-// ── Canvas coord transforms (with zoom & pan) ──
+// ── Canvas Drawing ──
 
 function toCanvas(pt) {
-  // Map normalized (0-1) fin coords to canvas pixels with zoom and pan
-  const drawW = canvasW * 0.7 * zoom;
-  const drawH = canvasH * 0.6 * zoom;
-  const cx = canvasW / 2 + panX;
-  const baseY = canvasH * 0.75 + panY;
-  return {
-    cx: cx - drawW / 2 + pt.x * drawW,
-    cy: baseY - pt.y * drawH,
-  };
+  const m = 25;
+  const dw = canvasW - m * 2, dh = canvasH - m - 20;
+  const baseY = canvasH - 20;
+  return { cx: m + pt.x * dw, cy: baseY - pt.y * dh };
 }
 
-function fromCanvas(px, py) {
-  const drawW = canvasW * 0.7 * zoom;
-  const drawH = canvasH * 0.6 * zoom;
-  const cx = canvasW / 2 + panX;
-  const baseY = canvasH * 0.75 + panY;
+function fromCanvas(cx, cy) {
+  const m = 25;
+  const dw = canvasW - m * 2, dh = canvasH - m - 20;
+  const baseY = canvasH - 20;
   return {
-    x: Math.max(0, Math.min(1, (px - (cx - drawW / 2)) / drawW)),
-    y: Math.max(0, Math.min(1.0, (baseY - py) / drawH)),
+    x: Math.max(0, Math.min(1, (cx - m) / dw)),
+    y: Math.max(0, Math.min(1.0, (baseY - cy) / dh)),
   };
 }
-
-// ── Drawing ──
 
 function draw() {
   if (!ctx) return;
   ctx.clearRect(0, 0, canvasW, canvasH);
 
-  // Subtle base line
-  const bl = toCanvas({ x: 0, y: 0 });
-  const br = toCanvas({ x: 1, y: 0 });
-  ctx.strokeStyle = 'rgba(200,168,78,0.2)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6, 6]);
-  ctx.beginPath(); ctx.moveTo(bl.cx, bl.cy); ctx.lineTo(br.cx, br.cy); ctx.stroke();
-  ctx.setLineDash([]);
+  // Grid
+  ctx.strokeStyle = '#2a2a2e';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < canvasW; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvasH); ctx.stroke(); }
+  for (let y = 0; y < canvasH; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y); ctx.stroke(); }
 
-  // Dimensions label
-  ctx.font = '10px monospace';
-  ctx.fillStyle = 'rgba(200,168,78,0.4)';
-  ctx.fillText(`${baseLength}×${maxHeight}mm`, bl.cx, bl.cy + 14);
+  // Base line
+  const baseY = canvasH - 20;
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(25, baseY); ctx.lineTo(canvasW - 25, baseY); ctx.stroke();
+  ctx.setLineDash([]);
 
   // Smooth outline
   const outline = smoothOutline(finPoints, 60);
@@ -179,42 +166,29 @@ function draw() {
     for (let i = 1; i < outline.length; i++) { const p = toCanvas(outline[i]); ctx.lineTo(p.cx, p.cy); }
     ctx.closePath();
     ctx.stroke();
-    ctx.fillStyle = 'rgba(200,168,78,0.08)';
+    ctx.fillStyle = 'rgba(200,168,78,0.06)';
     ctx.fill();
   }
 
   // Control points
   for (let i = 0; i < finPoints.length; i++) {
     const cp = toCanvas(finPoints[i]);
-    const r = (finPoints[i].fixed ? 5 : 7) * Math.min(zoom, 2);
+    const r = finPoints[i].fixed ? 5 : 7;
     ctx.beginPath();
     ctx.arc(cp.cx, cp.cy, r, 0, Math.PI * 2);
     ctx.fillStyle = finPoints[i].fixed ? '#8a7535' : '#c8a84e';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (IS_TOUCH) {
+      ctx.beginPath(); ctx.arc(cp.cx, cp.cy, 14, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(200,168,78,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    }
   }
-
-  // Zoom indicator
-  ctx.fillStyle = 'rgba(200,168,78,0.3)';
-  ctx.font = '10px monospace';
-  ctx.fillText(`${Math.round(zoom * 100)}%`, 8, canvasH - 8);
 }
 
 // ── Interaction ──
 
-function getCanvasXY(e) {
-  const rect = canvas.getBoundingClientRect();
-  const sx = canvas.width / rect.width;
-  const sy = canvas.height / rect.height;
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return { cx: (clientX - rect.left) * sx, cy: (clientY - rect.top) * sy };
-}
-
 function findNearest(cx, cy) {
-  let best = -1, bestD = HIT_R * Math.max(zoom, 1);
+  let best = -1, bestD = HIT_R;
   for (let i = 0; i < finPoints.length; i++) {
     const cp = toCanvas(finPoints[i]);
     const d = Math.hypot(cx - cp.cx, cy - cp.cy);
@@ -224,32 +198,20 @@ function findNearest(cx, cy) {
 }
 
 function onPointerDown(e) {
-  // Right-click or Ctrl+click → start pan
-  if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
-    isPanning = true;
-    const { cx, cy } = getCanvasXY(e);
-    panStartX = cx; panStartY = cy;
-    panStartPanX = panX; panStartPanY = panY;
-    e.preventDefault();
-    return;
-  }
-  const { cx, cy } = getCanvasXY(e);
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   dragIdx = findNearest(cx, cy);
   if (e.touches) e.preventDefault();
 }
 
 function onPointerMove(e) {
-  if (isPanning) {
-    const { cx, cy } = getCanvasXY(e);
-    panX = panStartPanX + (cx - panStartX);
-    panY = panStartPanY + (cy - panStartY);
-    draw();
-    if (e.touches) e.preventDefault();
-    return;
-  }
   if (dragIdx < 0) return;
-  const { cx, cy } = getCanvasXY(e);
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   const pt = fromCanvas(cx, cy);
+  // Enforce X ordering: can't cross neighboring points
   const minX = dragIdx > 0 ? finPoints[dragIdx - 1].x + 0.02 : 0;
   const maxX = dragIdx < finPoints.length - 1 ? finPoints[dragIdx + 1].x - 0.02 : 1;
   pt.x = Math.max(minX, Math.min(maxX, pt.x));
@@ -263,24 +225,21 @@ function onPointerMove(e) {
   if (e.touches) e.preventDefault();
 }
 
-function onPointerUp() { dragIdx = -1; isPanning = false; }
-
-function onWheel(e) {
-  e.preventDefault();
-  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-  zoom = Math.max(0.3, Math.min(5, zoom * factor));
-  draw();
-}
-
-function onContextMenu(e) { e.preventDefault(); }
+function onPointerUp() { dragIdx = -1; }
 
 // ── Mesh Building ──
 
 function buildFinMesh() {
+  // Lofted tube approach — same technique as the bait body.
+  // Each station along the fin base has a rectangular cross-section (4 verts).
+  // The rectangle's height comes from the outline profile.
+  // Adjacent stations are connected by quad strips. Ends are capped with quads.
   const rawOutline = smoothOutline(finPoints, 30);
-  const S = 1 / 25.4;
-  const MIN_H = 0.3 * S;
+  const S = 1 / 25.4; // mm → inches for viewport
+  const MIN_H = 0.3 * S; // minimum 0.3mm height to avoid degenerate triangles
 
+  // Filter outline: keep only stations with meaningful height,
+  // plus always keep first/last as base anchors (clamped to MIN_H)
   const outline = [];
   for (let i = 0; i < rawOutline.length; i++) {
     const h = rawOutline[i].y * maxHeight * S;
@@ -290,6 +249,7 @@ function buildFinMesh() {
   }
   const NS = outline.length;
 
+  // 4 verts per station: top-front, top-back, bottom-front, bottom-back
   const totalVerts = NS * 4;
   const vp = new Float32Array(totalVerts * 3);
   const tris = [];
@@ -300,23 +260,39 @@ function buildFinMesh() {
     const t = tapered ? thickness * Math.max(0.15, outline[i].y) * S : thickness * S;
     const hz = t / 2;
     const base = i * 4;
+
+    // top-front (0)
     vp[(base + 0) * 3] = px; vp[(base + 0) * 3 + 1] = h; vp[(base + 0) * 3 + 2] = hz;
+    // top-back (1)
     vp[(base + 1) * 3] = px; vp[(base + 1) * 3 + 1] = h; vp[(base + 1) * 3 + 2] = -hz;
+    // bottom-front (2)
     vp[(base + 2) * 3] = px; vp[(base + 2) * 3 + 1] = 0; vp[(base + 2) * 3 + 2] = hz;
+    // bottom-back (3)
     vp[(base + 3) * 3] = px; vp[(base + 3) * 3 + 1] = 0; vp[(base + 3) * 3 + 2] = -hz;
   }
 
+  // Quad strips between adjacent stations (4 faces per pair)
   for (let i = 0; i < NS - 1; i++) {
     const a = i * 4, b = (i + 1) * 4;
+    // Front face (verts 0,2 of each station)
     tris.push(a + 0, a + 2, b + 0); tris.push(a + 2, b + 2, b + 0);
+    // Back face (verts 1,3 — reversed winding)
     tris.push(a + 1, b + 1, a + 3); tris.push(a + 3, b + 1, b + 3);
+    // Top face (verts 0,1)
     tris.push(a + 0, b + 0, a + 1); tris.push(a + 1, b + 0, b + 1);
+    // Bottom face (verts 2,3 — reversed)
     tris.push(a + 2, a + 3, b + 2); tris.push(a + 3, b + 3, b + 2);
   }
+
+  // End caps (simple quads)
+  // Left cap (station 0): 0,1,2,3
   tris.push(0, 1, 2); tris.push(1, 3, 2);
+  // Right cap (last station): reversed winding
   const e = (NS - 1) * 4;
   tris.push(e + 0, e + 2, e + 1); tris.push(e + 1, e + 2, e + 3);
 
+  // Center the mesh (same as geo.center() in the display) so the position
+  // slider value matches between viewport and mold generator
   let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity, mnZ = Infinity, mxZ = -Infinity;
   for (let i = 0; i < vp.length; i += 3) {
     if (vp[i] < mnX) mnX = vp[i]; if (vp[i] > mxX) mxX = vp[i];
@@ -331,21 +307,15 @@ function buildFinMesh() {
 
 // ── UI ──
 
-function removeOverlay() {
-  if (overlayEl) { overlayEl.remove(); overlayEl = null; }
-  canvas = null; ctx = null;
-}
-
 export function openFinCreator(container, done) {
   editorContainer = container;
   onDoneCallback = done;
   finPoints = FIN_PRESETS[currentPreset].points.map(p => ({ ...p }));
-  zoom = 1.0; panX = 0; panY = 0;
 
   container.innerHTML = '';
   container.style.cssText = 'padding:8px 12px';
 
-  // Preset selector
+  // Preset
   const presetRow = document.createElement('div');
   presetRow.style.cssText = 'margin-bottom:8px';
   const sel = document.createElement('select');
@@ -360,11 +330,20 @@ export function openFinCreator(container, done) {
   presetRow.appendChild(sel);
   container.appendChild(presetRow);
 
-  // Hint
-  const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:9px;color:var(--mu);margin-bottom:8px;line-height:1.5';
-  hint.textContent = 'Draw on viewport overlay. Scroll to zoom, right-drag to pan.';
-  container.appendChild(hint);
+  // Canvas
+  canvas = document.createElement('canvas');
+  canvas.width = canvasW; canvas.height = canvasH;
+  canvas.style.cssText = 'width:100%;height:auto;background:#111;border:1px solid var(--bd);border-radius:4px;touch-action:none;cursor:crosshair';
+  ctx = canvas.getContext('2d');
+  container.appendChild(canvas);
+
+  canvas.addEventListener('mousedown', onPointerDown);
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseup', onPointerUp);
+  canvas.addEventListener('mouseleave', onPointerUp);
+  canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+  canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+  canvas.addEventListener('touchend', onPointerUp);
 
   // Point add/remove
   const ptBtns = document.createElement('div');
@@ -413,48 +392,8 @@ export function openFinCreator(container, done) {
   doneBtn.className = 'tb on';
   doneBtn.style.cssText = 'width:100%;padding:10px;margin-top:8px;background:var(--ac);color:var(--bg);font-weight:700';
   doneBtn.textContent = 'Done — Add to Design';
-  doneBtn.onclick = () => { finalize(); removeOverlay(); };
+  doneBtn.onclick = finalize;
   container.appendChild(doneBtn);
-
-  // Cancel button
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'tb';
-  cancelBtn.style.cssText = 'width:100%;padding:8px;margin-top:4px;color:var(--mu)';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => { removeOverlay(); if (onDoneCallback) onDoneCallback(); };
-  container.appendChild(cancelBtn);
-
-  // Create transparent overlay canvas on the viewport
-  removeOverlay();
-  const vp = document.getElementById('vp');
-  if (!vp) return;
-
-  overlayEl = document.createElement('div');
-  overlayEl.style.cssText = 'position:absolute;inset:0;z-index:15;pointer-events:auto;';
-
-  canvas = document.createElement('canvas');
-  const rect = vp.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvasW = rect.width * dpr;
-  canvasH = rect.height * dpr;
-  canvas.width = canvasW;
-  canvas.height = canvasH;
-  canvas.style.cssText = 'width:100%;height:100%;cursor:crosshair;touch-action:none;';
-  ctx = canvas.getContext('2d');
-  ctx.scale(1, 1); // canvas coords = pixel coords (dpr accounted for in size)
-
-  overlayEl.appendChild(canvas);
-  vp.appendChild(overlayEl);
-
-  canvas.addEventListener('mousedown', onPointerDown);
-  canvas.addEventListener('mousemove', onPointerMove);
-  canvas.addEventListener('mouseup', onPointerUp);
-  canvas.addEventListener('mouseleave', onPointerUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
-  canvas.addEventListener('contextmenu', onContextMenu);
-  canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-  canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-  canvas.addEventListener('touchend', onPointerUp);
 
   draw();
 }
@@ -470,6 +409,7 @@ function finalize() {
     category: 'fin',
     meshData: { numProp: 3, vertProperties: mesh.vertProperties, triVerts: mesh.triVerts },
     autoPosition: preset?.defaultPos || { x: 0, y: 0, z: 0 },
+    // Store fin parameters for native Manifold extrusion in mold generator
     _finParams: {
       outline: outline.map(p => ({ x: p.x * baseLength - baseLength / 2, y: p.y * maxHeight })),
       thickness,
@@ -480,7 +420,7 @@ function finalize() {
   if (onDoneCallback) onDoneCallback();
 }
 
-// Global handlers
+// Global handlers for inline onclick
 window._finAddPoint = function() {
   let maxD = 0, idx = 1;
   for (let i = 0; i < finPoints.length - 1; i++) {
@@ -500,7 +440,6 @@ window._finRemovePoint = function() {
 
 window._finReset = function() {
   finPoints = FIN_PRESETS[currentPreset].points.map(p => ({ ...p }));
-  zoom = 1.0; panX = 0; panY = 0;
   draw();
 };
 
