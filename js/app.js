@@ -1482,6 +1482,29 @@ window._sbd_focusOnPoint = function(x, y, z) {
   orbitCenter.set(x, y, z);
   updateCamera();
 };
+window._debugShape = function() {
+  const p = getParams();
+  const ps = profileState;
+  console.log('=== SHAPE DEBUG ===');
+  console.log('Sliders:', JSON.stringify({ BD:p.BD, WR:p.WR, GP:p.GP, HL:p.HL, SB:p.SB, DA:p.DA, BF:p.BF, BT:p.BT, SL:p.SL, SD:p.SD, SC:p.SC, TT:p.TT }));
+  console.log('Flags: manualEdit='+!!ps._manuallyEdited+' imported='+importedMeshActive);
+  console.log('Dorsal ('+ps.dorsal.length+' pts):');
+  ps.dorsal.forEach((pt,i) => console.log('  ['+i+'] t='+pt.t.toFixed(4)+' v='+pt.v.toFixed(6)+' locked='+pt.locked));
+  console.log('Ventral ('+ps.ventral.length+' pts):');
+  ps.ventral.forEach((pt,i) => console.log('  ['+i+'] t='+pt.t.toFixed(4)+' v='+pt.v.toFixed(6)+' locked='+pt.locked));
+  console.log('Width ('+ps.width.length+' pts):');
+  ps.width.forEach((pt,i) => console.log('  ['+i+'] t='+pt.t.toFixed(4)+' v='+pt.v.toFixed(6)+' locked='+pt.locked));
+  console.log('Deltas D:', ps.dDelta.map(d=>d.toFixed(4)));
+  console.log('Deltas V:', ps.vDelta.map(d=>d.toFixed(4)));
+  console.log('Deltas W:', ps.wDelta.map(d=>d.toFixed(4)));
+  console.log('Cache samples (t=0,0.1,...1.0):');
+  for (let t = 0; t <= 10; t++) {
+    const i = Math.round(t/10 * 96);
+    console.log('  t='+(t/10).toFixed(1)+' D='+ps.dorsalCache[i].toFixed(4)+' V='+ps.ventralCache[i].toFixed(4)+' W='+ps.widthCache[i].toFixed(4)+' N='+ps.nCache[i].toFixed(2));
+  }
+  console.log('=== END DEBUG ===');
+};
+
 window._sbd_syncSlotFromGizmo = function(mesh) {
   const idx = mesh.userData.slotIndex;
   if (idx === undefined || !slots[idx]) return;
