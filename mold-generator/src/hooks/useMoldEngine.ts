@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useMoldStore } from '../store/moldStore';
 import { usePrinterStore } from '../store/printerStore';
 import { MoldEngine } from '../core/MoldEngine';
@@ -8,8 +8,8 @@ let consecutiveErrors = 0;
 
 /**
  * Auto-regenerates the mold when any config changes.
- * Debounced by 400ms to avoid excessive CSG during slider drags.
- * Auto-recovers from WASM errors by creating a fresh engine.
+ * Debounced by 400ms. Guards against overlapping generations —
+ * if a generation is in progress, queues ONE follow-up with the latest state.
  */
 export function useMoldEngine() {
   const baitMesh = useMoldStore(s => s.baitMesh);
@@ -26,39 +26,55 @@ export function useMoldEngine() {
   const printOrientation = usePrinterStore(s => s.printOrientation);
 
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const runningRef = useRef(false);
+  const pendingRef = useRef(false);
+
+  const runGeneration = useCallback(async () => {
+    if (runningRef.current) {
+      pendingRef.current = true;
+      return;
+    }
+
+    const bait = useMoldStore.getState().baitMesh;
+    if (!bait) return;
+
+    runningRef.current = true;
+    setIsGenerating(true);
+
+    try {
+      const state = useMoldStore.getState();
+      const result = await engine.generate(state);
+      setGeneratedMold(result.halfA, result.halfB);
+      setValidationResult(result.validation);
+      consecutiveErrors = 0;
+    } catch (err) {
+      console.error('[useMoldEngine] Generation failed:', err);
+      consecutiveErrors++;
+      if (consecutiveErrors >= 2) {
+        console.warn('[useMoldEngine] Multiple failures — resetting engine');
+        engine = new MoldEngine();
+        consecutiveErrors = 0;
+      }
+    }
+
+    runningRef.current = false;
+    setIsGenerating(false);
+
+    // If a config change came in during generation, run again with latest state
+    if (pendingRef.current) {
+      pendingRef.current = false;
+      // Small delay to let the UI breathe before starting the next generation
+      setTimeout(runGeneration, 100);
+    }
+  }, [setGeneratedMold, setIsGenerating, setValidationResult]);
 
   useEffect(() => {
     if (!baitMesh) return;
 
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      setIsGenerating(true);
-      try {
-        const state = useMoldStore.getState();
-        const result = await engine.generate(state);
-        setGeneratedMold(result.halfA, result.halfB);
-        setValidationResult(result.validation);
-        consecutiveErrors = 0;
-      } catch (err) {
-        console.error('[useMoldEngine] Generation failed:', err);
-        consecutiveErrors++;
-
-        // After 2 consecutive errors, create a fresh engine instance
-        // to recover from corrupted WASM state
-        if (consecutiveErrors >= 2) {
-          console.warn('[useMoldEngine] Multiple failures — resetting engine');
-          engine = new MoldEngine();
-          consecutiveErrors = 0;
-        }
-
-        // Retry once with the fresh engine on the next config change
-        // (the useEffect will fire again since we're already in the dep cycle)
-      }
-      setIsGenerating(false);
-    }, 400);
+    timerRef.current = setTimeout(runGeneration, 400);
 
     return () => clearTimeout(timerRef.current);
   }, [baitMesh, moldConfig, alignmentConfig, clampConfig, sprueConfig, ventConfig,
-    slotConfigs, watermarkEnabled, printOrientation,
-    setGeneratedMold, setIsGenerating, setValidationResult]);
+    slotConfigs, watermarkEnabled, printOrientation, runGeneration]);
 }
