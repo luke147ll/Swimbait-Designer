@@ -59,10 +59,11 @@ export function updateEyeIndicators(OL, getWidthFn) {
   const vOff = eyeConfig.verticalOffset / 25.4;
 
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xc8a84e, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-  const discMat = new THREE.MeshBasicMaterial({ color: 0xc8a84e, side: THREE.DoubleSide, transparent: true, opacity: 0.15 });
+  const cylMat = new THREE.MeshBasicMaterial({ color: 0xc8a84e, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+  const depthInches = eyeConfig.recessDepth / 25.4;
 
   for (const side of [1, -1]) {
-    // Ring outline — default XY plane faces along Z (width axis) — no rotation needed
+    // Ring outline on the bait surface
     const ringGeo = new THREE.RingGeometry(r - 0.015, r, 32);
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.position.set(stationX, vOff, side * (halfW + 0.01));
@@ -70,13 +71,24 @@ export function updateEyeIndicators(OL, getWidthFn) {
     scene.add(ring);
     indicators.push(ring);
 
-    // Filled disc
-    const discGeo = new THREE.CircleGeometry(r, 32);
-    const disc = new THREE.Mesh(discGeo, discMat);
-    disc.position.set(stationX, vOff, side * (halfW + 0.005));
-    disc.userData.isEyeIndicator = true;
-    scene.add(disc);
-    indicators.push(disc);
+    // Depth preview cylinder — shows how deep the recess cuts into the bait
+    const cylGeo = new THREE.CylinderGeometry(r, r, depthInches, 32, 1, true);
+    cylGeo.rotateX(Math.PI / 2); // align along Z axis
+    const cyl = new THREE.Mesh(cylGeo, cylMat);
+    // Position: start at bait surface, extend inward
+    cyl.position.set(stationX, vOff, side * (halfW - depthInches / 2 + 0.01));
+    cyl.userData.isEyeIndicator = true;
+    scene.add(cyl);
+    indicators.push(cyl);
+
+    // Bottom disc — shows the flat bottom of the recess
+    const bottomGeo = new THREE.CircleGeometry(r, 32);
+    const bottomMat = new THREE.MeshBasicMaterial({ color: 0xc8a84e, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+    const bottom = new THREE.Mesh(bottomGeo, bottomMat);
+    bottom.position.set(stationX, vOff, side * (halfW - depthInches + 0.01));
+    bottom.userData.isEyeIndicator = true;
+    scene.add(bottom);
+    indicators.push(bottom);
   }
 }
 
