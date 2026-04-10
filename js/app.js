@@ -173,7 +173,7 @@ function getParams() {
     FD: +document.getElementById('sFD').value,
     FA: +document.getElementById('sFA').value,
     EP: +document.getElementById('sEP').value,
-    EV: sideEditor && sideEditor.getEyePosition ? sideEditor.getEyePosition().v : 0,
+    EV: 0,
     ES: +document.getElementById('sES').value,
     EB: +document.getElementById('sEB').value,
     HS: 0,
@@ -335,7 +335,6 @@ function rebuildScene(resolution) {
 
   // Refresh editors
   if (sideEditor) {
-    sideEditor.setEyePosition(p.EP || p.HL * 0.6);
     sideEditor.refresh();
   }
   if (widthEditor) widthEditor.refresh();

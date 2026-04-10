@@ -518,8 +518,6 @@ export function createSideEditor(container, state, onEdit) {
   return {
     refresh,
     setStationMarker(t) { stationT = t; redraw(); },
-    setEyePosition(t, v) { eyeT = t; if (v !== undefined) eyeV = v; drawPoints(); },
-    getEyePosition() { return { t: eyeT, v: eyeV }; }
   };
 }
 
