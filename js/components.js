@@ -590,39 +590,39 @@ export function renderComponentList() {
         nuBtn.innerHTML = `<span style="font-size:10px;color:var(--ac);cursor:pointer;letter-spacing:0.5px" onclick="event.stopPropagation();toggleComponentSection('${comp.id}','scaleXYZ')">${comp._openSections.scaleXYZ ? '▾ Per-axis scale' : '▸ Per-axis scale'}</span>`;
         inner.appendChild(nuBtn);
         if (comp._openSections.scaleXYZ) {
-          inner.appendChild(makeSlider('X', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v } })));
-          inner.appendChild(makeSlider('Y', comp.scale.y, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { y: v } })));
-          inner.appendChild(makeSlider('Z', comp.scale.z, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { z: v } })));
+          inner.appendChild(makeSlider('Length', comp.scale.x, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { x: v } })));
+          inner.appendChild(makeSlider('Height', comp.scale.y, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { y: v } })));
+          inner.appendChild(makeSlider('Width', comp.scale.z, 0.01, 3.0, 0.01, v => updateComponent(comp.id, { scale: { z: v } })));
         }
       }));
 
       // Position (collapsed by default, Z locked by default)
       body.appendChild(collapsibleSection('Position', 'position', inner => {
-        inner.appendChild(makeSlider('X (length)', comp.position.x, -8, 8, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
-        inner.appendChild(makeSlider('Y (height)', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
-        // Z locked by default — unlock to adjust
+        inner.appendChild(makeSlider('Along Body', comp.position.x, -8, 8, 0.02, v => updateComponent(comp.id, { position: { x: v } })));
+        inner.appendChild(makeSlider('Height', comp.position.y, -8, 8, 0.02, v => updateComponent(comp.id, { position: { y: v } })));
+        // Width locked by default — unlock to adjust
         if (!comp._openSections) comp._openSections = { scale: true };
-        const zLocked = !comp._openSections.zUnlocked;
-        const zRow = document.createElement('div');
-        zRow.style.cssText = 'display:flex;align-items:center;gap:4px';
+        const wLocked = !comp._openSections.zUnlocked;
+        const wRow = document.createElement('div');
+        wRow.style.cssText = 'display:flex;align-items:center;gap:4px';
         const lockBtn = document.createElement('button');
-        lockBtn.className = 'tb' + (zLocked ? '' : ' on');
+        lockBtn.className = 'tb' + (wLocked ? '' : ' on');
         lockBtn.style.cssText = 'padding:2px 6px;font-size:9px;flex-shrink:0';
-        lockBtn.textContent = zLocked ? '🔒 Z' : '🔓 Z';
-        lockBtn.title = zLocked ? 'Z locked at center — click to unlock' : 'Z unlocked — click to lock';
+        lockBtn.textContent = wLocked ? '🔒 Width' : '🔓 Width';
+        lockBtn.title = wLocked ? 'Width locked at center — click to unlock' : 'Width unlocked — click to lock';
         lockBtn.onclick = (e) => { e.stopPropagation(); comp._openSections.zUnlocked = !comp._openSections.zUnlocked; renderComponentList(); };
-        zRow.appendChild(lockBtn);
-        if (!zLocked) {
-          const zSlider = makeSlider('Z (width)', comp.position.z, -4, 4, 0.02, v => updateComponent(comp.id, { position: { z: v } }));
-          zSlider.style.flex = '1';
-          zRow.appendChild(zSlider);
+        wRow.appendChild(lockBtn);
+        if (!wLocked) {
+          const wSlider = makeSlider('Width', comp.position.z, -4, 4, 0.02, v => updateComponent(comp.id, { position: { z: v } }));
+          wSlider.style.flex = '1';
+          wRow.appendChild(wSlider);
         } else {
-          const zLabel = document.createElement('span');
-          zLabel.style.cssText = 'font-size:9px;color:var(--mu)';
-          zLabel.textContent = 'Z locked at 0 (center)';
-          zRow.appendChild(zLabel);
+          const wLabel = document.createElement('span');
+          wLabel.style.cssText = 'font-size:9px;color:var(--mu)';
+          wLabel.textContent = 'Width locked at center';
+          wRow.appendChild(wLabel);
         }
-        inner.appendChild(zRow);
+        inner.appendChild(wRow);
       }));
 
       // Rotation (collapsed by default) with 90° snap buttons
@@ -643,7 +643,8 @@ export function renderComponentList() {
           }
           row.appendChild(snapBtns);
           // Fine slider
-          const slider = makeSlider(axis.toUpperCase(), val, -180, 180, 1, v => updateComponent(comp.id, { rotation: { [axis]: v } }));
+          const axisLabel = axis === 'x' ? 'Pitch' : axis === 'y' ? 'Yaw' : 'Roll';
+          const slider = makeSlider(axisLabel, val, -180, 180, 1, v => updateComponent(comp.id, { rotation: { [axis]: v } }));
           slider.style.flex = '1';
           row.appendChild(slider);
           return row;
@@ -657,9 +658,9 @@ export function renderComponentList() {
       const mirrorDiv = document.createElement('div');
       mirrorDiv.style.cssText = 'display:flex;gap:4px;margin-top:8px;flex-wrap:wrap';
       mirrorDiv.innerHTML = `
-        <button class="tb${comp.mirrorX ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorX')">↔X</button>
-        <button class="tb${comp.mirrorY ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorY')">↔Y</button>
-        <button class="tb${comp.mirrorZ ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorZ')">↔Z</button>
+        <button class="tb${comp.mirrorX ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorX')">↔ Length</button>
+        <button class="tb${comp.mirrorY ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorY')">↔ Height</button>
+        <button class="tb${comp.mirrorZ ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','mirrorZ')">↔ Width</button>
         <button class="tb${comp.autoMirror ? ' on' : ''}" style="padding:4px 8px;font-size:9px" onclick="toggleComponentMirror('${comp.id}','autoMirror')">Auto-pair</button>
       `;
       body.appendChild(mirrorDiv);

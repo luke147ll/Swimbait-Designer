@@ -127,9 +127,9 @@ function renderSlotUI() {
           </select></div>
         ${slot.depth !== 'through' ? `<div class="c"><div class="cr"><label>Depth mm</label><span class="v">${slot.depth}</span></div>
           <input type="range" min="2" max="60" step="0.5" value="${slot.depth}" oninput="updateSlot(${idx},'depth',this.value)"></div>` : ''}
-        <div class="c"><div class="cr"><label>Along body (X)</label><span class="v">${slot.positionY.toFixed(1)}</span></div>
+        <div class="c"><div class="cr"><label>Along Body</label><span class="v">${slot.positionY.toFixed(1)}</span></div>
           <input type="range" min="${-halfLen}" max="${halfLen}" step="0.5" value="${slot.positionY}" oninput="updateSlot(${idx},'positionY',this.value)"></div>
-        <div class="c"><div class="cr"><label>Vertical (Y)</label><span class="v">${slot.positionZ.toFixed(1)}</span></div>
+        <div class="c"><div class="cr"><label>Height</label><span class="v">${slot.positionZ.toFixed(1)}</span></div>
           <input type="range" min="-15" max="15" step="0.5" value="${slot.positionZ}" oninput="updateSlot(${idx},'positionZ',this.value)"></div>
       `;
       div.appendChild(controls);

@@ -79,7 +79,7 @@ export function SpruePanel() {
         ))}
       </div>
 
-      <Slider label="Z Offset" value={config.offsetZ} min={-20} max={20} step={0.5} unit="mm"
+      <Slider label="Height Offset" value={config.offsetZ} min={-20} max={20} step={0.5} unit="mm"
         onChange={v => update({ offsetZ: v })} />
     </AccordionPanel>
   );
