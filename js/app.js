@@ -377,12 +377,6 @@ function update(resolution) {
     }));
   }
 
-  console.log('[Shape] BD='+p.BD+' WR='+p.WR+' GP='+p.GP+' HL='+p.HL+' SB='+p.SB+' DA='+p.DA+' BF='+p.BF+' BT='+p.BT+' SL='+p.SL+' SD='+p.SD+' SC='+p.SC
-    +' | manualEdit='+!!profileState._manuallyEdited+' imported='+importedMeshActive
-    +' dorsal='+profileState.dorsal.length+'pts'
-    +' dorsalMax='+Math.max(...profileState.dorsal.map(p=>p.v)).toFixed(4)
-    +' ventralMin='+Math.min(...profileState.ventral.map(p=>p.v)).toFixed(4)
-    +' widthMax='+Math.max(...profileState.width.map(p=>p.v)).toFixed(4));
   rebuildProfileCache(profileState, p.CS, p.HL);
   rebuildScene(resolution);
   if (resolution === 'draft') rebuildDraftThenUpgrade();
