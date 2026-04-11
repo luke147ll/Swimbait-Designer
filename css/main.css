@@ -67,7 +67,7 @@ input[type=range]::-moz-range-track{height:6px;background:var(--bd);border-radiu
 .eb:hover{opacity:.85}
 .esu{font-size:8px;color:var(--mu);text-align:center;margin-top:5px}
 .vp{position:relative;background:var(--bg);overflow:hidden;touch-action:none}
-.vl{position:absolute;bottom:12px;left:12px;font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;pointer-events:none}
+.vl{position:absolute;bottom:12px;left:12px;font-size:40px;color:rgba(200,168,78,0.15);text-transform:lowercase;letter-spacing:3px;pointer-events:none;font-style:italic}
 .vs{position:absolute;top:12px;right:12px;font-size:9px;color:var(--mu);text-align:right;pointer-events:none;line-height:1.7}
 .rh{position:absolute;bottom:12px;right:12px;font-size:8px;color:var(--mu);pointer-events:none;opacity:.4}
 .view-btns{position:absolute;top:12px;left:12px;display:flex;gap:4px;z-index:10}
