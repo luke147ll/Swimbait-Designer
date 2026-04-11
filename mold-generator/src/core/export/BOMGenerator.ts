@@ -15,21 +15,7 @@ export class BOMGenerator {
       });
     }
 
-    if (state.clampConfig?.mode === 'heat_set_insert') {
-      items.push({
-        name: 'Socket Head Cap Screw',
-        quantity: state.clampConfig.boltCount,
-        size: `${state.clampConfig.boltSize} × 20mm`,
-        material: 'Stainless Steel',
-      });
-      items.push({
-        name: 'Brass Heat-Set Insert',
-        quantity: state.clampConfig.boltCount,
-        size: `${state.clampConfig.boltSize} × 8mm`,
-        material: 'Brass, knurled',
-        notes: 'Press into Half A with soldering iron at 220°C',
-      });
-    } else if (state.clampConfig?.mode === 'through_bolt') {
+    if (state.clampConfig?.mode === 'through_bolt') {
       items.push({
         name: 'Socket Head Cap Screw',
         quantity: state.clampConfig.boltCount,

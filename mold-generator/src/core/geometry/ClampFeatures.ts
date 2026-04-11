@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { mCylZ, mSubtract, mUnion, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
+import { mCylZ, mSubtract, mTranslate, mBatchUnion, type ManifoldSolid } from '../csg';
 import type { ClampConfig, MoldConfig, Vec3, PrintOrientation } from '../types';
 import type { MoldDimensions } from './BaitSubtraction';
-import { HEAT_SET_INSERT_HOLES, BOLT_CLEARANCE_HOLES } from '../constants';
+import { BOLT_CLEARANCE_HOLES } from '../constants';
 
-const EPS = 0.01;
 
 function autoPlacePositions(config: ClampConfig, bb: THREE.Box3, mc: MoldConfig, _dims: MoldDimensions): Vec3[] {
   const cx = (bb.max.x + bb.min.x) / 2;
@@ -68,47 +67,8 @@ export class ClampFeatures {
     const positions = config.positions.length > 0
       ? config.positions : autoPlacePositions(config, baitBounds, moldConfig, dims);
     const bs = config.boltSize;
-    const BOLT_DROOP = 0.45; // mm extra diameter for top-edge bolt holes
 
-    if (config.mode === 'heat_set_insert') {
-      const ins = HEAT_SET_INSERT_HOLES[bs];
-      const clr = BOLT_CLEARANCE_HOLES[bs];
-      console.log(`[ClampFeatures] Insert hole: d=${ins.holeDiameter}mm, depth=${ins.depth}mm | Clearance: d=${clr.clearanceDiameter}mm, head=${clr.headDiameter}mm`);
-
-      // HalfA: insert holes going down from Z=0
-      const cuttersA: ManifoldSolid[] = [];
-      for (const pos of positions) {
-        const depth = ins.depth + EPS;
-        const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
-        const r = ins.holeDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
-        if (isTopEdge) console.log(`[ClampFeatures] Bolt at X=${pos.x.toFixed(1)}: +${BOLT_DROOP}mm droop compensation`);
-        cuttersA.push(mTranslate(mCylZ(r, depth), pos.x, pos.y, -depth / 2 + EPS));
-      }
-      if (cuttersA.length > 0) {
-        const compound = mBatchUnion(cuttersA);
-        halfA = mSubtract(halfA, compound);
-        console.log(`[ClampFeatures] Subtracted ${cuttersA.length} insert holes from halfA`);
-      }
-
-      // HalfB: clearance through-holes + countersinks going up from Z=0
-      if (halfB) {
-        const cutterH = dims.boxZ + 2; // extend 1mm past each face
-        console.log(`[ClampFeatures] HalfB through-hole: cutterH=${cutterH.toFixed(1)}mm, moldHalfH=${dims.boxZ.toFixed(1)}mm`);
-        const cuttersB: ManifoldSolid[] = [];
-        for (const pos of positions) {
-          const isTopEdge = printOrientation === 'on_edge' && pos.y > (baitBounds.max.y + baitBounds.min.y) / 2;
-          const clrR = clr.clearanceDiameter / 2 + (isTopEdge ? BOLT_DROOP / 2 : 0);
-          const through = mTranslate(mCylZ(clrR, cutterH), pos.x, pos.y, dims.boxZ / 2);
-          const csink = mTranslate(mCylZ(clr.headDiameter / 2, clr.countersinkDepth + 1), pos.x, pos.y, dims.boxZ - clr.countersinkDepth / 2 + 0.5);
-          cuttersB.push(mUnion(through, csink));
-        }
-        if (cuttersB.length > 0) {
-          const compound = mBatchUnion(cuttersB);
-          halfB = mSubtract(halfB, compound);
-          console.log(`[ClampFeatures] Subtracted ${cuttersB.length} clearance holes from halfB`);
-        }
-      }
-    } else {
+    {
       // Through-bolt — both halves get full through-holes
       const clr = BOLT_CLEARANCE_HOLES[bs];
       const cutterH = dims.boxZ + 2;
