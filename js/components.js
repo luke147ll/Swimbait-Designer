@@ -291,12 +291,24 @@ export function addComponent(partData) {
   return comp;
 }
 
+function nextInstanceName(label) {
+  // Strip existing number suffix: "Sphere 2" → "Sphere", "Sphere copy" → "Sphere copy"
+  const base = label.replace(/\s+\d+$/, '').replace(/\s+copy.*$/, '');
+  let max = 0;
+  for (const c of components) {
+    if (c.label === base) max = Math.max(max, 1);
+    const m = c.label.match(new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+(\\d+)$'));
+    if (m) max = Math.max(max, parseInt(m[1]));
+  }
+  return max === 0 ? base + ' 1' : base + ' ' + (max + 1);
+}
+
 export function duplicateComponent(id) {
   const src = components.find(c => c.id === id);
   if (!src) return;
   const comp = addComponent({
     partId: src.partId,
-    label: src.label + ' copy',
+    label: nextInstanceName(src.label),
     category: src.category,
     meshData: src.meshData ? { numProp: 3, vertProperties: [...src.meshData.vertProperties], triVerts: [...src.meshData.triVerts] } : null,
     _finParams: src._finParams ? { ...src._finParams } : null,
