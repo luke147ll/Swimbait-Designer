@@ -184,8 +184,8 @@ export function LoadingScreen() {
 
     const token = getTransferToken();
     if (!token) {
-      log('no bait data found', 'error');
-      log('open the designer to create a bait first', 'error');
+      log('no bait transferred — import an STL or open the designer', 'info');
+      finish();
       return;
     }
 
