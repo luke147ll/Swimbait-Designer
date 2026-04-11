@@ -13,7 +13,6 @@ const segBtn = (active: boolean): React.CSSProperties => ({
 });
 
 const modeInfo: Record<ClampMode, string> = {
-  heat_set_insert: 'Use brass knurled heat-set inserts. Press into halfA with a soldering iron at 220°C.',
   through_bolt: 'Use socket head cap screws with washers and wing nuts.',
   external_clamp: 'No bolt holes generated. Use C-clamps, toggle clamps, or rubber bands. More compact mold.',
 };
@@ -33,9 +32,8 @@ export function ClampPanel() {
     <AccordionPanel title="Clamping" defaultExpanded={false}>
       <div style={{ display: 'flex', marginBottom: 12, borderRadius: 3, overflow: 'hidden' }}>
         {([
-          ['heat_set_insert', 'Heat-Set'],
-          ['through_bolt', 'Through-Bolt'],
           ['external_clamp', 'External'],
+          ['through_bolt', 'Through-Bolt'],
         ] as [ClampMode, string][]).map(([m, label]) => (
           <button key={m} style={segBtn(config.mode === m)} onClick={() => handleMode(m)}>{label}</button>
         ))}

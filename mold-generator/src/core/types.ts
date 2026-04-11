@@ -50,7 +50,7 @@ export interface AlignmentConfig {
   keyHeight: number;
 }
 
-export type ClampMode = 'heat_set_insert' | 'through_bolt' | 'external_clamp';
+export type ClampMode = 'through_bolt' | 'external_clamp';
 export type BoltSize = 'M4' | 'M5' | 'M6';
 
 export interface ClampConfig {
