@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swimbait Designer — Learn</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a0a;--bg2:#111114;--bg3:#1a1a1e;--bg4:#222226;
+  --gold:#c8a84e;--gold-bright:#e0c060;--gold-dim:#8a7535;
+  --text:#d4d4d4;--text-muted:#888890;--text-dim:#555558;
+  --green:#6a9a6a;--blue:#5a8aaa;
+  --mono:'JetBrains Mono',monospace;--serif:'Instrument Serif',Georgia,serif;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat:repeat;opacity:0.4;}
+.content{position:relative;z-index:1;}
+
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 40px;position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(10,10,10,0.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(200,168,78,0.1);}
+.nav-logo{font-size:11px;font-weight:600;letter-spacing:3px;color:var(--gold);text-transform:uppercase;text-decoration:none;}
+.nav-links{display:flex;gap:24px;}
+.nav-links a{font-size:11px;color:var(--text-dim);text-decoration:none;letter-spacing:1px;text-transform:uppercase;transition:color 0.2s;}
+.nav-links a:hover{color:var(--gold);}
+
+.page-header{padding:120px 40px 60px;max-width:900px;margin:0 auto;text-align:center;}
+.page-header h1{font-family:var(--serif);font-size:clamp(32px,5vw,48px);font-weight:400;margin-bottom:12px;}
+.page-header h1 em{font-style:italic;color:var(--gold);}
+.page-header p{font-size:14px;color:var(--text-muted);font-weight:300;max-width:480px;margin:0 auto;}
+
+/* TOC */
+.toc{max-width:900px;margin:0 auto 60px;padding:0 40px;}
+.toc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;}
+.toc-item{background:var(--bg2);padding:16px 18px;text-decoration:none;color:var(--text);transition:all 0.2s;display:block;}
+.toc-item:first-child{border-radius:6px 0 0 0;}
+.toc-item:nth-child(3){border-radius:0 6px 0 0;}
+.toc-item:nth-child(4){border-radius:0 0 0 6px;}
+.toc-item:last-child{border-radius:0 0 6px 0;}
+.toc-item:hover{background:var(--bg3);}
+.toc-num{font-size:10px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:4px;}
+.toc-label{font-size:13px;font-weight:400;}
+
+/* Sections */
+.learn-section{max-width:900px;margin:0 auto;padding:60px 40px;border-top:1px solid rgba(200,168,78,0.06);}
+.learn-section:first-of-type{border-top:none;}
+.ls-label{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold-dim);margin-bottom:8px;}
+.ls-title{font-family:var(--serif);font-size:28px;font-weight:400;margin-bottom:16px;}
+.ls-desc{font-size:14px;color:var(--text-muted);line-height:1.7;font-weight:300;margin-bottom:24px;max-width:700px;}
+
+.ls-img{width:100%;border-radius:6px;border:1px solid rgba(200,168,78,0.1);display:block;margin-bottom:20px;}
+.ls-img-half{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+.ls-img-half img{width:100%;border-radius:6px;border:1px solid rgba(200,168,78,0.1);display:block;}
+
+.ls-callout{background:var(--bg2);border-left:3px solid var(--gold-dim);padding:16px 20px;margin-bottom:20px;border-radius:0 6px 6px 0;}
+.ls-callout-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:500;}
+.ls-callout p{font-size:13px;color:var(--text-muted);line-height:1.6;font-weight:300;}
+
+.ls-text{font-size:14px;color:var(--text-muted);line-height:1.7;font-weight:300;margin-bottom:16px;}
+.ls-text strong{color:var(--text);font-weight:500;}
+
+/* Keyboard shortcuts */
+.keys-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:20px;}
+.key-row{display:flex;align-items:center;gap:12px;background:var(--bg2);padding:12px 16px;}
+.key-row:nth-child(1){border-radius:6px 0 0 0;}
+.key-row:nth-child(2){border-radius:0 6px 0 0;}
+.key-row:nth-last-child(2){border-radius:0 0 0 6px;}
+.key-row:last-child{border-radius:0 0 6px 0;}
+kbd{background:var(--bg4);color:var(--gold);padding:4px 10px;border-radius:4px;font-family:var(--mono);font-size:12px;font-weight:500;
+  border:1px solid rgba(200,168,78,0.15);min-width:32px;text-align:center;display:inline-block;}
+.key-desc{font-size:12px;color:var(--text-muted);font-weight:300;}
+
+/* Steps */
+.ls-steps{counter-reset:step;margin-bottom:20px;}
+.ls-step{display:flex;gap:16px;margin-bottom:12px;align-items:flex-start;}
+.ls-step::before{counter-increment:step;content:counter(step);font-size:11px;font-weight:500;color:var(--gold);
+  background:rgba(200,168,78,0.1);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.ls-step p{font-size:13px;color:var(--text-muted);line-height:1.6;font-weight:300;}
+
+/* Feature list */
+.ls-features{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:20px;}
+.ls-feat{background:var(--bg2);padding:16px 18px;}
+.ls-feat:first-child{border-radius:6px 0 0 0;}
+.ls-feat:nth-child(2){border-radius:0 6px 0 0;}
+.ls-feat:nth-last-child(2){border-radius:0 0 0 6px;}
+.ls-feat:last-child{border-radius:0 0 6px 0;}
+.ls-feat-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.ls-feat-desc{font-size:11px;color:var(--text-dim);line-height:1.5;font-weight:300;}
+
+footer{padding:40px;text-align:center;border-top:1px solid rgba(200,168,78,0.06);}
+footer p{font-size:11px;color:var(--text-dim);letter-spacing:1px;}
+
+.reveal{opacity:0;transform:translateY(20px);transition:opacity 0.6s ease,transform 0.6s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+@media(max-width:768px){
+  nav{padding:16px 20px;}.nav-links{display:none;}
+  .page-header,.learn-section,.toc{padding-left:24px;padding-right:24px;}
+  .toc-grid{grid-template-columns:1fr;}
+  .toc-item{border-radius:0!important;}.toc-item:first-child{border-radius:6px 6px 0 0!important;}.toc-item:last-child{border-radius:0 0 6px 6px!important;}
+  .keys-grid{grid-template-columns:1fr;}
+  .key-row{border-radius:0!important;}.key-row:first-child{border-radius:6px 6px 0 0!important;}.key-row:last-child{border-radius:0 0 6px 6px!important;}
+  .ls-features{grid-template-columns:1fr;}
+  .ls-feat{border-radius:0!important;}.ls-feat:first-child{border-radius:6px 6px 0 0!important;}.ls-feat:last-child{border-radius:0 0 6px 6px!important;}
+  .ls-img-half{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="content">
+
+<nav>
+  <a href="/" class="nav-logo">Swimbait Designer</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="#overview">Overview</a>
+    <a href="#profiles">Profiles</a>
+    <a href="#components">Components</a>
+    <a href="#shortcuts">Shortcuts</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1 class="reveal">Learn <em>Swimbait Designer</em></h1>
+  <p class="reveal">A walkthrough of every tool and interface in the designer. From your first profile edit to generating a printable mold.</p>
+</div>
+
+<!-- TOC -->
+<div class="toc reveal">
+  <div class="toc-grid">
+    <a href="#overview" class="toc-item"><div class="toc-num">01</div><div class="toc-label">Interface overview</div></a>
+    <a href="#profiles" class="toc-item"><div class="toc-num">02</div><div class="toc-label">Profile editors</div></a>
+    <a href="#crosssection" class="toc-item"><div class="toc-num">03</div><div class="toc-label">Cross-sections</div></a>
+    <a href="#components" class="toc-item"><div class="toc-num">04</div><div class="toc-label">Components</div></a>
+    <a href="#fins" class="toc-item"><div class="toc-num">05</div><div class="toc-label">Fin creator</div></a>
+    <a href="#shortcuts" class="toc-item"><div class="toc-num">06</div><div class="toc-label">Shortcuts + gizmos</div></a>
+  </div>
+</div>
+
+<!-- 01 OVERVIEW -->
+<div class="learn-section reveal" id="overview">
+  <div class="ls-label">01</div>
+  <div class="ls-title">Interface overview</div>
+  <img src="img/learn-full-ui.png" alt="Full Swimbait Designer interface" class="ls-img">
+  
+  <div class="ls-text">The designer is split into two areas: the <strong>sidebar</strong> on the left holds all the editors and controls, and the <strong>3D viewport</strong> on the right shows your bait updating in real-time as you make changes.</div>
+
+  <div class="ls-text">The sidebar is organized top to bottom in the order you'll typically use it: profile editors, cross-section, overall length, slot inserts, components, resolution, color, and export.</div>
+
+  <img src="img/learn-sidebar.png" alt="Sidebar controls" class="ls-img" style="max-width:400px;">
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Viewport controls</div>
+    <p><strong>Left-click drag</strong> to orbit around the bait. <strong>Scroll wheel</strong> to zoom. <strong>Right-click drag</strong> to pan. Use the <strong>Side / Top / Front</strong> buttons at the top of the viewport to snap to preset camera angles.</p>
+  </div>
+
+  <div class="ls-text">The viewport toolbar in the top-left corner has buttons for view modes and display options:</div>
+
+  <img src="img/learn-toolbar.png" alt="Viewport toolbar buttons" class="ls-img" style="max-width:240px;">
+
+  <div class="ls-features">
+    <div class="ls-feat"><div class="ls-feat-title">Grid</div><div class="ls-feat-desc">Toggle the reference grid on/off</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Reset view</div><div class="ls-feat-desc">Snap back to the default camera angle</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Fullscreen</div><div class="ls-feat-desc">Expand the viewport to fill the browser</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Wireframe</div><div class="ls-feat-desc">Show the mesh wireframe on the bait surface</div></div>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Resolution</div>
+    <p>The <strong>Mesh Resolution</strong> dropdown controls how smooth the bait mesh is. Use <strong>Draft</strong> while designing for fast updates, and switch to <strong>High (80x64)</strong> before exporting for a smooth cavity finish in the mold.</p>
+  </div>
+</div>
+
+<!-- 02 PROFILE EDITORS -->
+<div class="learn-section reveal" id="profiles">
+  <div class="ls-label">02</div>
+  <div class="ls-title">Profile editors</div>
+  <div class="ls-desc">The profile editors are the core of the designer. They control the shape of your bait using two 2D spline curves that you edit by dragging control points.</div>
+
+  <img src="img/learn-side-profile.png" alt="Side profile editor with dorsal and ventral curves" class="ls-img">
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Side profile</div>
+    <p>The side profile shows your bait from the side. The <strong style="color:var(--gold);">gold curve</strong> is the dorsal (top) outline. The <strong style="color:var(--green);">green curve</strong> is the ventral (bottom) outline. Drag any control point up or down to reshape the bait. The 3D model updates instantly.</p>
+  </div>
+
+  <div class="ls-text">The <strong>vertical dashed line</strong> in the center shows the currently selected cross-section station. You can see how the side profile controls the height of the bait at each point along its length.</div>
+
+  <div class="ls-text">Points are spaced along the bait from head (left) to tail (right). Drag a point up to make the back taller at that station, or down to make the belly deeper. The spline interpolates a smooth curve between your points.</div>
+
+  <img src="img/learn-width.png" alt="Width profile editor showing top-down view" class="ls-img">
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Width profile</div>
+    <p>The width profile shows your bait from above. The <strong style="color:var(--gold);">gold curve</strong> controls how wide the bait is at each station. Drag points up to make the bait wider, down to make it narrower. A shad has a wide belly and narrow tail. A worm is narrow throughout.</p>
+  </div>
+
+  <div class="ls-text">Together, the side profile and width profile fully define the 3D shape. The side profile controls the vertical cross-section (how tall), the width profile controls the horizontal cross-section (how wide). The bait is the solid that fills both profiles simultaneously.</div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Reference photo</div>
+    <p>Click <strong>Reference Photo</strong> to upload an image of a real fish or existing bait. The photo overlays behind the 3D model so you can trace the profile. Use the <strong>Opacity</strong> and <strong>Scale</strong> sliders to align it with your bait, and the <strong>Offset</strong> sliders to position it.</p>
+  </div>
+</div>
+
+<!-- 03 CROSS-SECTION -->
+<div class="learn-section reveal" id="crosssection">
+  <div class="ls-label">03</div>
+  <div class="ls-title">Cross-section editor</div>
+  <div class="ls-desc">The cross-section editor lets you control the shape of the bait at each slice along its length. This is where you make a bait round, flat, or teardrop-shaped.</div>
+
+  <img src="img/learn-cross-section.png" alt="Cross-section shape editor showing front view with control points" class="ls-img" style="max-width:550px;">
+
+  <div class="ls-text">The cross-section shows your bait from the front at the selected station. The <strong style="color:var(--gold);">gold outline</strong> is the cross-section shape with draggable control points around the perimeter. The <strong>dashed circle</strong> behind it is the default round profile for reference.</div>
+
+  <div class="ls-steps">
+    <div class="ls-step"><p>Use the <strong>slider at the top</strong> to select which station along the bait you're editing. Drag it left for the head, right for the tail.</p></div>
+    <div class="ls-step"><p>Drag control points inward or outward to change the shape. Pull the top point up for a taller back, push the sides in for a flatter profile.</p></div>
+    <div class="ls-step"><p>The <strong>range</strong> number shows how many neighboring stations are influenced. A higher range means your edit blends smoothly across more of the bait.</p></div>
+    <div class="ls-step"><p>Use <strong>PREV / NEXT</strong> to step through stations one at a time, or drag the slider for quick navigation.</p></div>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Ghost sections</div>
+    <p>The <strong>GHOST</strong> buttons show the cross-section of the adjacent station as a faded outline behind your current one. This helps you see how the shape transitions between stations and maintain smooth continuity.</p>
+  </div>
+
+  <div class="ls-text">A typical workflow: start with the side and width profiles to get the overall shape, then use cross-sections to fine-tune specific areas. For example, make the head cross-section more oval (wider than tall) and the tail more round.</div>
+</div>
+
+<!-- 04 COMPONENTS -->
+<div class="learn-section reveal" id="components">
+  <div class="ls-label">04</div>
+  <div class="ls-title">Components</div>
+  <div class="ls-desc">Components are additional parts you add to the bait body: heads, tails, fins, and features. They can come from the parts library, custom imports, or built-in creators.</div>
+
+  <img src="img/learn-sidebar.png" alt="Components section showing Head, Tail, Fin, Feature buttons and primitives" class="ls-img" style="max-width:400px;">
+
+  <div class="ls-text">Click any of the component buttons to add a part: <strong>+ Head</strong>, <strong>+ Tail</strong>, <strong>+ Fin</strong>, or <strong>+ Feature</strong>. You can also add <strong>primitives</strong> (Sphere, Box, Tube, Cone, Torus) for custom shapes.</div>
+
+  <div class="ls-text">Each component you add appears in the <strong>Components list</strong> below with its own collapsible panel of controls:</div>
+
+  <img src="img/learn-component-single.png" alt="Single component panel showing scale, position, rotation, mirror, and skew controls" class="ls-img" style="max-width:550px;">
+
+  <div class="ls-features">
+    <div class="ls-feat"><div class="ls-feat-title">Scale</div><div class="ls-feat-desc">Uniform slider or per-axis (expand "Per-axis scale"). Controls the overall size of the component.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Position</div><div class="ls-feat-desc">Move the component along the body (length), up/down (height), or side to side (width).</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Rotation</div><div class="ls-feat-desc">Rotate the component on any axis. Useful for angling fins.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Mirror</div><div class="ls-feat-desc">Flip the component on Length, Height, or Width axis. Auto-pair creates a mirrored copy on the opposite side (for pectoral fins).</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Skew / pinch</div><div class="ls-feat-desc">Taper a component to a point. Great for sharpening imported heads or fin tips.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Merge / subtract</div><div class="ls-feat-desc">When multiple components are selected, merge them together or subtract one from another.</div></div>
+  </div>
+
+  <img src="img/learn-components.png" alt="Multiple components with merge and subtract buttons" class="ls-img" style="max-width:550px;">
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Multi-select</div>
+    <p>Select multiple components to see the <strong>Merge</strong> and <strong>Subtract</strong> buttons. Merge combines components into one solid. Subtract cuts one component's shape out of another.</p>
+  </div>
+</div>
+
+<!-- 05 FIN CREATOR -->
+<div class="learn-section reveal" id="fins">
+  <div class="ls-label">05</div>
+  <div class="ls-title">Fin creator</div>
+  <div class="ls-desc">The fin creator lets you design custom fins by shaping a 2D outline that extrudes into a 3D solid.</div>
+
+  <img src="img/learn-fin-creator.png" alt="Fin creator with dorsal pointed outline and dimension controls" class="ls-img" style="max-width:350px;">
+
+  <div class="ls-steps">
+    <div class="ls-step"><p>Click <strong>+ Fin</strong> in the components section. The fin creator opens with a preset selected.</p></div>
+    <div class="ls-step"><p>Choose a <strong>preset</strong> from the dropdown: dorsal pointed, dorsal rounded, pectoral, anal, caudal forked, or sail.</p></div>
+    <div class="ls-step"><p><strong>Drag the gold points</strong> to reshape the outline. The base (bottom edge) stays flat — this is where the fin attaches to the body.</p></div>
+    <div class="ls-step"><p>Use <strong>+ Point</strong> to add more control points for finer detail, or <strong>- Point</strong> to simplify.</p></div>
+    <div class="ls-step"><p>Set the <strong>base length</strong> (how long the fin is along the body), <strong>max height</strong> (how tall it sticks up), and <strong>thickness</strong>.</p></div>
+    <div class="ls-step"><p>Choose <strong>Uniform</strong> or <strong>Tapered</strong> thickness. Tapered makes the fin thinner at the tip for a more natural look.</p></div>
+    <div class="ls-step"><p>Click <strong>Done — Add to Design</strong>. The fin appears in the viewport and component list with full transform controls.</p></div>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Positioning fins</div>
+    <p>After adding a fin, use the <strong>viewport gizmos</strong> (G to move, R to rotate) to place it on the bait body. For pectoral fins, enable <strong>Auto-pair</strong> in the component panel to automatically create a mirrored copy on the other side.</p>
+  </div>
+</div>
+
+<!-- SLOT INSERTS -->
+<div class="learn-section reveal" id="slots">
+  <div class="ls-label">05b</div>
+  <div class="ls-title">Slot inserts</div>
+  <div class="ls-desc">Hook slot inserts create channels in your bait for placing hooks. The slot subtracts from the bait body and generates a separate printable insert card.</div>
+
+  <img src="img/learn-slots.png" alt="Slot insert controls showing width, length, depth, and position" class="ls-img" style="max-width:550px;">
+
+  <div class="ls-text">Each slot has controls for <strong>Width</strong> (how wide the hook channel is), <strong>Length</strong> (how long), <strong>Depth</strong> (Through cuts all the way through, or set a specific depth), and position along the body (<strong>Along Body</strong>) and vertically (<strong>Height</strong>).</div>
+
+  <div class="ls-text">Click <strong>+ Add Slot</strong> to add multiple slots. Toggle individual slots <strong>ON/OFF</strong> to include or exclude them from the mold. The <strong>x</strong> button removes a slot entirely.</div>
+</div>
+
+<!-- 06 SHORTCUTS + GIZMOS -->
+<div class="learn-section reveal" id="shortcuts">
+  <div class="ls-label">06</div>
+  <div class="ls-title">Keyboard shortcuts + gizmos</div>
+  <div class="ls-desc">When a component is selected in the viewport, keyboard shortcuts let you quickly switch between transform modes. These follow standard 3D application conventions.</div>
+
+  <div class="keys-grid">
+    <div class="key-row"><kbd>G</kbd><span class="key-desc">Move (grab) the selected component</span></div>
+    <div class="key-row"><kbd>R</kbd><span class="key-desc">Rotate the selected component</span></div>
+    <div class="key-row"><kbd>S</kbd><span class="key-desc">Scale the selected component</span></div>
+    <div class="key-row"><kbd>F</kbd><span class="key-desc">Focus camera on the selected component</span></div>
+    <div class="key-row"><kbd>Ctrl</kbd> + <kbd>D</kbd><span class="key-desc">Duplicate the selected component</span></div>
+    <div class="key-row"><kbd>W</kbd><span class="key-desc">Switch to world space (global axes)</span></div>
+    <div class="key-row"><kbd>L</kbd><span class="key-desc">Switch to local space (component axes)</span></div>
+    <div class="key-row"><kbd>Esc</kbd><span class="key-desc">Deselect the component</span></div>
+    <div class="key-row"><kbd>Delete</kbd><span class="key-desc">Delete the selected component</span></div>
+    <div class="key-row"><kbd>Dbl-click</kbd><span class="key-desc">Focus camera on clicked mesh area</span></div>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Transform gizmos</div>
+    <p>When you select a component by clicking it in the viewport, colored axis handles appear. <strong style="color:#e55">Red = X (width)</strong>, <strong style="color:#5b5">Green = Y (length)</strong>, <strong style="color:#55e">Blue = Z (height)</strong>. Drag an axis handle to move/rotate/scale on just that axis. Drag the center square to move freely on all axes.</p>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">World vs Local space</div>
+    <p>Press <kbd style="font-size:11px;">W</kbd> for <strong>world space</strong> — the gizmo axes align with the global grid. Press <kbd style="font-size:11px;">L</kbd> for <strong>local space</strong> — the gizmo axes align with the component's own rotation. Local is usually more intuitive when a component is rotated (like an angled fin).</p>
+  </div>
+
+  <div class="ls-text">The gizmo toolbar appears at the bottom of the viewport when a component is selected. It shows the current mode (Move/Rotate/Scale) and a snap toggle. Hold <kbd>Ctrl</kbd> while dragging for temporary snap to grid increments.</div>
+</div>
+
+<!-- EXPORT -->
+<div class="learn-section reveal" id="export">
+  <div class="ls-label">07</div>
+  <div class="ls-title">Exporting</div>
+  <div class="ls-desc">When your design is ready, you have two export paths.</div>
+
+  <div class="ls-features">
+    <div class="ls-feat"><div class="ls-feat-title">Generate Mold</div><div class="ls-feat-desc">Sends your bait to the mold generator at mold.swimbaitdesigner.com. The mold generator creates a two-part injection mold with alignment pins, bolt holes, and sprue port. Export as STL for printing.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Export Master STL</div><div class="ls-feat-desc">Downloads the bait itself as an STL file. Use this for silicone mold making, importing into ZBrush/Blender for sculpting, or 3D printing a display model.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">Save Design</div><div class="ls-feat-desc">Saves your current design so you can come back to it later. Stores all spline data, components, and settings.</div></div>
+    <div class="ls-feat"><div class="ls-feat-title">My Designs</div><div class="ls-feat-desc">Load a previously saved design to continue editing or generate a new mold from it.</div></div>
+  </div>
+</div>
+
+<!-- TIPS -->
+<div class="learn-section reveal" id="tips">
+  <div class="ls-label">Tips</div>
+  <div class="ls-title">Getting the best results</div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Start with a reference</div>
+    <p>Upload a photo of the fish species you're modeling. Use the reference photo overlay to match the profile. This is faster and more accurate than eyeballing the curves.</p>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Work big to small</div>
+    <p>Get the overall length and proportions right first with the side and width profiles. Then fine-tune cross-sections. Add components last. Don't get lost in details before the big shapes are locked in.</p>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Use Draft resolution while designing</div>
+    <p>Draft mode updates faster and is perfectly fine for shaping. Switch to High resolution only when you're ready to export. The mold generator uses the resolution your design was sent with.</p>
+  </div>
+
+  <div class="ls-callout">
+    <div class="ls-callout-title">Print molds on-edge</div>
+    <p>When slicing the mold STL, orient it standing up (on-edge). This puts the layer lines along the length of the cavity for the smoothest finish. The mold generator recommends this orientation automatically.</p>
+  </div>
+</div>
+
+<footer><p>&copy; 2026 Swimbait Designer</p></footer>
+</div>
+
+<script>
+(function(){
+  var r=document.querySelectorAll('.reveal');
+  var o=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting)en.target.classList.add('visible');});},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  r.forEach(function(el){o.observe(el);});
+})();
+</script>
+</body>
+</html>
