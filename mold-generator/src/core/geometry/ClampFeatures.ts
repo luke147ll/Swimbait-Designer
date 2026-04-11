@@ -55,7 +55,7 @@ export class ClampFeatures {
     baitBounds: THREE.Box3,
     moldConfig: MoldConfig,
     dims: MoldDimensions,
-    printOrientation: PrintOrientation = 'on_edge',
+    _printOrientation: PrintOrientation = 'on_edge',
   ): { halfA: ManifoldSolid; halfB: ManifoldSolid | null } {
     console.log(`[ClampFeatures] mode=${config.mode}, boltCount=${config.boltCount}, boltSize=${config.boltSize}, manualPositions=${config.positions.length}`);
 
