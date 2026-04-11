@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swimbait Designer — Design. Print. Pour. Repeat.</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a0a;--bg2:#111114;--bg3:#1a1a1e;--bg4:#222226;
+  --gold:#c8a84e;--gold-bright:#e0c060;--gold-dim:#8a7535;
+  --text:#d4d4d4;--text-muted:#888890;--text-dim:#555558;
+  --mono:'JetBrains Mono',monospace;--serif:'Instrument Serif',Georgia,serif;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat:repeat;opacity:0.4;}
+.topo-bg{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0.04;}
+.content{position:relative;z-index:1;}
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 40px;position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(10,10,10,0.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(200,168,78,0.1);}
+.nav-logo{font-size:11px;font-weight:600;letter-spacing:3px;color:var(--gold);text-transform:uppercase;}
+.nav-links{display:flex;gap:24px;}
+.nav-links a{font-size:11px;color:var(--text-dim);text-decoration:none;letter-spacing:1px;text-transform:uppercase;transition:color 0.2s;}
+.nav-links a:hover{color:var(--gold);}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 40px 80px;position:relative;}
+.hero-badge{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold-dim);margin-bottom:24px;padding:6px 16px;border:1px solid rgba(200,168,78,0.2);border-radius:20px;display:inline-block;}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(42px,7vw,72px);line-height:1.1;color:var(--text);margin-bottom:20px;max-width:700px;}
+.hero h1 em{font-style:italic;color:var(--gold);}
+.hero-sub{font-size:15px;color:var(--text-muted);max-width:520px;line-height:1.7;margin-bottom:40px;font-weight:300;}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--gold);color:var(--bg);font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:14px 32px;border-radius:4px;text-decoration:none;transition:all 0.2s;border:none;cursor:pointer;}
+.hero-cta:hover{background:var(--gold-bright);transform:translateY(-1px);}
+.hero-cta .arrow{font-size:16px;transition:transform 0.2s;}
+.hero-cta:hover .arrow{transform:translateX(4px);}
+.hero-cost{margin-top:20px;font-size:12px;color:var(--text-dim);}
+.hero-cost span{color:var(--gold);font-weight:500;}
+.scroll-hint{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;}
+.scroll-hint span{font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;}
+.scroll-line{width:1px;height:30px;background:linear-gradient(to bottom,var(--gold-dim),transparent);animation:scrollPulse 2s ease-in-out infinite;}
+@keyframes scrollPulse{0%,100%{opacity:0.3;transform:scaleY(0.6);}50%{opacity:1;transform:scaleY(1);}}
+section{padding:100px 40px;max-width:1100px;margin:0 auto;}
+.section-label{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold-dim);margin-bottom:12px;}
+.section-title{font-family:var(--serif);font-size:clamp(28px,4vw,40px);font-weight:400;margin-bottom:16px;color:var(--text);}
+.section-desc{font-size:14px;color:var(--text-muted);max-width:560px;line-height:1.7;font-weight:300;}
+.cycle{padding:80px 40px 100px;max-width:1100px;margin:0 auto;}
+.cycle-track{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:2px;margin-top:48px;}
+.cycle-step{background:var(--bg2);padding:28px 22px;transition:all 0.3s;}
+.cycle-step:first-child{border-radius:6px 0 0 6px;}
+.cycle-step:last-child{border-radius:0 6px 6px 0;}
+.cycle-step:hover{background:var(--bg3);}
+.cycle-num{font-size:10px;color:var(--gold-dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;font-weight:500;}
+.cycle-title{font-family:var(--serif);font-size:22px;margin-bottom:8px;color:var(--text);}
+.cycle-desc{font-size:12px;color:var(--text-muted);line-height:1.6;font-weight:300;}
+.cycle-loop{display:flex;align-items:center;justify-content:center;margin-top:24px;gap:8px;}
+.cycle-loop-line{flex:1;height:1px;background:linear-gradient(to right,transparent,var(--gold-dim),transparent);}
+.cycle-loop-text{font-size:10px;color:var(--gold-dim);letter-spacing:2px;text-transform:uppercase;white-space:nowrap;}
+.showcase{padding:80px 40px;max-width:1100px;margin:0 auto;}
+.showcase-item{display:grid;grid-template-columns:1.2fr 0.8fr;gap:32px;margin-bottom:48px;align-items:center;}
+.showcase-item.reverse{grid-template-columns:0.8fr 1.2fr;}
+.showcase-img{width:100%;border-radius:6px;border:1px solid rgba(200,168,78,0.08);display:block;}
+.showcase-tag{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dim);margin-bottom:8px;font-weight:500;}
+.showcase-title{font-family:var(--serif);font-size:24px;margin-bottom:10px;color:var(--text);}
+.showcase-desc{font-size:13px;color:var(--text-muted);line-height:1.7;font-weight:300;}
+.advanced{padding:80px 40px;max-width:1100px;margin:0 auto;}
+.adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:48px;}
+.adv-img-wrap{position:relative;overflow:hidden;}
+.adv-img-wrap:first-child{border-radius:6px 0 0 0;}
+.adv-img-wrap:nth-child(2){border-radius:0 6px 0 0;}
+.adv-img-wrap:nth-child(3){border-radius:0 0 0 6px;}
+.adv-img-wrap:last-child{border-radius:0 0 6px 0;}
+.adv-img-wrap img{width:100%;height:280px;object-fit:cover;display:block;filter:brightness(0.85);transition:all 0.4s;}
+.adv-img-wrap:hover img{filter:brightness(1);transform:scale(1.02);}
+.adv-label{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:linear-gradient(to top,rgba(10,10,10,0.9),transparent);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
+.adv-sub{display:block;font-size:11px;color:var(--text-muted);letter-spacing:0;text-transform:none;margin-top:3px;font-weight:300;}
+.path{padding:100px 40px;max-width:1100px;margin:0 auto;}
+.path-track{margin-top:48px;position:relative;}
+.path-line{position:absolute;left:20px;top:0;bottom:0;width:1px;background:linear-gradient(to bottom,var(--gold-dim),rgba(200,168,78,0.1));}
+.path-step{display:flex;gap:32px;margin-bottom:40px;position:relative;padding-left:52px;}
+.path-step:last-child{margin-bottom:0;}
+.path-dot{position:absolute;left:13px;top:4px;width:16px;height:16px;border-radius:50%;border:2px solid var(--gold-dim);background:var(--bg);z-index:1;}
+.path-step:first-child .path-dot{background:var(--gold);border-color:var(--gold);}
+.path-tier{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:500;}
+.path-title{font-family:var(--serif);font-size:22px;margin-bottom:6px;}
+.path-desc{font-size:13px;color:var(--text-muted);line-height:1.6;font-weight:300;max-width:500px;}
+.pricing{padding:100px 40px;max-width:900px;margin:0 auto;text-align:center;}
+.price-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-top:48px;text-align:left;}
+.price-card{background:var(--bg2);padding:28px 24px;}
+.price-card:first-child{border-radius:6px 0 0 6px;}
+.price-card:last-child{border-radius:0 6px 6px 0;}
+.price-card.featured{background:var(--bg3);border-top:2px solid var(--gold);}
+.price-name{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;}
+.price-card.featured .price-name{color:var(--gold);}
+.price-amount{font-family:var(--serif);font-size:32px;margin-bottom:4px;}
+.price-period{font-size:11px;color:var(--text-dim);margin-bottom:16px;}
+.price-list{list-style:none;padding:0;}
+.price-list li{font-size:12px;color:var(--text-muted);padding:4px 0;font-weight:300;}
+.price-list li::before{content:'+ ';color:var(--gold-dim);}
+.needs{padding:80px 40px;max-width:1100px;margin:0 auto;}
+.needs-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-top:48px;}
+.need{background:var(--bg2);padding:24px 20px;}
+.need:first-child{border-radius:6px 0 0 0;}
+.need:nth-child(3){border-radius:0 6px 0 0;}
+.need:nth-child(4){border-radius:0 0 0 6px;}
+.need:last-child{border-radius:0 0 6px 0;}
+.need-title{font-size:12px;font-weight:500;margin-bottom:4px;color:var(--text);}
+.need-desc{font-size:11px;color:var(--text-dim);line-height:1.5;font-weight:300;}
+.cta-bottom{padding:120px 40px;text-align:center;}
+.cta-tagline{font-family:var(--serif);font-size:clamp(28px,4vw,44px);font-weight:400;margin-bottom:12px;}
+.cta-tagline em{font-style:italic;color:var(--gold);}
+.cta-sub{font-size:14px;color:var(--text-muted);margin-bottom:32px;font-weight:300;}
+footer{padding:40px;text-align:center;border-top:1px solid rgba(200,168,78,0.06);}
+footer p{font-size:11px;color:var(--text-dim);letter-spacing:1px;}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity 0.6s ease,transform 0.6s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+@media(max-width:768px){
+  nav{padding:16px 20px;}.nav-links{display:none;}
+  .hero{padding:100px 24px 60px;}
+  section,.cycle,.path,.needs,.pricing,.cta-bottom,.showcase,.advanced{padding-left:24px;padding-right:24px;}
+  .cycle-track{grid-template-columns:1fr;}.cycle-step{border-radius:0!important;}.cycle-step:first-child{border-radius:6px 6px 0 0!important;}.cycle-step:last-child{border-radius:0 0 6px 6px!important;}
+  .showcase-item,.showcase-item.reverse{grid-template-columns:1fr;}
+  .adv-grid{grid-template-columns:1fr;}.adv-img-wrap{border-radius:0!important;}.adv-img-wrap:first-child{border-radius:6px 6px 0 0!important;}.adv-img-wrap:last-child{border-radius:0 0 6px 6px!important;}
+  .price-grid{grid-template-columns:1fr;}.price-card{border-radius:0!important;}.price-card:first-child{border-radius:6px 6px 0 0!important;}.price-card:last-child{border-radius:0 0 6px 6px!important;}
+  .needs-grid{grid-template-columns:1fr;}.need{border-radius:0!important;}.need:first-child{border-radius:6px 6px 0 0!important;}.need:last-child{border-radius:0 0 6px 6px!important;}
+  .path-step{padding-left:44px;}
+}
+</style>
+</head>
+<body>
+<svg class="topo-bg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice"><defs><filter id="topo"><feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="3" seed="5"/><feColorMatrix type="saturate" values="0"/></filter></defs><rect width="800" height="800" filter="url(#topo)" fill="none" stroke="#c8a84e" stroke-width="0.5"/></svg>
+<div class="content">
+<nav><div class="nav-logo">Swimbait Designer</div><div class="nav-links"><a href="#process">Process</a><a href="#features">Features</a><a href="#learn">Learn</a><a href="#pricing">Pricing</a></div></nav>
+
+<div class="hero">
+  <div class="hero-badge reveal">Early Access</div>
+  <h1 class="reveal">Design your own <em>swimbaits</em></h1>
+  <p class="hero-sub reveal">The browser-based rapid prototyping tool for custom soft plastic lures. Design a bait, generate a 3D-printable injection mold, pour and test your prototype. Iterate until it's perfect.</p>
+  <a href="https://swimbaitdesigner.com" class="hero-cta reveal">Enter Designer <span class="arrow">&rarr;</span></a>
+  <p class="hero-cost reveal">Cost per prototype: <span>~$5 in filament + plastisol</span><br>vs $1,500&ndash;3,000 for a CNC aluminum mold</p>
+  <div class="scroll-hint"><span>Scroll</span><div class="scroll-line"></div></div>
+</div>
+
+<div class="cycle" id="process">
+  <div class="section-label reveal">The R&D process</div>
+  <div class="section-title reveal">Shape. Print. Test. <em style="font-family:var(--serif);color:var(--gold);">Refine.</em></div>
+  <div class="section-desc reveal">Stop guessing. Rapid prototype your swimbaits at home for dollars, not thousands. Dial in the action, profile, and weight before you ever commit to aluminum.</div>
+  <div class="cycle-track reveal">
+    <div class="cycle-step"><div class="cycle-num">Shape</div><div class="cycle-title">Design your bait</div><div class="cycle-desc">Profile editors and a component library give you precise control over every curve of your swimbait.</div></div>
+    <div class="cycle-step"><div class="cycle-num">Print</div><div class="cycle-title">3D print a mold</div><div class="cycle-desc">One click generates a two-part injection mold. Export, slice, and print on any FDM printer.</div></div>
+    <div class="cycle-step"><div class="cycle-num">Test</div><div class="cycle-title">Pour and water test</div><div class="cycle-desc">Inject plastisol, demold your bait, rig it up and throw it. Watch the action. Take notes.</div></div>
+    <div class="cycle-step"><div class="cycle-num">Refine</div><div class="cycle-title">Tweak and repeat</div><div class="cycle-desc">Adjust the profile, change a fin, move a hook slot. Generate a new mold and test again.</div></div>
+  </div>
+  <div class="cycle-loop reveal"><div class="cycle-loop-line"></div><div class="cycle-loop-text">Iterate until perfect &mdash; then cut aluminum</div><div class="cycle-loop-line"></div></div>
+</div>
+
+<div class="showcase" id="features">
+  <div class="section-label reveal">Inside the tool</div>
+  <div class="section-title reveal">Everything you need, nothing you don't</div>
+  <div class="showcase-item reveal" style="margin-top:48px;">
+    <img src="img/img-designer.png" alt="Swimbait Designer with reference photo overlay and spline profile editors" class="showcase-img">
+    <div>
+      <div class="showcase-tag">Designer</div>
+      <div class="showcase-title">Spline-driven profile editors</div>
+      <div class="showcase-desc">Overlay a reference photo, then shape your bait with draggable control points. Side profile, width profile, and cross-section editors update the 3D model in real-time. Add heads, fins, tails, eye sockets, and hook slots from the component library.</div>
+    </div>
+  </div>
+  <div class="showcase-item reverse reveal">
+    <div>
+      <div class="showcase-tag">Mold generator</div>
+      <div class="showcase-title">Production-ready molds in one click</div>
+      <div class="showcase-desc">Parametric mold box with alignment pins, bolt holes, and a standard 5/8" sprue port. Inspect the cavity with explode, section, and transparent bait views. Choose your printer and validate bed fit before exporting.</div>
+    </div>
+    <img src="img/img-moldgen.png" alt="Mold generator showing transparent bait cavity inside the mold halves" class="showcase-img">
+  </div>
+  <div class="showcase-item reveal">
+    <img src="img/img-slicer.png" alt="Mold half loaded in Bambu Studio slicer ready to print" class="showcase-img">
+    <div>
+      <div class="showcase-tag">Ready to print</div>
+      <div class="showcase-title">Export to any FDM slicer</div>
+      <div class="showcase-desc">Download the STL, open it in Bambu Studio, PrusaSlicer, OrcaSlicer, or Cura. Print on-edge for the best cavity finish. One mold half takes 3&ndash;6 hours depending on bait size.</div>
+    </div>
+  </div>
+</div>
+
+<div class="advanced">
+  <div class="section-label reveal">Advanced workflows</div>
+  <div class="section-title reveal">For the creators who want total control</div>
+  <div class="section-desc reveal">Design the profile in SBD, export to ZBrush or Blender for sculpting and detail work, then import the finished model back to the mold generator. Full creative freedom with a printable mold at the end.</div>
+  <div class="adv-grid reveal" style="margin-top:48px;">
+    <div class="adv-img-wrap"><img src="img/img-designer.png" alt="Shape the profile in SBD"><div class="adv-label">01 &mdash; Shape in SBD<span class="adv-sub">Profile editors + reference photo overlay</span></div></div>
+    <div class="adv-img-wrap"><img src="img/img-zbrush.png" alt="Sculpt details in ZBrush"><div class="adv-label">02 &mdash; Sculpt in ZBrush<span class="adv-sub">Gill plates, scales, mouth detail</span></div></div>
+    <div class="adv-img-wrap"><img src="img/img-blender.png" alt="Refine mesh in Blender"><div class="adv-label">03 &mdash; Refine in Blender<span class="adv-sub">Topology cleanup + mesh prep</span></div></div>
+    <div class="adv-img-wrap"><img src="img/img-moldgen.png" alt="Generate mold from sculpted bait"><div class="adv-label">04 &mdash; Generate mold<span class="adv-sub">Import sculpt back to SBD mold generator</span></div></div>
+  </div>
+</div>
+
+<div class="path" id="learn">
+  <div class="section-label reveal">Your journey</div>
+  <div class="section-title reveal">Level up at your own pace</div>
+  <div class="section-desc reveal">Start with custom baits delivered to your door. Learn to pour. Learn to print. Every step gives you more control and lower cost per bait.</div>
+  <div class="path-track reveal">
+    <div class="path-line"></div>
+    <div class="path-step"><div class="path-dot"></div><div><div class="path-tier">Start here</div><div class="path-title">Design &amp; order custom baits</div><div class="path-desc">No equipment needed. Design your bait in the browser, we pour and ship finished swimbaits to your door. Ready to fish.</div></div></div>
+    <div class="path-step"><div class="path-dot"></div><div><div class="path-tier">Learn to pour</div><div class="path-title">Order printed molds, pour at home</div><div class="path-desc">We print and ship your custom mold with hardware. You buy a hand injector and plastisol. Unlimited pours from one mold.</div></div></div>
+    <div class="path-step"><div class="path-dot"></div><div><div class="path-tier">Full independence</div><div class="path-title">Print your own molds</div><div class="path-desc">Download the STL, print on your own 3D printer. Design, print, pour, test, repeat. Total cost per prototype: about five bucks.</div></div></div>
+    <div class="path-step"><div class="path-dot"></div><div><div class="path-tier">Go pro</div><div class="path-title">Cut your production mold</div><div class="path-desc">Once your bait swims perfectly, commit to a CNC aluminum mold for production. You've already validated the design. Zero guesswork.</div></div></div>
+  </div>
+</div>
+
+<div class="pricing" id="pricing">
+  <div class="section-label reveal">Pricing</div>
+  <div class="section-title reveal">Free to design. Pay when you're ready.</div>
+  <div class="price-grid reveal">
+    <div class="price-card"><div class="price-name">Free</div><div class="price-amount">$0</div><div class="price-period">forever</div><ul class="price-list"><li>Full bait designer</li><li>Mold generator preview</li><li>3 mold exports</li><li>Bait STL export</li><li>Parts library</li></ul></div>
+    <div class="price-card featured"><div class="price-name">Pro</div><div class="price-amount">$21</div><div class="price-period">per month</div><ul class="price-list"><li>Unlimited mold exports</li><li>All free features</li><li>Priority generation</li><li>Custom watermarks</li><li>Cloud design storage</li><li>Cancel anytime</li></ul></div>
+    <div class="price-card"><div class="price-name">Per mold</div><div class="price-amount">$4.99</div><div class="price-period">per export</div><ul class="price-list"><li>Single mold download</li><li>Both halves STL</li><li>Insert cards included</li><li>No commitment</li><li>3-pack: $24</li></ul></div>
+  </div>
+</div>
+
+<div class="needs">
+  <div class="section-label reveal">Getting started</div>
+  <div class="section-title reveal">What you need to pour your first bait</div>
+  <div class="needs-grid reveal">
+    <div class="need"><div class="need-title">3D printer</div><div class="need-desc">Any FDM printer with a 200mm+ bed. Bambu A1, Prusa MK4S, Ender 3, or similar.</div></div>
+    <div class="need"><div class="need-title">ASA or PETG filament</div><div class="need-desc">Print at 100% infill for strength and heat resistance. ASA for durability, PETG for easy printing.</div></div>
+    <div class="need"><div class="need-title">Hand injector</div><div class="need-desc">Standard 5/8" nozzle. Available online from multiple suppliers. Reusable forever.</div></div>
+    <div class="need"><div class="need-title">Plastisol + colorant</div><div class="need-desc">Bait Plastics, MF Plastics, or Dead On Plastics. One bag makes 50+ baits.</div></div>
+    <div class="need"><div class="need-title">Alignment hardware</div><div class="need-desc">Stainless dowel pins, M5 socket head bolts, and brass heat-set inserts.</div></div>
+    <div class="need"><div class="need-title">Heat source</div><div class="need-desc">Microwave or hot plate for melting plastisol. A kitchen microwave works fine.</div></div>
+  </div>
+</div>
+
+<div class="cta-bottom">
+  <div class="cta-tagline reveal">Stop buying someone else's <em>design</em></div>
+  <p class="cta-sub reveal">Design your own. Test it. Perfect it. Own it.</p>
+  <a href="https://swimbaitdesigner.com" class="hero-cta reveal">Enter Designer <span class="arrow">&rarr;</span></a>
+</div>
+
+<footer><p>&copy; 2026 Swimbait Designer</p></footer>
+</div>
+
+<script>
+(function(){
+  var r=document.querySelectorAll('.reveal');
+  var o=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting)en.target.classList.add('visible');});},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  r.forEach(function(el){o.observe(el);});
+})();
+</script>
+</body>
+</html>
