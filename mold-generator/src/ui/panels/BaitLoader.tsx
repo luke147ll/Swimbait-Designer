@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { T } from '../../theme';
 import { useMoldStore } from '../../store/moldStore';
-import { initCSG, mFromMesh } from '../../core/csg';
+import { initCSG, mFromMesh, buildFromProfileSpheres } from '../../core/csg';
 import { getTransferToken, transferBaitFromAPI } from '../../core/BaitBridge';
 
 type LengthAxis = 'x' | 'y' | 'z';
@@ -90,8 +90,15 @@ export function BaitLoader() {
         setBaitManifold(manifold);
         console.log(`[BaitLoader] Built Manifold from STL: ${pos.count / 3} tris`);
       } catch (e) {
-        console.warn('[BaitLoader] Manifold build failed, will use threeToManifold fallback:', e);
-        setBaitManifold(null);
+        console.warn('[BaitLoader] Direct Manifold failed, building from profile spheres...');
+        try {
+          const sphereManifold = buildFromProfileSpheres(clone);
+          setBaitManifold(sphereManifold);
+          console.log('[BaitLoader] Built Manifold from profile spheres (stored for reuse)');
+        } catch (e2) {
+          console.warn('[BaitLoader] Profile spheres also failed:', e2);
+          setBaitManifold(null);
+        }
       }
     })();
   }, [setBaitMesh, setBaitManifold]);

@@ -238,7 +238,7 @@ function cleanGeometryForManifold(geo: THREE.BufferGeometry): THREE.BufferGeomet
  * and creating scaled ellipsoids at each station, then unioning them.
  * Guaranteed manifold output that closely follows the actual profile.
  */
-function buildFromProfileSpheres(geo: THREE.BufferGeometry): ManifoldSolid {
+export function buildFromProfileSpheres(geo: THREE.BufferGeometry): ManifoldSolid {
   const M = wasm.Manifold;
   const pos = geo.attributes.position;
 
